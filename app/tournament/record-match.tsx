@@ -17,7 +17,7 @@ export default function RecordTournamentMatchScreen() {
   const { tournamentId, matchId, player1Id, player2Id } = useLocalSearchParams();
   const router = useRouter();
   const { getPlayerById } = usePlayerStore();
-  const { updateTournamentMatch } = useTournamentStore();
+  const { updateMatchResult } = useTournamentStore();
   
   const [sets, setSets] = useState<Set[]>([
     { player1Score: 0, player2Score: 0 }
@@ -83,7 +83,6 @@ export default function RecordTournamentMatchScreen() {
       return;
     }
     
-    // Check if any set has a score of 0-0
     const hasEmptySet = sets.some(set => set.player1Score === 0 && set.player2Score === 0);
     if (hasEmptySet) {
       Alert.alert("Error", "All sets must have scores");
@@ -92,7 +91,6 @@ export default function RecordTournamentMatchScreen() {
     
     const { player1Sets, player2Sets } = calculateFinalScore();
     
-    // Check if there's a winner
     if (player1Sets === player2Sets) {
       Alert.alert("Error", "Match must have a winner");
       return;
@@ -101,7 +99,8 @@ export default function RecordTournamentMatchScreen() {
     setIsSubmitting(true);
     
     try {
-      await updateTournamentMatch(
+      console.log("handleSubmit: Calling updateMatchResult...");
+      await updateMatchResult(
         tournamentId as string,
         matchId as string,
         {
@@ -121,6 +120,7 @@ export default function RecordTournamentMatchScreen() {
         [{ text: "OK", onPress: () => router.push(`/tournament/${tournamentId}`) }]
       );
     } catch (error) {
+      console.error("handleSubmit: Error during updateMatchResult:", error);
       Alert.alert("Error", "Failed to record match");
     } finally {
       setIsSubmitting(false);

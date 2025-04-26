@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { MinusCircle, PlusCircle } from "lucide-react-native";
 import { colors } from "@/constants/colors";
 import { Set } from "@/types";
@@ -38,44 +38,48 @@ export default function SetScoreInput({
       <View style={styles.header}>
         <Text style={styles.setNumber}>Set {setNumber}</Text>
         {onDelete && (
-          <MinusCircle
-            size={20}
-            color={colors.error}
-            onPress={onDelete}
-            style={styles.deleteButton}
-          />
+          <Pressable onPress={onDelete} style={styles.deleteButton}>
+            <MinusCircle
+              size={20}
+              color={colors.error}
+            />
+          </Pressable>
         )}
       </View>
       
       <View style={styles.scoreContainer}>
         <View style={styles.playerScore}>
-          <MinusCircle
-            size={24}
-            color={colors.primary}
-            onPress={() => updateScore(1, false)}
-          />
+          <Pressable onPress={() => updateScore(1, false)}>
+            <MinusCircle
+              size={24}
+              color={colors.primary}
+            />
+          </Pressable>
           <Text style={styles.scoreText}>{value.player1Score}</Text>
-          <PlusCircle
-            size={24}
-            color={colors.primary}
-            onPress={() => updateScore(1, true)}
-          />
+          <Pressable onPress={() => updateScore(1, true)}>
+            <PlusCircle
+              size={24}
+              color={colors.primary}
+            />
+          </Pressable>
         </View>
         
         <Text style={styles.separator}>-</Text>
         
         <View style={styles.playerScore}>
-          <MinusCircle
-            size={24}
-            color={colors.primary}
-            onPress={() => updateScore(2, false)}
-          />
+          <Pressable onPress={() => updateScore(2, false)}>
+            <MinusCircle
+              size={24}
+              color={colors.primary}
+            />
+          </Pressable>
           <Text style={styles.scoreText}>{value.player2Score}</Text>
-          <PlusCircle
-            size={24}
-            color={colors.primary}
-            onPress={() => updateScore(2, true)}
-          />
+          <Pressable onPress={() => updateScore(2, true)}>
+            <PlusCircle
+              size={24}
+              color={colors.primary}
+            />
+          </Pressable>
         </View>
       </View>
     </View>
