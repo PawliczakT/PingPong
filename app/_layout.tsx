@@ -26,7 +26,8 @@ import { useRouter, useSegments } from "expo-router";
 
 import { usePlayerStore, fetchPlayersFromSupabase, usePlayersRealtime } from "@/store/playerStore";
 import { useMatchStore, fetchMatchesFromSupabase, useMatchesRealtime } from "@/store/matchStore";
-import { useTournamentStore, fetchTournamentsFromSupabase, useTournamentsRealtime } from "@/store/tournamentStore";
+import { useTournamentStore } from "@/store/tournamentStore";
+import { useTournamentsRealtime } from "@/store/tournamentStore";
 import { useAchievementStore, fetchAchievementsFromSupabase, useAchievementsRealtime } from "@/store/achievementStore";
 import { useNotificationStore, fetchNotificationsFromSupabase, useNotificationsRealtime } from "@/store/notificationStore";
 
@@ -85,7 +86,7 @@ export default function RootLayout() {
   useEffect(() => {
     fetchPlayersFromSupabase();
     fetchMatchesFromSupabase();
-    fetchTournamentsFromSupabase();
+    useTournamentStore.getState().fetchTournaments();
     fetchAchievementsFromSupabase();
     fetchNotificationsFromSupabase();
   }, []);

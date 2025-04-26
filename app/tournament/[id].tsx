@@ -9,6 +9,7 @@ Pressable,
 Platform, // Added Platform import
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from '@expo/vector-icons'; // Add this import
 import {
 Calendar,
 // Clock, // Not used
@@ -48,6 +49,22 @@ export default function TournamentDetailScreen() {
   const tournament = getTournamentById(id as string);
   const getTournamentMatches = useTournamentStore(state => state.getTournamentMatches);
   const tournamentMatches = tournament ? getTournamentMatches(tournament.id) : [];
+
+// Utility: Group matches by round for bracket rendering
+function groupMatchesByRound(matches: TournamentMatch[]): TournamentMatch[][] {
+  if (!matches || matches.length === 0) return [];
+  const grouped: { [round: number]: TournamentMatch[] } = {};
+  matches.forEach(match => {
+    if (!grouped[match.round]) grouped[match.round] = [];
+    grouped[match.round].push(match);
+  });
+  // Sort rounds numerically
+  return Object.keys(grouped)
+    .sort((a, b) => Number(a) - Number(b))
+    .map(round => grouped[Number(round)]);
+}
+
+const bracketRounds = groupMatchesByRound(tournamentMatches);
 
   // Funkcja filtrująca duplikaty po matchId
   function getUniqueMatches(matches: TournamentMatch[]): TournamentMatch[] {
@@ -136,7 +153,7 @@ const handleStartTournament = async () => {
            setShowConfirmStart(false); // Hide confirmation
            return;
       }
-      await updateTournamentStatus(tournament.id, TournamentStatus.IN_PROGRESS);
+      await updateTournamentStatus(tournament.id, 'active');
       // No need to set showConfirmStart to false here, useEffect handles it
       Alert.alert("Success", "Tournament started successfully");
     } catch (error) {
@@ -166,7 +183,7 @@ const handleCompleteTournament = async () => {
       try {
           await setTournamentWinner(tournament.id, selectedWinnerId);
           // Status might be automatically updated by setTournamentWinner, or update manually:
-          // await updateTournamentStatus(tournament.id, TournamentStatus.COMPLETED);
+          // await updateTournamentStatus(tournament.id, 'completed');
           // No need to set showConfirmComplete to false here, useEffect handles it
           Alert.alert("Success", "Tournament completed successfully");
       } catch (error) {
@@ -231,11 +248,11 @@ const handleMatchPress = (match: TournamentMatch) => {
 
 const getStatusColor = () => {
   switch (tournament.status) {
-    case TournamentStatus.UPCOMING:
+    case 'pending':
       return colors.primary; // Use primary color for upcoming
-    case TournamentStatus.IN_PROGRESS:
+    case 'active':
       return colors.warning;
-    case TournamentStatus.COMPLETED:
+    case 'completed':
       return colors.success;
     default:
       return colors.textLight; // Or a default color like gray
@@ -244,11 +261,11 @@ const getStatusColor = () => {
 
 const getStatusText = () => {
   switch (tournament.status) {
-    case TournamentStatus.UPCOMING:
+    case 'pending':
       return "Upcoming";
-    case TournamentStatus.IN_PROGRESS:
+    case 'active':
       return "In Progress";
-    case TournamentStatus.COMPLETED:
+    case 'completed':
       return "Completed";
     default:
       return "Unknown";
@@ -299,7 +316,7 @@ return (
         </View>
 
         {/* Winner Display - Only if completed and winner exists */}
-        {tournament.status === TournamentStatus.COMPLETED && winner && (
+        {tournament.status === 'completed' && winner && (
           <View style={styles.winnerContainer}>
             <Text style={styles.winnerLabel}>Tournament Winner</Text>
             <View style={styles.winnerContent}>
@@ -312,7 +329,7 @@ return (
         )}
 
         {/* Action Buttons */}
-        {tournament.status === TournamentStatus.UPCOMING && (
+        {tournament.status === 'pending' && (
           <Button
             title={showConfirmStart ? "Confirm Start?" : "Start Tournament"}
             variant={showConfirmStart ? "primary" : "primary"} // Use primary for confirm
@@ -322,7 +339,7 @@ return (
           />
         )}
 
-        {tournament.status === TournamentStatus.IN_PROGRESS && (
+        {tournament.status === 'active' && (
            // Show Complete button only when IN_PROGRESS
           <Button
             title={showConfirmComplete ? "Cancel Completion" : "Complete Tournament"}
@@ -365,27 +382,34 @@ return (
       {/* Tab Content */}
       {activeTab === "bracket" && (
         <View style={styles.section}>
-          {tournament.status === TournamentStatus.UPCOMING ? (
-            <View style={styles.emptyBracket}>
-               <Trophy size={40} color={colors.textLight} />
-              <Text style={styles.emptyText}>
-                The bracket will be generated once the tournament starts.
-              </Text>
-            </View>
-          ) : tournamentMatches.length > 0 ? (
-            // Pass necessary props to TournamentBracket
-            <TournamentBracket
-           matches={tournamentMatches}
-           onMatchPress={handleMatchPress}
-         />
+          {(() => {
+            // Add logging here
+            console.log("--- Tournament Bracket Data ---");
+            console.log("Grouped bracketRounds:", JSON.stringify(bracketRounds, null, 2));
+            const flatMatches = bracketRounds.flat();
+            console.log("Flat matches passed to component:", JSON.stringify(flatMatches, null, 2));
+            console.log("bracketRounds.length > 0:", bracketRounds.length > 0);
+            console.log("flatMatches.length:", flatMatches.length);
+            console.log("--- End Bracket Data ---");
 
-          ) : (
-            <View style={styles.emptyMatches}>
-               <Users size={40} color={colors.textLight} />
-              <Text style={styles.emptyText}>No matches generated yet for this tournament.</Text>
-              {/* Optionally add a button to generate matches if applicable */}
-            </View>
-          )}
+            if (bracketRounds.length > 0) {
+              return (
+                <TournamentBracket
+                    matches={flatMatches} // Use the logged flatMatches
+                    onMatchPress={handleMatchPress} 
+                   />
+              );
+            } else {
+              return (
+                <View style={[styles.emptyStateContainer, styles.emptyBracket]}>
+                  <Ionicons name="trophy-outline" size={48} color={colors.textLight} />
+                  <Text style={styles.emptyText}>
+                    {tournament.status === 'pending' ? 'Start the tournament to generate the bracket.' : 'No matches generated yet.'}
+                  </Text>
+                </View>
+              );
+            }
+          })()}
         </View>
       )}
 
@@ -396,9 +420,7 @@ return (
              <View style={styles.emptyMatches}>
                <Users size={40} color={colors.textLight} />
                <Text style={styles.emptyText}>
-                 {tournament.status === TournamentStatus.UPCOMING
-                   ? "Matches will appear here once the tournament starts."
-                   : "No matches available for this tournament."}
+                 {tournament.status === 'pending' ? "Matches will appear here once the tournament starts." : "No matches available for this tournament."}
                </Text>
              </View>
           ) : (
@@ -481,14 +503,14 @@ return (
                <Users size={40} color={colors.textLight} />
               <Text style={styles.emptyText}>No participants have been added to this tournament yet.</Text>
                {/* Optionally add button to add participants if status is UPCOMING */}
-               {tournament.status === TournamentStatus.UPCOMING && (
+               {tournament.status === 'pending' && (
                   <Button title="Add Participants" onPress={() => router.push(`/tournament/edit/${tournament.id}`)} variant="outline" style={{marginTop: 16}} />
                )}
             </View>
           )}
 
           {/* Winner Selection - Shown when Complete button is pressed */}
-          {showConfirmComplete && tournament.status === TournamentStatus.IN_PROGRESS && (
+          {showConfirmComplete && tournament.status === 'active' && (
             <View style={styles.winnerSelectionContainer}>
               <Text style={styles.sectionTitle}>Select Tournament Winner</Text>
               {participants.length > 0 ? (
@@ -535,268 +557,263 @@ return (
 );
 }
 
-// Stylesheet Definition (Placed OUTSIDE the component function)
 const styles = StyleSheet.create({
-container: {
-  flex: 1,
-  backgroundColor: colors.background,
-},
-header: {
-  padding: 16,
-  backgroundColor: colors.card, // Use card color for header background
-  marginBottom: 0, // No margin before tabs
-  borderBottomWidth: 1,
-  borderBottomColor: colors.border,
-},
-titleContainer: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 16, // Increased margin
-},
-title: {
-  fontSize: 24,
-  fontWeight: "bold",
-  color: colors.text,
-  flex: 1, // Allow title to take space
-  marginRight: 8, // Space before badge
-},
-statusBadge: {
-  paddingHorizontal: 12,
-  paddingVertical: 6,
-  borderRadius: 16, // Pill shape
-},
-statusText: {
-  color: "#fff", // White text on colored badges
-  fontSize: 12, // Smaller status text
-  fontWeight: "bold",
-  textTransform: 'uppercase', // Uppercase status
-},
-infoContainer: {
-  flexDirection: "row",
-  flexWrap: "wrap", // Allow wrapping on smaller screens
-},
-infoItem: {
-  flexDirection: "row",
-  alignItems: "center",
-  marginRight: 16, // Space between items
-  marginBottom: 8, // Space below items if they wrap
-},
-infoText: {
-  fontSize: 14,
-  color: colors.textLight,
-  marginLeft: 6, // Increased space after icon
-},
-winnerContainer: {
-  alignItems: "center",
-  marginVertical: 16,
-  backgroundColor: colors.success + "1A", // Lighter success background
-  paddingVertical: 12,
-  paddingHorizontal: 16,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: colors.success + "40",
-},
-winnerLabel: {
-  fontSize: 14,
-  color: colors.textLight,
-  marginBottom: 4, // Reduced margin
-  fontWeight: '600',
-},
-winnerContent: {
-  flexDirection: "row",
-  alignItems: "center",
-},
-winnerName: {
-  fontSize: 18,
-  fontWeight: "bold",
-  color: colors.success,
-  marginLeft: 8,
-},
-actionButton: {
-  marginTop: 16, // Consistent margin for action buttons
-},
-tabs: {
-  flexDirection: "row",
-  backgroundColor: colors.card, // Match header background
-  paddingHorizontal: 8, // Padding around tabs
-  borderBottomWidth: 1,
-  borderBottomColor: colors.border,
-},
-tab: {
-  flex: 1,
-  paddingVertical: 14, // Increased padding
-  alignItems: "center",
-  borderBottomWidth: 3, // Thicker indicator
-  borderBottomColor: "transparent", // Default transparent
-  marginHorizontal: 4, // Space between tabs
-},
-activeTab: {
-  borderBottomColor: colors.primary, // Active indicator color
-},
-tabText: {
-  fontSize: 16,
-  color: colors.textLight,
-  fontWeight: "500",
-},
-activeTabText: {
-  color: colors.primary,
-  fontWeight: "bold",
-},
-section: {
-  padding: 16,
-  flex: 1, // Ensure section takes available space if needed
-},
-sectionTitle: {
-  fontSize: 20,
-  fontWeight: "bold",
-  color: colors.text,
-  marginBottom: 16,
-},
-participantsList: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  // justifyContent: 'space-between', // Distribute items - might cause last row issues
-  marginHorizontal: -8, // Counteract item padding
-},
-participantItem: {
-  width: "33.33%", // Three items per row
-  alignItems: "center",
-  marginBottom: 20, // Increased spacing
-  paddingHorizontal: 8, // Padding for spacing
-},
-participantName: {
-  fontSize: 13, // Slightly smaller name
-  color: colors.text,
-  marginTop: 6, // Space between avatar and name
-  textAlign: "center",
-  minHeight: 30, // Ensure space for two lines
-},
-winnerSelectionContainer: {
-  marginTop: 24,
-  paddingTop: 16,
-  borderTopWidth: 1,
-  borderTopColor: colors.border,
-},
-winnerSelection: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  marginHorizontal: -8, // Counteract item padding
-},
-winnerOption: {
-  width: "33.33%", // Three items per row
-  alignItems: "center",
-  marginBottom: 16,
-  paddingHorizontal: 8, // Padding for spacing
-  paddingVertical: 12,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: 'transparent', // Default no border
-},
-winnerOptionSelected: {
-  backgroundColor: colors.primary + "20", // Highlight selected
-  borderColor: colors.primary, // Border for selected
-},
-winnerOptionName: {
-  fontSize: 13,
-  color: colors.text,
-  marginTop: 6,
-  textAlign: "center",
-  minHeight: 30, // Ensure space for two lines
-},
-winnerOptionNameSelected: {
-  color: colors.primary,
-  fontWeight: "bold",
-},
-emptyStateContainer: { // Generic container for empty states
-  flex: 1, // Take remaining space if needed
-  justifyContent: "center",
-  alignItems: "center",
-  padding: 20,
-  minHeight: 150, // Ensure it has some height
-},
-emptyMatches: { // Inherit from generic container
-   // Specific styles if needed, e.g., background
-   backgroundColor: colors.card,
-   borderRadius: 12,
-   padding: 24,
-   alignItems: 'center',
-   marginVertical: 16,
-},
-emptyBracket: { // Inherit from generic container
-   // Specific styles if needed
-   backgroundColor: colors.card,
-   borderRadius: 12,
-   padding: 40, // More padding for bracket placeholder
-   alignItems: 'center',
-   marginVertical: 16,
-},
-emptyText: {
-  fontSize: 16,
-  color: colors.textLight,
-  marginTop: 12, // Space below icon
-  textAlign: "center",
-  lineHeight: 22,
-},
-matchListItem: {
-  backgroundColor: colors.card,
-  paddingVertical: 12,
-  paddingHorizontal: 16,
-  borderRadius: 8,
-  marginBottom: 10,
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  borderWidth: 1,
-  borderColor: colors.border,
-},
-matchListItemCompleted: {
-  backgroundColor: colors.background, // Less emphasis for completed
-  borderColor: colors.border, // Subtle border
-  opacity: 0.8,
-},
-matchListItemPlayable: {
-  borderColor: colors.primary, // Highlight playable matches
-  backgroundColor: colors.primary + "10", // Slight tint
-},
-matchListItemTBD: {
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    padding: 16,
     backgroundColor: colors.card,
-    borderColor: colors.border,
-    opacity: 0.6, // Dim TBD matches
-},
-matchListText: {
-  fontSize: 15,
-  color: colors.text,
-  flex: 1, // Allow text to take available space
-  marginRight: 8, // Space before icons
-},
-matchListIcons: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-},
-viewDetailsText: {
+    justifyContent: 'space-between',
+    marginBottom: 16, 
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: colors.text,
+    flex: 1, 
+    marginRight: 8, 
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16, 
+  },
+  statusText: {
+    color: "#fff", 
+    fontSize: 12, 
+    fontWeight: "bold",
+    textTransform: 'uppercase', 
+  },
+  infoContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap", 
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 16, 
+    marginBottom: 8, 
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginLeft: 6, 
+  },
+  winnerContainer: {
+    alignItems: "center",
+    marginVertical: 16,
+    backgroundColor: colors.success + "1A", 
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.success + "40",
+  },
+  winnerLabel: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginBottom: 4, 
+    fontWeight: '600',
+  },
+  winnerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  winnerName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: colors.success,
+    marginLeft: 8,
+  },
+  actionButton: {
+    marginTop: 16, 
+  },
+  tabs: {
+    flexDirection: "row",
+    backgroundColor: colors.card, 
+    paddingHorizontal: 8, 
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 14, 
+    alignItems: "center",
+    borderBottomWidth: 3, 
+    borderBottomColor: "transparent", 
+    marginHorizontal: 4, 
+  },
+  activeTab: {
+    borderBottomColor: colors.primary, 
+  },
+  tabText: {
+    fontSize: 16,
+    color: colors.textLight,
+    fontWeight: "500",
+  },
+  activeTabText: {
+    color: colors.primary,
+    fontWeight: "bold",
+  },
+  section: {
+    padding: 16,
+    flex: 1, 
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 16,
+  },
+  participantsList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -8, 
+  },
+  participantItem: {
+    width: "33.33%", 
+    alignItems: "center",
+    marginBottom: 20, 
+    paddingHorizontal: 8, 
+  },
+  participantName: {
+    fontSize: 13, 
+    color: colors.text,
+    marginTop: 6, 
+    textAlign: "center",
+    minHeight: 30, 
+  },
+  winnerSelectionContainer: {
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  winnerSelection: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -8, 
+  },
+  winnerOption: {
+    width: "33.33%", 
+    alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 8, 
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent', 
+  },
+  winnerOptionSelected: {
+    backgroundColor: colors.primary + "20", 
+    borderColor: colors.primary, 
+  },
+  winnerOptionName: {
+    fontSize: 13,
+    color: colors.text,
+    marginTop: 6,
+    textAlign: "center",
+    minHeight: 30, 
+  },
+  winnerOptionNameSelected: {
+    color: colors.primary,
+    fontWeight: "bold",
+  },
+  emptyStateContainer: { 
+    flex: 1, 
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    minHeight: 150, 
+  },
+  emptyMatches: { 
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  emptyBracket: { 
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 40, 
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.textLight,
+    marginTop: 12, 
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  matchListItem: {
+    backgroundColor: colors.card,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  matchListItemCompleted: {
+    backgroundColor: colors.background, 
+    borderColor: colors.border, 
+    opacity: 0.8,
+  },
+  matchListItemPlayable: {
+    borderColor: colors.primary, 
+    backgroundColor: colors.primary + "10", 
+  },
+  matchListItemTBD: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    opacity: 0.6, 
+  },
+  matchListText: {
+    fontSize: 15,
+    color: colors.text,
+    flex: 1, 
+    marginRight: 8, 
+  },
+  matchListIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewDetailsText: {
     fontSize: 12,
     color: colors.primary,
     marginLeft: 8,
     fontWeight: '500',
-},
-tbdText: {
+  },
+  tbdText: {
     fontSize: 12,
     color: colors.textLight,
     marginLeft: 8,
     fontStyle: 'italic',
-},
-notFound: {
-  flex: 1,
-  justifyContent: "center",
-  alignItems: "center",
-  padding: 20,
-  backgroundColor: colors.background, // Match container background
-},
-notFoundText: {
-  fontSize: 18,
-  color: colors.textLight, // Use light text for not found message
-  marginBottom: 20,
-  textAlign: 'center',
-},
+  },
+  notFound: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: colors.background, 
+  },
+  notFoundText: {
+    fontSize: 18,
+    color: colors.textLight, 
+    marginBottom: 20,
+    textAlign: 'center',
+  },
 });

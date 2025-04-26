@@ -55,11 +55,11 @@ export interface Tournament {
   format: TournamentFormat;
   status: TournamentStatus;
   participants: string[]; // Player IDs
-  matches?: string[]; // Match IDs
+  matches?: TournamentMatch[]; // Array of TournamentMatch, not just IDs
   winner?: string; // Player ID
   createdAt?: string;
   updatedAt?: string;
-  tournamentMatches?: TournamentMatch[];
+  tournamentMatches?: TournamentMatch[]; // Optional: for compatibility, but matches is preferred
 }
 
 export interface TournamentMatch {
@@ -70,8 +70,8 @@ export interface TournamentMatch {
   matchNumber?: number;
   player1Id: string | null;
   player2Id: string | null;
-  player1Score: number;
-  player2Score: number;
+  player1Score: number | null;
+  player2Score: number | null;
   winner: string | null;
   matchId: string | null;
   nextMatchId: string | null;
