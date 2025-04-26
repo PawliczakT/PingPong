@@ -76,6 +76,7 @@ export interface TournamentMatch {
   matchId: string | null;
   nextMatchId: string | null;
   status: 'pending' | 'scheduled' | 'completed';
+  sets?: Set[]; // Optional: Used for UI to display set-based scores
 }
 
 export interface HeadToHead {

@@ -35,7 +35,7 @@ export default function CreatePlayerScreen() {
       Alert.alert(
         "Success",
         "Player added successfully",
-        [{ text: "OK", onPress: () => router.back() }]
+        [{ text: "OK", onPress: () => router.replace("/(tabs)") }]
       );
     } catch (error) {
       Alert.alert("Error", "Failed to add player");

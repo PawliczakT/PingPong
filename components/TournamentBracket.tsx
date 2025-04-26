@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { colors } from "@/constants/colors";
 import { TournamentMatch } from "@/types";
 import { usePlayerStore } from "@/store/playerStore";
@@ -10,37 +10,55 @@ type TournamentBracketProps = {
   onMatchPress?: (match: TournamentMatch) => void;
 };
 
+// Lokalnie rozszerzony typ na potrzeby sumowania setów
+import { Set as MatchSet } from "@/types";
+type TournamentMatchWithSets = TournamentMatch & { sets?: MatchSet[] };
+
+function getUniqueMatches(matches: TournamentMatch[]): TournamentMatch[] {
+  const seen = new Set();
+  return matches.filter(match => {
+    if (!match.id) return false;
+    if (seen.has(match.id)) return false;
+    seen.add(match.id);
+    return true;
+  });
+}
+
 export default function TournamentBracket({
   matches,
   onMatchPress,
 }: TournamentBracketProps) {
+  console.log('TournamentBracket props.matches:', matches);
+  console.log('TournamentBracket props.onMatchPress:', typeof onMatchPress);
+
   const { getPlayerById } = usePlayerStore();
-  
+
+  // Remove duplicates by id
+  const uniqueMatches = getUniqueMatches(matches);
   // Group matches by round
   const matchesByRound: Record<number, TournamentMatch[]> = {};
-  
-  matches.forEach(match => {
-    if (!matchesByRound[match.round]) {
-      matchesByRound[match.round] = [];
-    }
+  uniqueMatches.forEach(match => {
+    if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
     matchesByRound[match.round].push(match);
   });
-  
-  // Sort rounds
+  // Sort rounds by round number
   const rounds = Object.keys(matchesByRound)
-    .map(Number)
-    .sort((a, b) => a - b);
-  
-  const renderMatch = (match: TournamentMatch) => {
+    .sort((a, b) => Number(a) - Number(b))
+    .map(round => matchesByRound[Number(round)]);
+
+  const renderMatch = (match: TournamentMatchWithSets) => {
+    console.log('TournamentBracket renderMatch match:', match);
     const player1 = match.player1Id ? getPlayerById(match.player1Id) : null;
     const player2 = match.player2Id ? getPlayerById(match.player2Id) : null;
+    console.log('player1Id:', match.player1Id, 'player1:', player1);
+    console.log('player2Id:', match.player2Id, 'player2:', player2);
     
     const isCompleted = match.status === 'completed';
     const isPending = match.status === 'pending';
     
     return (
-      <View 
-        key={match.id}
+      <Pressable
+        key={`${match.id}-${match.round}-${match.matchNumber}`}
         style={[
           styles.matchContainer,
           isPending && styles.pendingMatch,
@@ -48,9 +66,15 @@ export default function TournamentBracket({
           match.player1Id === match.winner && styles.player1Winner,
           match.player2Id === match.winner && styles.player2Winner,
         ]}
-        onTouchEnd={() => onMatchPress && onMatchPress(match)}
+        onPress={() => {
+  console.log('Kliknięto mecz:', match);
+  if (onMatchPress) {
+    console.log('Przekazuję mecz do onMatchPress:', match);
+    onMatchPress(match);
+  }
+}}
       >
-        <View style={[
+        <Pressable style={[
           styles.playerContainer,
           match.player1Id === match.winner && styles.winnerContainer
         ]}>
@@ -69,13 +93,17 @@ export default function TournamentBracket({
           )}
           
           {isCompleted && (
-            <Text style={styles.scoreText}>{match.player1Score}</Text>
+            <Text style={styles.scoreText}>
+              {Array.isArray(match.sets) && match.sets.length > 0
+                ? match.sets.reduce((sum: number, set: MatchSet) => sum + (set.player1Score || 0), 0)
+                : match.player1Score}
+            </Text>
           )}
-        </View>
+        </Pressable>
         
         <View style={styles.separator} />
         
-        <View style={[
+        <Pressable style={[
           styles.playerContainer,
           match.player2Id === match.winner && styles.winnerContainer
         ]}>
@@ -94,24 +122,31 @@ export default function TournamentBracket({
           )}
           
           {isCompleted && (
-            <Text style={styles.scoreText}>{match.player2Score}</Text>
+            <Text style={styles.scoreText}>
+              {Array.isArray(match.sets) && match.sets.length > 0
+                ? match.sets.reduce((sum: number, set: MatchSet) => sum + (set.player2Score || 0), 0)
+                : match.player2Score}
+            </Text>
           )}
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     );
   };
   
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View style={styles.container}>
-        {rounds.map(round => (
-          <View key={round} style={styles.roundContainer}>
+        {rounds.map((matchesInRound, i) => (
+          <View key={`round-${i + 1}`} style={styles.roundContainer}>
             <Text style={styles.roundTitle}>
-              {round === Math.max(...rounds) ? "Final" : round === Math.max(...rounds) - 1 ? "Semifinals" : `Round ${round}`}
+              {i === rounds.length - 1
+                ? "Final"
+                : i === rounds.length - 2
+                ? "Semifinals"
+                : `Round ${i + 1}`}
             </Text>
-            
             <View style={styles.matchesContainer}>
-              {matchesByRound[round].map(match => renderMatch(match))}
+              {matchesInRound.map(match => renderMatch(match))}
             </View>
           </View>
         ))}

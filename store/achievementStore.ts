@@ -1,11 +1,10 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Achievement, AchievementProgress, AchievementType } from "@/types";
+import { Achievement, AchievementProgress, AchievementType, Match, Set } from "@/types";
 import { usePlayerStore } from "./playerStore";
-import { useMatchStore } from "./matchStore";
+// import { useMatchStore } from "./matchStore"; // replaced by dynamic require
 import { useTournamentStore } from "./tournamentStore";
 import { achievements } from "@/constants/achievements";
+import { supabase } from "@/lib/supabase";
 
 interface AchievementState {
   playerAchievements: Record<string, AchievementProgress[]>;
@@ -22,11 +21,11 @@ interface AchievementState {
 }
 
 export const useAchievementStore = create<AchievementState>()(
-  persist(
-    (set, get) => ({
-      playerAchievements: {},
-      isLoading: false,
-      error: null,
+  (set, get) => ({
+
+    playerAchievements: {},
+    isLoading: false,
+    error: null,
 
       initializePlayerAchievements: (playerId) => {
         if (!get().playerAchievements[playerId]) {
@@ -70,10 +69,20 @@ export const useAchievementStore = create<AchievementState>()(
         });
       },
 
-      unlockAchievement: async (playerId, achievementType) => {
-        const achievementDef = achievements.find(a => a.type === achievementType);
-        if (!achievementDef) return null;
-        
+    unlockAchievement: async (playerId, achievementType) => {
+      const achievementDef = achievements.find(a => a.type === achievementType);
+      if (!achievementDef) return null;
+      // Update in Supabase
+      set({ isLoading: true, error: null });
+      try {
+        const { error } = await supabase.from('achievements').upsert({
+          player_id: playerId,
+          type: achievementType,
+          progress: achievementDef.target,
+          unlocked: true,
+          unlocked_at: new Date().toISOString(),
+        }, { onConflict: 'player_id,type' });
+        if (error) throw error;
         set((state) => {
           const updatedAchievements = state.playerAchievements[playerId]?.map(achievement => {
             if (achievement.type === achievementType && !achievement.unlocked) {
@@ -86,17 +95,20 @@ export const useAchievementStore = create<AchievementState>()(
             }
             return achievement;
           }) || [];
-          
           return {
             playerAchievements: {
               ...state.playerAchievements,
               [playerId]: updatedAchievements,
             },
+            isLoading: false,
           };
         });
-        
         return achievementDef;
-      },
+      } catch (error) {
+        set({ isLoading: false, error: error instanceof Error ? error.message : "Failed to unlock achievement" });
+        return null;
+      }
+    },
 
       getPlayerAchievements: (playerId) => {
         if (!get().playerAchievements[playerId]) {
@@ -116,7 +128,7 @@ export const useAchievementStore = create<AchievementState>()(
 
       checkAndUpdateAchievements: async (playerId) => {
         const playerStore = usePlayerStore.getState();
-        const matchStore = useMatchStore.getState();
+        const matchStore = require("./matchStore").useMatchStore.getState();
         const tournamentStore = useTournamentStore.getState();
         
         const player = playerStore.getPlayerById(playerId);
@@ -175,12 +187,12 @@ export const useAchievementStore = create<AchievementState>()(
         }
         
         // Check for clean sweep matches (won without losing a set)
-        const cleanSweepMatches = playerMatches.filter(match => {
+        const cleanSweepMatches = playerMatches.filter((match: Match) => {
           if (match.winner !== playerId) return false;
           
           // Check if player won all sets
           const playerIsPlayer1 = match.player1Id === playerId;
-          return match.sets.every(set => 
+          return match.sets.every((set: Set) => 
             playerIsPlayer1 
               ? set.player1Score > set.player2Score 
               : set.player2Score > set.player1Score
@@ -193,7 +205,7 @@ export const useAchievementStore = create<AchievementState>()(
           .map(p => p.id)
           .filter(id => id !== playerId);
         
-        const topPlayerDefeats = playerMatches.filter(match => {
+        const topPlayerDefeats = playerMatches.filter((match: Match) => {
           const opponentId = match.player1Id === playerId ? match.player2Id : match.player1Id;
           return match.winner === playerId && topPlayerIds.includes(opponentId);
         }).length;
@@ -249,10 +261,52 @@ export const useAchievementStore = create<AchievementState>()(
         
         return newlyUnlocked;
       },
-    }),
-    {
-      name: "pingpong-achievements",
-      storage: createJSONStorage(() => AsyncStorage),
-    }
-  )
+    // Fetch all achievements from Supabase on store initialization
+  }),
 );
+
+// Fetch achievements from Supabase when the app starts
+export const fetchAchievementsFromSupabase = async () => {
+  useAchievementStore.setState({ isLoading: true, error: null });
+  try {
+    const { data, error } = await supabase.from('achievements').select('*');
+    if (error) throw error;
+    // Group by player
+    const playerAchievements: Record<string, AchievementProgress[]> = {};
+    data.forEach((item: any) => {
+      if (!playerAchievements[item.player_id]) playerAchievements[item.player_id] = [];
+      playerAchievements[item.player_id].push({
+        type: item.type,
+        progress: item.progress,
+        unlocked: item.unlocked,
+        unlockedAt: item.unlocked_at,
+      });
+    });
+    useAchievementStore.setState({ playerAchievements, isLoading: false });
+  } catch (error) {
+    useAchievementStore.setState({ isLoading: false, error: error instanceof Error ? error.message : "Failed to fetch achievements" });
+  }
+};
+
+// Setup realtime subscription for achievements table
+import { useEffect } from "react";
+
+export const useAchievementsRealtime = () => {
+  useEffect(() => {
+    const channel = supabase
+      .channel('achievements-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'achievements' },
+        () => {
+          fetchAchievementsFromSupabase();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+};
+
+// Usage example (call in App.tsx or useEffect in root):

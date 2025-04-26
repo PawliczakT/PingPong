@@ -1,11 +1,10 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { useSettingsStore } from "./settingsStore";
 import { usePlayerStore } from "./playerStore";
 import { Achievement, Match, Player, Tournament } from "@/types";
+import { supabase } from "@/lib/supabase";
 
 interface NotificationState {
   expoPushToken: string | null;
@@ -35,12 +34,12 @@ export interface NotificationRecord {
 }
 
 export const useNotificationStore = create<NotificationState>()(
-  persist(
-    (set, get) => ({
-      expoPushToken: null,
-      notificationHistory: [],
-      isLoading: false,
-      error: null,
+  (set, get) => ({
+
+    expoPushToken: null,
+    notificationHistory: [],
+    isLoading: false,
+    error: null,
       
       registerForPushNotifications: async () => {
         try {
@@ -282,19 +281,86 @@ export const useNotificationStore = create<NotificationState>()(
         }
       },
       
-      clearNotificationHistory: () => {
-        set({ notificationHistory: [] });
-      },
-      
-      addNotificationRecord: (notification) => {
+    clearNotificationHistory: async () => {
+      set({ isLoading: true, error: null });
+      try {
+        // Remove all notifications from Supabase
+        const { error } = await supabase.from('notifications').delete().neq('id', '');
+        if (error) throw error;
+        set({ notificationHistory: [], isLoading: false });
+      } catch (error) {
+        set({ isLoading: false, error: error instanceof Error ? error.message : "Failed to clear notification history" });
+      }
+    },
+
+    addNotificationRecord: async (notification) => {
+      set({ isLoading: true, error: null });
+      try {
+        const { error } = await supabase.from('notifications').insert({
+          id: notification.id,
+          player_id: notification.data?.player?.id || null,
+          title: notification.title,
+          body: notification.body,
+          type: notification.type,
+          data: notification.data ? JSON.stringify(notification.data) : null,
+          read: notification.read,
+          timestamp: notification.timestamp,
+        });
+        if (error) throw error;
         set((state) => ({
           notificationHistory: [notification, ...state.notificationHistory],
+          isLoading: false,
         }));
-      },
-    }),
-    {
-      name: "pingpong-notifications",
-      storage: createJSONStorage(() => AsyncStorage),
-    }
-  )
+      } catch (error) {
+        set({ isLoading: false, error: error instanceof Error ? error.message : "Failed to add notification" });
+      }
+    },
+    // Fetch all notifications from Supabase on store initialization
+  }),
 );
+
+// Fetch notifications from Supabase when the app starts
+export const fetchNotificationsFromSupabase = async () => {
+  useNotificationStore.setState({ isLoading: true, error: null });
+  try {
+    const { data, error } = await supabase.from('notifications').select('*').order('timestamp', { ascending: false });
+    if (error) throw error;
+    const notificationHistory = data.map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      body: item.body,
+      type: item.type,
+      timestamp: item.timestamp,
+      read: item.read,
+      data: item.data ? (typeof item.data === 'string' ? JSON.parse(item.data) : item.data) : undefined,
+    }));
+    useNotificationStore.setState({ notificationHistory, isLoading: false });
+  } catch (error) {
+    useNotificationStore.setState({ isLoading: false, error: error instanceof Error ? error.message : "Failed to fetch notifications" });
+  }
+};
+
+// Setup realtime subscription for notifications table
+import { useEffect } from "react";
+
+export const useNotificationsRealtime = () => {
+  useEffect(() => {
+    const channel = supabase
+      .channel('notifications-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => {
+          fetchNotificationsFromSupabase();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+};
+
+// Usage example (call in App.tsx or useEffect in root):
+// import { useNotificationStore, fetchNotificationsFromSupabase, useNotificationsRealtime } from '@/store/notificationStore';
+// useNotificationsRealtime();

@@ -130,6 +130,11 @@ export default function AddMatchScreen() {
         });
       }
       
+      // Resetuj stan po sukcesie
+      setPlayer1(null);
+      setPlayer2(null);
+      setSets([{ player1Score: 0, player2Score: 0 }]);
+
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -139,7 +144,7 @@ export default function AddMatchScreen() {
         isOnline 
           ? "Match recorded successfully" 
           : "Match saved locally and will be synced when online",
-        [{ text: "OK", onPress: () => router.push("/") }]
+        [{ text: "OK", onPress: () => router.replace("/(tabs)") }]
       );
     } catch (error) {
       Alert.alert("Error", "Failed to record match");

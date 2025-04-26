@@ -22,13 +22,23 @@ const queryClient = new QueryClient();
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+import { useRouter, useSegments } from "expo-router";
+
+import { usePlayerStore, fetchPlayersFromSupabase, usePlayersRealtime } from "@/store/playerStore";
+import { useMatchStore, fetchMatchesFromSupabase, useMatchesRealtime } from "@/store/matchStore";
+import { useTournamentStore, fetchTournamentsFromSupabase, useTournamentsRealtime } from "@/store/tournamentStore";
+import { useAchievementStore, fetchAchievementsFromSupabase, useAchievementsRealtime } from "@/store/achievementStore";
+import { useNotificationStore, fetchNotificationsFromSupabase, useNotificationsRealtime } from "@/store/notificationStore";
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     ...FontAwesome.font,
   });
   
   const { checkNetworkStatus, syncPendingMatches } = useNetworkStore();
-  const { initialize: initializeAuth } = useAuthStore();
+  const { user, isInitialized, isLoading } = useAuthStore();
+  const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
     if (error) {
@@ -44,9 +54,6 @@ export default function RootLayout() {
   }, [loaded]);
   
   useEffect(() => {
-    // Initialize auth
-    initializeAuth();
-    
     // Check network status and sync pending matches on app start
     const initializeNetwork = async () => {
       const isOnline = await checkNetworkStatus();
@@ -54,9 +61,9 @@ export default function RootLayout() {
         await syncPendingMatches();
       }
     };
-    
+
     initializeNetwork();
-    
+
     // Set up interval to check network and sync
     const interval = setInterval(async () => {
       const isOnline = await checkNetworkStatus();
@@ -64,9 +71,27 @@ export default function RootLayout() {
         await syncPendingMatches();
       }
     }, 60000); // Check every minute
-    
+
     return () => clearInterval(interval);
   }, []);
+
+  // Inicjalizacja pobierania i realtime dla wszystkich danych
+  usePlayersRealtime();
+  useMatchesRealtime();
+  useTournamentsRealtime();
+  useAchievementsRealtime();
+  useNotificationsRealtime();
+
+  useEffect(() => {
+    fetchPlayersFromSupabase();
+    fetchMatchesFromSupabase();
+    fetchTournamentsFromSupabase();
+    fetchAchievementsFromSupabase();
+    fetchNotificationsFromSupabase();
+  }, []);
+
+  // Przekierowanie do /auth/login po zamontowaniu layoutu
+
 
   if (!loaded) {
     return <Slot />; // Return empty Slot instead of null to ensure layout is mounted
@@ -135,8 +160,8 @@ function RootLayoutNav() {
       />
       
       <Stack.Screen 
-        name="matches" 
-        options={{ headerShown: true }}
+        name="matches/index" 
+        options={{ headerShown: true }} 
       />
       
       <Stack.Screen 
@@ -145,13 +170,13 @@ function RootLayoutNav() {
       />
       
       <Stack.Screen 
-        name="notifications" 
-        options={{ headerShown: true }}
+        name="notifications/index" 
+        options={{ headerShown: true }} 
       />
       
       <Stack.Screen 
-        name="settings" 
-        options={{ headerShown: true }}
+        name="settings/index" 
+        options={{ headerShown: true }} 
       />
       
       <Stack.Screen name="auth/login" options={{ headerShown: false }} />

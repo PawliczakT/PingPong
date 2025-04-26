@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { HeadToHead, Match, Player, RankingChange } from "@/types";
 import { usePlayerStore } from "./playerStore";
-import { useMatchStore } from "./matchStore";
+// import { useMatchStore } from "./matchStore"; // replaced by dynamic require
 
 interface StatsState {
   rankingHistory: RankingChange[];
@@ -94,7 +94,7 @@ export const useStatsStore = create<StatsState>()(
       },
       
       getDetailedHeadToHead: (player1Id, player2Id) => {
-        const matchStore = useMatchStore.getState();
+        const matchStore = require("./matchStore").useMatchStore.getState();
         const playerStore = usePlayerStore.getState();
         
         const basicH2H = matchStore.getHeadToHead(player1Id, player2Id);
