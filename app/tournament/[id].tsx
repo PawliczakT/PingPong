@@ -36,18 +36,11 @@ export default function TournamentDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
 
-  const {
-    getTournamentById,
-    updateTournamentStatus,
-    setTournamentWinner,
-    // updateTournamentMatch, // Not used directly here
-  } = useTournamentStore();
+  const tournamentStore = useTournamentStore(); // Get the whole store instance
+  const playerStore = usePlayerStore(); // Get PlayerStore instance
 
-  const { getPlayerById } = usePlayerStore();
-  const { getMatchById } = useMatchStore(); // Keep if navigating to general match details
-
-  const tournament = getTournamentById(id as string);
-  const getTournamentMatches = useTournamentStore(state => state.getTournamentMatches);
+  const tournament = tournamentStore.getTournamentById(id as string);
+  const getTournamentMatches = tournamentStore.getTournamentMatches;
   const tournamentMatches = tournament ? getTournamentMatches(tournament.id) : [];
 
 // Utility: Group matches by round for bracket rendering
@@ -78,7 +71,6 @@ const bracketRounds = groupMatchesByRound(tournamentMatches);
   }
 
   // --- AUTO ADVANCE TO KNOCKOUT ---
-  const generateTournamentMatches = useTournamentStore(state => state.generateTournamentMatches);
   useEffect(() => {
     if (!tournament) return;
     const groupMatches = tournamentMatches.filter(m => m.round === 1);
@@ -90,7 +82,7 @@ const bracketRounds = groupMatchesByRound(tournamentMatches);
     if (allGroupCompleted && !hasKnockout) {
       (async () => {
         try {
-          await generateTournamentMatches(tournament.id);
+          await tournamentStore.generateTournamentMatches(tournament.id);
           // Wymuś odświeżenie turniejów po wygenerowaniu knockout
           const { fetchTournamentsFromSupabase } = require('@/store/tournamentStore');
           await fetchTournamentsFromSupabase();
@@ -106,7 +98,6 @@ const bracketRounds = groupMatchesByRound(tournamentMatches);
 
 
 
-const [showConfirmStart, setShowConfirmStart] = useState(false);
 const [showConfirmComplete, setShowConfirmComplete] = useState(false);
 const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
 const [activeTab, setActiveTab] = useState<"bracket" | "matches" | "players">(
@@ -115,7 +106,6 @@ const [activeTab, setActiveTab] = useState<"bracket" | "matches" | "players">(
 
 // Reset confirmation states if tournament status changes externally
 useEffect(() => {
-    setShowConfirmStart(false);
     setShowConfirmComplete(false);
     setSelectedWinnerId(null); // Reset winner selection if status changes
 }, [tournament?.status]);
@@ -137,34 +127,8 @@ if (!tournament) {
 }
 
 const participants = tournament.participants
-  .map((pId) => getPlayerById(pId))
+  .map((pId) => playerStore.getPlayerById(pId))
   .filter((player): player is Player => player !== undefined); // Type guard for filtering
-
-const handleStartTournament = async () => {
-  if (Platform.OS !== "web") {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }
-
-  if (showConfirmStart) {
-    try {
-      // Add validation: Check if there are enough participants (e.g., at least 2)
-      if (participants.length < 2) {
-           Alert.alert("Cannot Start", "At least two participants are required to start the tournament.");
-           setShowConfirmStart(false); // Hide confirmation
-           return;
-      }
-      await updateTournamentStatus(tournament.id, 'active');
-      // No need to set showConfirmStart to false here, useEffect handles it
-      Alert.alert("Success", "Tournament started successfully");
-    } catch (error) {
-      console.error("Failed to start tournament:", error); // Log error
-      Alert.alert("Error", "Failed to start tournament. Please try again.");
-      setShowConfirmStart(false); // Hide confirmation on error
-    }
-  } else {
-    setShowConfirmStart(true);
-  }
-};
 
 const handleCompleteTournament = async () => {
   if (!selectedWinnerId) {
@@ -181,9 +145,9 @@ const handleCompleteTournament = async () => {
   // Then, the "Confirm Winner & Complete" button calls this function again
   if (showConfirmComplete) {
       try {
-          await setTournamentWinner(tournament.id, selectedWinnerId);
+          await tournamentStore.setTournamentWinner(tournament.id, selectedWinnerId);
           // Status might be automatically updated by setTournamentWinner, or update manually:
-          // await updateTournamentStatus(tournament.id, 'completed');
+          // await store.updateTournamentStatus(tournament.id, 'completed');
           // No need to set showConfirmComplete to false here, useEffect handles it
           Alert.alert("Success", "Tournament completed successfully");
       } catch (error) {
@@ -223,6 +187,14 @@ const handleMatchPress = (match: TournamentMatch) => {
     Alert.alert('Mecz zakończony', 'Nie możesz już rozegrać ani edytować tego meczu.');
     return;
   }
+
+  // Check if tournament is active before allowing play
+  if (tournament?.status !== 'active') {
+    Alert.alert('Turniej nieaktywny', 'Turniej musi zostać rozpoczęty, aby móc rozgrywać mecze.');
+    return;
+  }
+
+  // Tournament is active, now check match status
   if (match.status === "scheduled" && match.player1Id && match.player2Id) {
     router.push({
       pathname: "/tournament/record-match",
@@ -243,6 +215,7 @@ const handleMatchPress = (match: TournamentMatch) => {
   if (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) {
     message = "Waiting for players from previous rounds.";
   }
+
   Alert.alert("Match Info", message);
 };
 
@@ -272,7 +245,7 @@ const getStatusText = () => {
   }
 };
 
-const winner = tournament.winner ? getPlayerById(tournament.winner) : null;
+const winner = tournament.winner ? playerStore.getPlayerById(tournament.winner) : null;
 
 return (
   <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -331,11 +304,13 @@ return (
         {/* Action Buttons */}
         {tournament.status === 'pending' && (
           <Button
-            title={showConfirmStart ? "Confirm Start?" : "Start Tournament"}
-            variant={showConfirmStart ? "primary" : "primary"} // Use primary for confirm
-            icon={<Play size={16} color={"#fff"} />} // White icon always for primary
-            onPress={handleStartTournament}
-            style={styles.actionButton}
+            title="Start Tournament"
+            onPress={async () => {
+              if (!tournament) return;
+              await tournamentStore.generateAndStartTournament(tournament.id);
+            }}
+            disabled={tournamentStore.loading}
+            style={styles.startButton}
           />
         )}
 
@@ -425,8 +400,8 @@ return (
              </View>
           ) : (
             tournamentMatches.map((match) => {
-              const player1 = match.player1Id ? getPlayerById(match.player1Id) : null;
-              const player2 = match.player2Id ? getPlayerById(match.player2Id) : null;
+              const player1 = match.player1Id ? playerStore.getPlayerById(match.player1Id) : null;
+              const player2 = match.player2Id ? playerStore.getPlayerById(match.player2Id) : null;
               const isCompleted = match.status === 'completed';
               const isScheduled = match.status === 'scheduled';
               const canPlay = isScheduled && player1 && player2;
@@ -816,4 +791,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
+  startButton: {
+    marginTop: 10,
+  }
 });

@@ -59,6 +59,7 @@ type TournamentStore = {
   getTournamentMatches: (tournamentId: string) => TournamentMatch[];
   updateTournamentStatus: (tournamentId: string, status: Tournament['status']) => Promise<void>;
   setTournamentWinner: (tournamentId: string, winnerId: string) => Promise<void>;
+  generateAndStartTournament: (tournamentId: string) => Promise<void>;
 };
 
 // --- Helper Function ---
@@ -190,99 +191,24 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
       }));
       const { error: pErr } = await supabase.from('tournament_participants').insert(participantsRows);
       if (pErr) {
+          // If adding participants fails, delete the created tournament
           await supabase.from('tournaments').delete().eq('id', tournamentId);
           throw pErr;
       }
 
-      // 4. Generowanie drabinki (Single Elimination) - poprawiona logika
-      type TournamentMatchInsert = {
-        id: string;
-        tournament_id: string;
-        round: number;
-        match_number: number;
-        player1_id: string | null;
-        player2_id: string | null;
-        player1_score: number | null;
-        player2_score: number | null;
-        winner_id: string | null;
-        status: TournamentMatch['status'];
-        next_match_id: string | null;
-        sets?: Set[];
-      };
-      const numPlayers = playerIds.length;
-      const numRounds = Math.ceil(Math.log2(numPlayers));
-      let matchesToInsert: TournamentMatchInsert[] = [];
-      let matchIdMatrix: string[][] = [];
-      let shuffledPlayers: (string | null)[] = shuffleArray([...playerIds]);
-      // --- 1. Pierwsza runda ---
-      if (shuffledPlayers.length % 2 !== 0) shuffledPlayers.push(null);
-      let firstRoundMatches: string[] = [];
-      for (let i = 0; i < shuffledPlayers.length; i += 2) {
-        const matchId = uuidv4();
-        firstRoundMatches.push(matchId);
-        matchesToInsert.push({
-          id: matchId,
-          tournament_id: tournamentId!,
-          round: 1,
-          match_number: i/2 + 1,
-          player1_id: shuffledPlayers[i],
-          player2_id: shuffledPlayers[i+1] ?? null,
-          player1_score: null,
-          player2_score: null,
-          winner_id: null,
-          status: (shuffledPlayers[i] && shuffledPlayers[i+1]) ? 'scheduled' : 'completed',
-          next_match_id: null,
-        });
-      }
-      matchIdMatrix.push(firstRoundMatches);
-      // --- 2. Kolejne rundy ---
-      for (let round = 2; round <= numRounds; round++) {
-        const prevRoundMatches = matchIdMatrix[round - 2];
-        const currRoundMatches: string[] = [];
-        for (let i = 0; i < prevRoundMatches.length; i += 2) {
-          const matchId = uuidv4();
-          currRoundMatches.push(matchId);
-          // Ustaw next_match_id dla meczów z poprzedniej rundy
-          const match1 = matchesToInsert.find(m => m.id === prevRoundMatches[i]);
-          if (match1) match1.next_match_id = matchId;
-          if (prevRoundMatches[i+1]) {
-            const match2 = matchesToInsert.find(m => m.id === prevRoundMatches[i+1]);
-            if (match2) match2.next_match_id = matchId;
-          }
-          matchesToInsert.push({
-            id: matchId,
-            tournament_id: tournamentId!,
-            round,
-            match_number: i/2 + 1,
-            player1_id: null,
-            player2_id: null,
-            player1_score: null,
-            player2_score: null,
-            winner_id: null,
-            status: 'pending',
-            next_match_id: null,
-          });
-        }
-        matchIdMatrix.push(currRoundMatches);
-      }
-
-      // 5. Wstaw wszystkie wygenerowane mecze do bazy danych
-      const { error: mErr } = await supabase.from('tournament_matches').insert(matchesToInsert);
-      if (mErr) {
-        await supabase.from('tournament_participants').delete().eq('tournament_id', tournamentId);
-        await supabase.from('tournaments').delete().eq('id', tournamentId);
-        throw mErr;
-      }
+      // --- Match generation removed --- 
+      // Steps 4 (Generate Bracket) and 5 (Insert Matches) are now deferred to a separate 'startTournament' function.
 
       // 6. Odśwież listę turniejów w stanie
-      await get().fetchTournaments();
+      await get().fetchTournaments(); // Fetch to get the new tournament with participants included
       set({ loading: false });
       return tournamentId;
 
     } catch (error: any) {
       console.error("Create Tournament Error:", error);
+      // Clean up only what was potentially created before the error
       if (tournamentId) {
-           await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
+           // Don't delete matches as they weren't created here
            await supabase.from('tournament_participants').delete().eq('tournament_id', tournamentId);
            await supabase.from('tournaments').delete().eq('id', tournamentId);
       }
@@ -290,6 +216,153 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
       return undefined;
     }
   }, // Przecinek po metodzie createTournament
+
+  // --- Generowanie Drabinki i Rozpoczęcie Turnieju ---
+  generateAndStartTournament: async (tournamentId: string) => {
+    set({ loading: true, error: null });
+    let generatedMatchesInserted = false; // Flag to track if matches were inserted for cleanup
+
+    try {
+      // 1. Sprawdź, czy turniej istnieje i jest w stanie 'pending'
+      const existingTournament = get().tournaments.find(t => t.id === tournamentId);
+      if (!existingTournament) throw new Error(`Tournament ${tournamentId} not found.`);
+      if (existingTournament.status !== 'pending') throw new Error(`Tournament ${tournamentId} is not in pending state.`);
+
+      // 2. Pobierz uczestników turnieju
+      const { data: participantsData, error: pFetchErr } = await supabase
+        .from('tournament_participants')
+        .select('player_id')
+        .eq('tournament_id', tournamentId);
+
+      if (pFetchErr) throw pFetchErr;
+      if (!participantsData || participantsData.length < 2) {
+        throw new Error("Not enough participants found for this tournament.");
+      }
+      const playerIds = participantsData.map(p => p.player_id);
+
+      // 3. Generowanie drabinki (Logika przeniesiona z createTournament)
+      type TournamentMatchInsert = {
+          id: string;
+          tournament_id: string;
+          round: number;
+          match_number: number;
+          player1_id: string | null;
+          player2_id: string | null;
+          player1_score: number | null;
+          player2_score: number | null;
+          winner_id: string | null;
+          status: TournamentMatch['status'];
+          next_match_id: string | null;
+          sets?: Set[];
+      };
+      const numPlayers = playerIds.length;
+      const numRounds = Math.ceil(Math.log2(numPlayers));
+      let matchesToInsert: TournamentMatchInsert[] = [];
+      let matchIdMatrix: string[][] = [];
+      let shuffledPlayers: (string | null)[] = shuffleArray([...playerIds]);
+
+      // --- 3.1. Pierwsza runda ---
+      if (shuffledPlayers.length % 2 !== 0) shuffledPlayers.push(null); // Add bye if odd number
+      let firstRoundMatches: string[] = [];
+      for (let i = 0; i < shuffledPlayers.length; i += 2) {
+          const matchId = uuidv4();
+          firstRoundMatches.push(matchId);
+          const p1 = shuffledPlayers[i];
+          const p2 = shuffledPlayers[i+1] ?? null;
+          let status: TournamentMatch['status'] = 'pending'; // Start as pending
+          let winner = null;
+
+          if (p1 && p2) {
+            status = 'scheduled'; // Both players known
+          } else if (p1 && !p2) {
+            // Player 1 gets a bye
+            status = 'completed';
+            winner = p1;
+          } else if (!p1 && p2) {
+               // Should not happen with current bye logic, but handle defensively
+               status = 'completed';
+               winner = p2;
+          } else {
+               // Should not happen - both players null
+               status = 'pending'; // Or 'cancelled'?
+          }
+
+          matchesToInsert.push({
+              id: matchId,
+              tournament_id: tournamentId,
+              round: 1,
+              match_number: i/2 + 1,
+              player1_id: p1,
+              player2_id: p2,
+              player1_score: winner === p1 ? 1 : null, // Mark score for bye
+              player2_score: winner === p2 ? 1 : null,
+              winner_id: winner,
+              status: status,
+              next_match_id: null, // Will be set later
+          });
+      }
+      matchIdMatrix.push(firstRoundMatches);
+
+      // --- 3.2. Kolejne rundy ---
+      for (let round = 2; round <= numRounds; round++) {
+          const prevRoundMatches = matchIdMatrix[round - 2];
+          const currRoundMatches: string[] = [];
+          for (let i = 0; i < prevRoundMatches.length; i += 2) {
+              const matchId = uuidv4();
+              currRoundMatches.push(matchId);
+
+              // Ustaw next_match_id dla meczów z poprzedniej rundy
+              const match1 = matchesToInsert.find(m => m.id === prevRoundMatches[i]);
+              if (match1) match1.next_match_id = matchId;
+              // Handle potential uneven previous round (bye propagation)
+              if (prevRoundMatches[i+1]) {
+                  const match2 = matchesToInsert.find(m => m.id === prevRoundMatches[i+1]);
+                  if (match2) match2.next_match_id = matchId;
+              }
+
+              matchesToInsert.push({
+                  id: matchId,
+                  tournament_id: tournamentId,
+                  round,
+                  match_number: i/2 + 1,
+                  player1_id: null,
+                  player2_id: null,
+                  player1_score: null,
+                  player2_score: null,
+                  winner_id: null,
+                  status: 'pending', // Subsequent rounds start as pending
+                  next_match_id: null,
+              });
+          }
+          matchIdMatrix.push(currRoundMatches);
+      }
+
+      // 4. Wstaw wszystkie wygenerowane mecze do bazy danych
+      const { error: mErr } = await supabase.from('tournament_matches').insert(matchesToInsert);
+      if (mErr) throw mErr;
+      generatedMatchesInserted = true; // Mark matches as inserted
+
+      // 5. Zaktualizuj status turnieju na 'active'
+      const { error: statusErr } = await supabase
+        .from('tournaments')
+        .update({ status: 'active' })
+        .eq('id', tournamentId);
+      if (statusErr) throw statusErr;
+
+      // 6. Odśwież dane turniejów
+      await get().fetchTournaments();
+      set({ loading: false });
+
+    } catch (error: any) {
+      console.error("Generate and Start Tournament Error:", error);
+      // Cleanup: If matches were inserted but status update failed, delete the matches
+      if (generatedMatchesInserted) {
+          await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
+      }
+      // We don't revert status here, as the initial state was 'pending'
+      set({ loading: false, error: error.message || 'Failed to start tournament' });
+    }
+  },
 
   // --- Aktualizacja Wyniku Meczu i Przesunięcie Zwycięzcy ---
   updateMatchResult: async (tournamentId: string, matchId: string, scores: { player1Score: number; player2Score: number; sets?: Set[] }) => {
@@ -353,14 +426,13 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                  }
             } else console.warn(`Next match ${nextMatchId} not found in state.`);
         } else {
-             const allMatches = get().tournaments.find(t => t.id === tournamentId)?.matches ?? [];
-             const isFinal = !allMatches.some(m => m.round > currentMatch.round);
-             if(isFinal){
-                  await get().setTournamentWinner(tournamentId, winnerId);
-             }
-        }
+           // If currentMatch has no nextMatchId, it's the final match.
+           // Completing it means the tournament is over.
+           console.log(`Final match ${matchId} completed for tournament ${tournamentId}. Setting winner: ${winnerId}`);
+           await get().setTournamentWinner(tournamentId, winnerId);
+      }
 
-        await get().fetchTournaments();
+      await get().fetchTournaments();
 
     } catch (error: any) {
       console.error("Update Match Result Error:", error);
