@@ -34,8 +34,9 @@ export default function PlayerDetailScreen() {
 
     useEffect(() => {
         if (player) {
-            // Check for new achievements when viewing player profile
-            checkAndUpdateAchievements(player.id);
+            checkAndUpdateAchievements(player.id).catch((e) => {
+                console.error("Error checking achievements:", e);
+            });
         }
     }, [player?.id]);
 
@@ -57,7 +58,7 @@ export default function PlayerDetailScreen() {
 
     const handleDelete = async () => {
         if (Platform.OS !== "web") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
 
         if (showConfirmDelete) {
