@@ -1,43 +1,48 @@
 import React from "react";
-import { View, Text, StyleSheet, ViewStyle } from "react-native";
-import { Flame, Snowflake } from "lucide-react-native";
-import { colors } from "@/constants/colors";
+import {StyleSheet, Text, View, ViewStyle} from "react-native";
+import {Flame, Snowflake} from "lucide-react-native";
+import {colors} from "@/constants/colors";
 
 type StreakDisplayProps = {
-    currentStreak: {
+    currentStreak?: {
         wins: number;
         losses: number;
     };
-    longestStreak: number;
+    longestStreak?: number;
     style?: ViewStyle;
 };
 
-export default function StreakDisplay({ currentStreak, longestStreak, style }: StreakDisplayProps) {
-    const hasWinStreak = currentStreak?.wins > 0;
-    const hasLossStreak = currentStreak?.losses > 0;
+export default function StreakDisplay({
+                                          currentStreak,
+                                          longestStreak,
+                                          style
+                                      }: StreakDisplayProps) {
 
-    if (!hasWinStreak && !hasLossStreak) {
+    const hasWinStreak = (currentStreak?.wins ?? 0) > 0;
+    const hasLossStreak = (currentStreak?.losses ?? 0) > 0;
+    const hasLongestStreak = (longestStreak ?? 0) > 0;
+
+    if (!hasWinStreak && !hasLossStreak && !hasLongestStreak) {
         return null;
     }
 
     return (
         <View style={[styles.container, style]}>
-            {hasWinStreak && (
+            {hasWinStreak && currentStreak && (
                 <View style={[styles.streakBadge, styles.winStreak]}>
-                    <Flame size={16} color="#fff" />
-                    <Text style={styles.streakText}>{currentStreak?.wins}</Text>
+                    <Flame size={16} color="#fff"/>
+                    <Text style={styles.streakText}>{currentStreak.wins}</Text>
                 </View>
             )}
-
-            {hasLossStreak && (
+            {hasLossStreak && currentStreak && (
                 <View style={[styles.streakBadge, styles.lossStreak]}>
-                    <Snowflake size={16} color="#fff" />
+                    <Snowflake size={16} color="#fff"/>
                     <Text style={styles.streakText}>{currentStreak.losses}</Text>
                 </View>
             )}
-
-            {longestStreak > 0 && (
-                <View style={styles.longestContainer}>
+            {hasLongestStreak && (
+                <View
+                    style={[styles.longestContainer, (hasWinStreak || hasLossStreak) && styles.longestContainerMargin]}>
                     <Text style={styles.longestText}>Najdłuższa seria: {longestStreak}</Text>
                 </View>
             )}
@@ -50,7 +55,6 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
     },
     streakBadge: {
         flexDirection: "row",
@@ -58,6 +62,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 12,
+        marginRight: 8,
     },
     winStreak: {
         backgroundColor: colors.success,
@@ -71,8 +76,9 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginLeft: 4,
     },
-    longestContainer: {
-        marginLeft: 8,
+    longestContainer: {},
+    longestContainerMargin: {
+        marginLeft: 4,
     },
     longestText: {
         color: colors.textLight,

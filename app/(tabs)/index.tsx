@@ -35,7 +35,9 @@ export default function HomeScreen() {
                 syncPendingMatches();
             }
         });
-        registerForPushNotifications();
+        registerForPushNotifications().catch((e) => {
+            console.error("Error registering for push notifications:", e);
+        })
     }, []);
 
     const navigateToSection = (section: string) => {
