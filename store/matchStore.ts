@@ -110,13 +110,13 @@ export const useMatchStore = create<MatchState>()(
 
                 const updatedPlayer1 = playerStore.getPlayerById(player1Id) || player1;
                 const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
-                notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
+                await notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
 
                 if (Math.abs(player1NewRating - player1.eloRating) >= 15) {
-                    notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
+                    await notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
                 }
                 if (Math.abs(player2NewRating - player2.eloRating) >= 15) {
-                    notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
+                    await notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
                 }
 
                 const [player1Achievements, player2Achievements] = await Promise.all([
@@ -187,11 +187,9 @@ export const useMatchStore = create<MatchState>()(
                 matches,
             };
         },
-        // Fetch all matches from Supabase on store initialization
     }),
 );
 
-// Fetch matches from Supabase when the app starts
 export const fetchMatchesFromSupabase = async () => {
     useMatchStore.setState({isLoading: true, error: null});
     try {
@@ -225,16 +223,15 @@ export const useMatchesRealtime = () => {
                 'postgres_changes',
                 {event: '*', schema: 'public', table: 'matches'},
                 () => {
-                    fetchMatchesFromSupabase();
+                    fetchMatchesFromSupabase().catch((e) => {
+                        console.warn("Error fetching matches from Supabase:", e);
+                    })
                 }
             )
             .subscribe();
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(channel).then(r =>
+                console.error("Error removing matches channel:", r));
         };
     }, []);
 };
-
-// Usage example (call in App.tsx or useEffect in root):
-// import { useMatchStore, fetchMatchesFromSupabase, useMatchesRealtime } from '@/store/matchStore';
-// useMatchesRealtime();
