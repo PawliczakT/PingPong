@@ -8,7 +8,6 @@ interface PlayerState {
     players: Player[];
     isLoading: boolean;
     error: string | null;
-
     addPlayer: (name: string, nickname?: string, avatarUrl?: string) => Promise<Player>;
     updatePlayer: (player: Player) => Promise<void>;
     deactivatePlayer: (playerId: string) => Promise<void>;

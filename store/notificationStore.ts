@@ -12,7 +12,6 @@ interface NotificationState {
     notificationHistory: NotificationRecord[];
     isLoading: boolean;
     error: string | null;
-
     registerForPushNotifications: () => Promise<string | null>;
     sendMatchResultNotification: (match: Match, player1: Player, player2: Player) => Promise<void>;
     sendRankingChangeNotification: (player: Player, oldRating: number, newRating: number) => Promise<void>;
@@ -268,8 +267,14 @@ export const useNotificationStore = create<NotificationState>()(
         clearNotificationHistory: async () => {
             set({isLoading: true, error: null});
             try {
-                const {error} = await supabase.from('notifications').delete().neq('id', '');
-                if (error) throw error;
+                const {data: allNotifications} = await supabase.from('notifications').select('id');
+                if (allNotifications && allNotifications.length > 0) {
+                    const {error} = await supabase
+                        .from('notifications')
+                        .delete()
+                        .in('id', allNotifications.map(n => n.id));
+                    if (error) throw error;
+                }
                 set({notificationHistory: [], isLoading: false});
             } catch (error) {
                 set({
@@ -372,12 +377,16 @@ export const useNotificationsRealtime = () => {
                 'postgres_changes',
                 {event: '*', schema: 'public', table: 'notifications'},
                 () => {
-                    fetchNotificationsFromSupabase();
+                    fetchNotificationsFromSupabase().catch((e) => {
+                        console.warn("Error fetching notifications from Supabase:", e);
+                    });
                 }
             )
             .subscribe();
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(channel).catch((e) => {
+                console.error("Error removing notifications channel:", e);
+            });
         };
     }, []);
 };

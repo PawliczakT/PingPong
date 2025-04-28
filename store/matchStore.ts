@@ -10,7 +10,6 @@ interface MatchState {
     matches: Match[];
     isLoading: boolean;
     error: string | null;
-
     addMatch: (
         player1Id: string,
         player2Id: string,

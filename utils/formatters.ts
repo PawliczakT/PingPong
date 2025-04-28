@@ -4,12 +4,12 @@
  * @returns Formatted date string (e.g., "Jan 15, 2023")
  */
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
 }
 
 /**
@@ -18,14 +18,14 @@ export function formatDate(dateString: string): string {
  * @returns Formatted date and time string (e.g., "Jan 15, 2023, 3:45 PM")
  */
 export function formatDateTime(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-  });
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+    });
 }
 
 /**
@@ -35,8 +35,8 @@ export function formatDateTime(dateString: string): string {
  * @returns Formatted ratio string (e.g., "75%")
  */
 export function formatWinRate(wins: number, losses: number): string {
-  if (wins + losses === 0) return "0%";
-  return `${Math.round((wins / (wins + losses)) * 100)}%`;
+    if (wins + losses === 0) return "0%";
+    return `${Math.round((wins / (wins + losses)) * 100)}%`;
 }
 
 /**
@@ -46,7 +46,7 @@ export function formatWinRate(wins: number, losses: number): string {
  * @returns Formatted score string (e.g., "3-2")
  */
 export function formatMatchScore(player1Score: number, player2Score: number): string {
-  return `${player1Score}-${player2Score}`;
+    return `${player1Score}-${player2Score}`;
 }
 
 /**
@@ -55,6 +55,6 @@ export function formatMatchScore(player1Score: number, player2Score: number): st
  * @returns Formatted string with + or - sign
  */
 export function formatRatingChange(change: number): string {
-  if (change > 0) return `+${change}`;
-  return `${change}`;
+    if (change > 0) return `+${change}`;
+    return `${change}`;
 }
