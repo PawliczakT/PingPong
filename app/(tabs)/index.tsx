@@ -176,8 +176,11 @@ export default function HomeScreen() {
                     </View>
 
                     {upcomingTournaments.length > 0 ? (
-                        upcomingTournaments.map((tournament) => (
-                            <TournamentCard key={tournament.id} tournament={tournament}/>
+                        upcomingTournaments.map((tournament, index) => (
+                            <TournamentCard
+                                key={`home-upcoming-${tournament.id}-${index}`}
+                                tournament={tournament}
+                            />
                         ))
                     ) : (
                         <EmptyState
