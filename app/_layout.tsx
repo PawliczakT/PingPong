@@ -10,7 +10,7 @@ import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {trpc, trpcClient} from "@/lib/trpc";
 import AuthGuard from "@/components/AuthGuard";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";
-import {useMatchesRealtime} from "@/store/matchStore";
+import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
 import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
 import {fetchNotificationsFromSupabase, useNotificationsRealtime} from "@/store/notificationStore";
@@ -94,13 +94,14 @@ export default function RootLayout() {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-            console.log("Fetching initial data (Players, Tournaments, Achievements, Notifications)...");
+            console.log("Fetching initial data (Players, Tournaments, Achievements, Notifications, Matches)...");
             try {
                 await Promise.all([
                     fetchPlayersFromSupabase(),
                     useTournamentStore.getState().fetchTournaments(),
                     fetchAchievementsFromSupabase(),
                     fetchNotificationsFromSupabase(),
+                    fetchMatchesFromSupabase(),
                 ]);
                 console.log("Initial data fetching complete.");
             } catch (fetchError) {
