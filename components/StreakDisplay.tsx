@@ -13,8 +13,8 @@ type StreakDisplayProps = {
 };
 
 export default function StreakDisplay({ currentStreak, longestStreak, style }: StreakDisplayProps) {
-    const hasWinStreak = currentStreak.wins > 0;
-    const hasLossStreak = currentStreak.losses > 0;
+    const hasWinStreak = currentStreak?.wins > 0;
+    const hasLossStreak = currentStreak?.losses > 0;
 
     if (!hasWinStreak && !hasLossStreak) {
         return null;
@@ -25,7 +25,7 @@ export default function StreakDisplay({ currentStreak, longestStreak, style }: S
             {hasWinStreak && (
                 <View style={[styles.streakBadge, styles.winStreak]}>
                     <Flame size={16} color="#fff" />
-                    <Text style={styles.streakText}>{currentStreak.wins}</Text>
+                    <Text style={styles.streakText}>{currentStreak?.wins}</Text>
                 </View>
             )}
 

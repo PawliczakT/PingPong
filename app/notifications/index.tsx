@@ -18,7 +18,6 @@ export default function NotificationsScreen() {
     }));
 
     const handleNotificationPress = (notification: Notification) => {
-        // Navigate based on notification type
         switch (notification.type) {
             case "match":
                 if (notification.data?.match?.id) {
