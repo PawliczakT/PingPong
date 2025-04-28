@@ -11,6 +11,7 @@ interface AuthState {
     isLoading: boolean;
     isInitialized: boolean;
     user: User | null;
+    session: { access_token: string } | null;
     error: Error | null;
     clearError: () => void;
 }
@@ -21,6 +22,7 @@ export const useAuthStore = (): AuthState => ({
     isLoading: false,
     isInitialized: true,
     user: null,
+    session: null,
     error: null,
     clearError: () => {
     },

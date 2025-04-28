@@ -16,7 +16,6 @@ export async function createContext({req}: FetchCreateContextFnOptions) {
             console.error('Error verifying token:', error);
         }
     }
-
     return {
         user,
         supabase,

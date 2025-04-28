@@ -24,7 +24,6 @@ export default function NotificationsList({
         );
     }
 
-    // Format time function (simple version without date-fns)
     const formatTimeAgo = (dateString: string) => {
         const date = new Date(dateString);
         const now = new Date();
