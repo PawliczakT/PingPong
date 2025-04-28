@@ -1,5 +1,5 @@
 import React from "react";
-import {ActivityIndicator, StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle} from "react-native";
+import {ActivityIndicator, StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle,} from "react-native";
 import {colors} from "@/constants/colors";
 
 type ButtonProps = {
@@ -9,8 +9,8 @@ type ButtonProps = {
     size?: "small" | "medium" | "large";
     disabled?: boolean;
     loading?: boolean;
-    style?: ViewStyle | ViewStyle[] | Array<ViewStyle>;
-    textStyle?: TextStyle | TextStyle[] | Array<TextStyle>;
+    style?: ViewStyle | ViewStyle[];
+    textStyle?: TextStyle | TextStyle[];
     icon?: React.ReactNode;
 };
 
@@ -23,12 +23,12 @@ export default function Button({
                                    loading = false,
                                    style,
                                    textStyle,
-                                   icon
+                                   icon,
                                }: ButtonProps) {
-    const getContainerStyle = () => {
-        const baseStyle = [styles.container];
 
-        // Add size style
+    const getContainerStyle = (): Array<ViewStyle> => {
+        const baseStyle: Array<ViewStyle> = [styles.container];
+
         switch (size) {
             case "small":
                 baseStyle.push(styles.smallContainer);
@@ -38,7 +38,6 @@ export default function Button({
                 break;
         }
 
-        // Add variant style
         switch (variant) {
             case "primary":
                 baseStyle.push(styles.primaryContainer);
@@ -54,7 +53,6 @@ export default function Button({
                 break;
         }
 
-        // Add disabled style
         if (disabled || loading) {
             baseStyle.push(styles.disabledContainer);
         }
@@ -62,10 +60,9 @@ export default function Button({
         return baseStyle;
     };
 
-    const getTextStyle = () => {
-        const baseStyle = [styles.text];
+    const getTextStyle = (): Array<TextStyle> => {
+        const baseStyle: Array<TextStyle> = [styles.text];
 
-        // Add size style
         switch (size) {
             case "small":
                 baseStyle.push(styles.smallText);
@@ -75,7 +72,6 @@ export default function Button({
                 break;
         }
 
-        // Add variant style
         switch (variant) {
             case "primary":
                 baseStyle.push(styles.primaryText);
@@ -90,18 +86,23 @@ export default function Button({
                 baseStyle.push(styles.textOnlyText);
                 break;
         }
-
-        // Add disabled style
-        if (disabled || loading) {
-            baseStyle.push(styles.disabledText);
-        }
-
         return baseStyle;
     };
 
+    const combinedContainerStyle = [
+        ...getContainerStyle(),
+        ...(Array.isArray(style) ? style : [style])
+    ].filter(Boolean);
+
+    const combinedTextStyle = [
+        ...getTextStyle(),
+        icon ? styles.textWithIcon : {},
+        ...(Array.isArray(textStyle) ? textStyle : [textStyle])
+    ].filter(Boolean);
+
     return (
         <TouchableOpacity
-            style={[...getContainerStyle(), style]}
+            style={combinedContainerStyle}
             onPress={onPress}
             disabled={disabled || loading}
             activeOpacity={0.7}
@@ -113,8 +114,8 @@ export default function Button({
                 />
             ) : (
                 <>
-                    {icon && icon}
-                    <Text style={[...getTextStyle(), icon ? {marginLeft: 8} : {}, textStyle]}>
+                    {icon}
+                    <Text style={combinedTextStyle}>
                         {title}
                     </Text>
                 </>
@@ -131,37 +132,49 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         paddingHorizontal: 16,
         paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: 'transparent',
     },
     smallContainer: {
         paddingHorizontal: 12,
         paddingVertical: 8,
+        borderRadius: 6,
     },
     largeContainer: {
         paddingHorizontal: 20,
         paddingVertical: 16,
+        borderRadius: 10,
     },
     primaryContainer: {
         backgroundColor: colors.primary,
+        borderColor: colors.primary,
     },
     secondaryContainer: {
         backgroundColor: colors.secondary,
+        borderColor: colors.secondary,
     },
     outlineContainer: {
         backgroundColor: "transparent",
-        borderWidth: 1,
         borderColor: colors.primary,
     },
     textContainer: {
         backgroundColor: "transparent",
+        borderColor: 'transparent',
         paddingHorizontal: 4,
         paddingVertical: 4,
+        borderWidth: 0,
     },
     disabledContainer: {
         opacity: 0.6,
     },
+
     text: {
         fontWeight: "600",
+        fontSize: 16,
         textAlign: "center",
+    },
+    textWithIcon: {
+        marginLeft: 8,
     },
     smallText: {
         fontSize: 14,
@@ -180,8 +193,5 @@ const styles = StyleSheet.create({
     },
     textOnlyText: {
         color: colors.primary,
-    },
-    disabledText: {
-        opacity: 0.8,
     },
 });
