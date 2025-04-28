@@ -111,7 +111,7 @@ export default function TournamentDetailScreen() {
         }
 
         if (Platform.OS !== "web") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
 
         if (showConfirmComplete) {
@@ -129,7 +129,8 @@ export default function TournamentDetailScreen() {
 
     const toggleWinnerSelection = () => {
         if (Platform.OS !== "web") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch((e) =>
+                console.error("Haptics error:", e));
         }
         const allMatchesCompleted = tournamentMatches.every(match => (match.status as 'completed' | 'pending' | 'scheduled') === 'completed');
         if (!allMatchesCompleted && tournamentMatches.length > 0) {

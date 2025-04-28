@@ -1,7 +1,7 @@
 import {create} from 'zustand';
 import {supabase} from '@/lib/supabase';
 import {v4 as uuidv4} from 'uuid';
-import {Set, Tournament, TournamentMatch, TournamentStatus} from '@/types';
+import {Set, Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/types';
 import {useEffect} from "react";
 
 type TournamentStore = {
@@ -10,7 +10,7 @@ type TournamentStore = {
     loading: boolean;
     error: string | null;
     fetchTournaments: () => Promise<void>;
-    createTournament: (name: string, date: string, format: 'KNOCKOUT', playerIds: string[]) => Promise<string | undefined>;
+    createTournament: (name: string, date: string, format: TournamentFormat, playerIds: string[]) => Promise<string | undefined>;
     updateMatchResult: (
         tournamentId: string,
         matchId: string,
@@ -116,7 +116,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         }
     },
 
-    createTournament: async (name: string, date: string, format: 'KNOCKOUT', playerIds: string[]): Promise<string | undefined> => {
+    createTournament: async (name: string, date: string, format: TournamentFormat, playerIds: string[]): Promise<string | undefined> => {
         set({loading: true, error: null});
         let tournamentId: string | undefined = undefined;
         try {
@@ -462,13 +462,15 @@ export function useTournamentsRealtime() {
                 {event: '*', schema: 'public', table: 'tournaments'},
                 () => {
                     if (typeof useTournamentStore.getState().fetchTournaments === 'function') {
-                        useTournamentStore.getState().fetchTournaments();
+                        useTournamentStore.getState().fetchTournaments().catch((e) =>
+                            console.error("Error fetching tournaments:", e));
                     }
                 }
             )
             .subscribe();
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(channel).catch((e) =>
+                console.error("Error removing channel:", e));
         };
     }, []);
 }
