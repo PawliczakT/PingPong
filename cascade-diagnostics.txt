@@ -1,0 +1,130 @@
+{
+  "systemInfo": {
+    "operatingSystem": "windows",
+    "ideName": "jetbrains",
+    "ideVersion": "IntelliJ IDEA Ultimate Edition 2024.3.5",
+    "userName": "",
+    "userEmail": "",
+    "teamsTier": "TEAMS_TIER_UNSPECIFIED",
+    "timestamp": "2025-04-28T07:12:42.291677500Z",
+    "installationId": "b434a898-f0f1-4435-8997-d6cafe7506f0"
+  },
+  "userSettings": {
+    "openMostRecentChatConversation": true,
+    "lastSelectedModel": "MODEL_CLAUDE_3_5_SONNET_20240620",
+    "themePreference": "THEME_PREFERENCE_UNSPECIFIED",
+    "extensionPanelTab": "EXTENSION_PANEL_TAB_UNSPECIFIED",
+    "fontSize": "FONT_SIZE_UNSPECIFIED",
+    "autocompleteSpeed": "AUTOCOMPLETE_SPEED_UNSPECIFIED",
+    "rememberLastModelSelection": "REMEMBER_LAST_MODEL_SELECTION_UNSPECIFIED",
+    "lastSelectedModelName": "Claude 3.5 Sonnet",
+    "lastSelectedCascadeModel": "MODEL_GOOGLE_GEMINI_2_5_PRO",
+    "cascadeNuxStates": [
+      {
+        "event": "CASCADE_NUX_EVENT_MODEL_SELECTOR_NUX"
+      }
+    ],
+    "cascadePlannerMode": "CONVERSATIONAL_PLANNER_MODE_DEFAULT",
+    "cascadeAllowedCommands": [],
+    "cascadeDeniedCommands": [],
+    "userNuxStates": [],
+    "cascadeWebSearchDisabled": false,
+    "disableAutocomplete": false,
+    "disableSupercomplete": false,
+    "disableSelectionPopup": false,
+    "disableExplainProblemInlayHint": false,
+    "disableInlayHintShortcuts": false,
+    "disableOpenCascadeOnReload": false,
+    "disableAutoOpenEditedFiles": false,
+    "disableTabToJump": false,
+    "cascadeAutoExecutionPolicy": "CASCADE_COMMANDS_AUTO_EXECUTION_UNSPECIFIED",
+    "explainAndFixInCurrentConversation": false,
+    "allowCascadeAccessGitignoreFiles": false,
+    "disableCascadeAutoFixLints": false,
+    "disableCascadeBrowserPreviews": true,
+    "detectProxy": false,
+    "disableTabToImport": false,
+    "useClipboardForCompletions": false,
+    "disableHighlightAfterAccept": false,
+    "lastSelectedNewConvoTab": "",
+    "disableAutoGenerateMemories": false,
+    "enableSoundsForSpecialEvents": false,
+    "enableTabSounds": false,
+    "allowCascadeInBackground": false,
+    "tabToJump": "TAB_TO_JUMP_UNSPECIFIED",
+    "cascadeWebSearch": "CASCADE_WEB_SEARCH_TOOL_UNSPECIFIED",
+    "enableTerminalCompletion": false
+  },
+  "extensionLogs": [
+    "2025-04-28 09:06:20,262 [  10233]   INFO - #com.codeium.intellij.language_server.LanguageServerLauncherActivity - plugin version: 1.46.2",
+    "2025-04-28 09:06:21,374 [  11345]   INFO - #com.codeium.intellij.network_test.NetworkTestUtils - Successfully connected to https://server.codeium.com/healthz",
+    "2025-04-28 09:06:21,680 [  11651]   WARN - #com.codeium.intellij.language_server.LanguageServerLauncherActivity - Error reading user status",
+    "2025-04-28 09:06:21,766 [  11737]   INFO - #com.codeium.intellij.language_server.LanguageServerProcessHandler - [c5581d7b] Language server started",
+    "2025-04-28 09:06:28,729 [  18700]   INFO - #com.codeium.intellij.CodeiumWorkspaceTracker - workspace initialized: C:/Users/tomasz.pawliczak/Projects/PingPong",
+    "2025-04-28 09:06:39,202 [  29173]   WARN - #com.codeium.intellij.language_server.LanguageServerService - Failed to handle auth session change",
+    "2025-04-28 09:07:11,388 [  61359]   WARN - #com.codeium.intellij.language_server.LanguageServerService - Error refreshing context",
+    "2025-04-28 09:08:59,368 [ 169339]   WARN - #com.codeium.intellij.language_server.LanguageServerService - Error getting status",
+    "2025-04-28 09:10:34,463 [ 264434]   INFO - #com.codeium.intellij.chat_window.ChatViewerWindow - font: (13.0, 16.0)",
+    "2025-04-28 09:12:42,286 [ 392257]   WARN - #com.codeium.intellij.language_server.LanguageServerService - Error getting user status"
+  ],
+  "languageServerDiagnostics": {
+    "logs": [
+      "I0428 09:06:22.369914 60924 main.go:583] Setting GOMAXPROCS to 4\n",
+      "I0428 09:06:22.386405 60924 main.go:798] Starting language server process with pid 60924\n",
+      "I0428 09:06:22.386405 60924 server.go:268] Language server will attempt to listen on host 127.0.0.1\n",
+      "I0428 09:06:22.388578 60924 server.go:275] Language server listening on random port at 58779\n",
+      "W0428 09:06:27.405781 60924 proxy.go:129] proxy failed to connect: GET https://server.codeium.com/exa.api_server_pb.ApiServerService/GetCompletions giving up after 4 attempt(s): context deadline exceeded\n",
+      "I0428 09:06:27.706736 60924 server.go:386] Created extension server client at port 58760\n",
+      "I0428 09:06:28.463219 60924 server.go:895] Local search is enabled, will index local files.\n",
+      "I0428 09:06:28.463219 60924 server.go:899] Using 3 indexer workers\n",
+      "I0428 09:06:28.500767 60924 server.go:1048] Child process attempting to acquire lock file C:\\Users\\TOMASZ~1.PAW\\AppData\\Local\\Temp\\1791570236563344454\\codeium\\manager/locks/child_lock_1745823982019833300_5885117492755345556\n",
+      "I0428 09:06:28.501308 60924 server.go:1056] Child process acquired lock file C:\\Users\\TOMASZ~1.PAW\\AppData\\Local\\Temp\\1791570236563344454\\codeium\\manager/locks/child_lock_1745823982019833300_5885117492755345556\n",
+      "I0428 09:06:28.512912 60924 web_server.go:309] Chat Client file server listening at https://127.0.0.1:58795\n",
+      "E0428 09:10:34.500980 60924 interceptor.go:70] /exa.language_server_pb.LanguageServerService/StreamCascadePanelReactiveUpdates (unknown): reactive component 30f8c1ff-9681-4e51-9ed4-7aed8293ac2f not found\n"
+    ]
+  },
+  "recentTrajectories": [
+    {
+      "cascadeId": "c6dfc823-44d3-4999-948b-a1bc637441df",
+      "trajectoryId": "0116e8ec-8171-4063-ab8a-01b279d67d17",
+      "summary": "Fixing TypeScript Errors and Warnings",
+      "lastStepIndex": 30,
+      "lastModifiedTime": "2025-04-26T19:43:28Z"
+    },
+    {
+      "cascadeId": "56901ae9-dafe-4c45-8936-8d99bae1c298",
+      "trajectoryId": "1c7c914e-9922-45da-ab40-79988471180c",
+      "summary": "Analyzing Application Code",
+      "lastStepIndex": 34,
+      "lastModifiedTime": "2025-04-26T19:30:17Z"
+    },
+    {
+      "cascadeId": "2981eeb0-89a8-4089-95da-737335061b53",
+      "trajectoryId": "56d13c84-780f-4332-bc65-20cd6b3214ef",
+      "summary": "Explaining Apple Handler Code",
+      "lastStepIndex": 6,
+      "lastModifiedTime": "2025-04-10T11:20:19Z"
+    },
+    {
+      "cascadeId": "c302619a-11f8-4e81-b99f-8ebb623b3048",
+      "trajectoryId": "12b9eeb7-3693-42a5-9d63-00509fed8001",
+      "summary": "Validating Parameters for Wallet API  ",
+      "lastStepIndex": 9,
+      "lastModifiedTime": "2025-04-09T20:43:00Z"
+    },
+    {
+      "cascadeId": "67e7ccd7-f2e2-4b0e-8df9-021fcb70e531",
+      "trajectoryId": "aad7ece5-5734-4a0a-bacf-d634a9c539e5",
+      "summary": "Improving Native Wallet Error Handling",
+      "lastStepIndex": 18,
+      "lastModifiedTime": "2025-04-09T20:36:03Z"
+    }
+  ],
+  "fields": {
+    "currentLatestStepIndex": 0,
+    "trajectoryId": "",
+    "consoleLogs": [
+      "[ERROR] 2025-4-28 9:10:34.520 got retryable useReactiveState RPC error on attempt [1 / Infinity]:  ConnectError: [unknown] reactive component 30f8c1ff-9681-4e51-9ed4-7aed8293ac2f not found"
+    ]
+  }
+}
