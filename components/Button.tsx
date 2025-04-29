@@ -109,6 +109,7 @@ export default function Button({
         >
             {loading ? (
                 <ActivityIndicator
+                    testID="button-loading-indicator"
                     color={variant === "outline" || variant === "text" ? colors.primary : "#fff"}
                     size="small"
                 />
