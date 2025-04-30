@@ -15,7 +15,9 @@ import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStor
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
 import {fetchNotificationsFromSupabase, useNotificationsRealtime} from "@/store/notificationStore";
 import GlobalTabBar from "@/components/GlobalTabBar";
-import LogRocket from 'logrocket';
+import LogRocket from '@logrocket/react-native';
+import * as Updates from 'expo-updates';
+
 
 const queryClient = new QueryClient();
 
@@ -24,8 +26,12 @@ SplashScreen.preventAutoHideAsync().catch((e) => {
 });
 
 export default function RootLayout() {
-    // Initialize LogRocket
-    LogRocket.init('y1vslm/pingpong');
+    useEffect(() => {
+        LogRocket.init('y1vslm/pingpong', {
+            updateId: Updates.isEmbeddedLaunch ? null : Updates.updateId,
+            expoChannel: Updates.channel,
+        });
+    }, []);
 
     const [loaded, error] = useFonts({
         ...FontAwesome.font,

@@ -2,7 +2,7 @@ import React, {ReactNode, useEffect} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {useAuthStore} from '@/store/authStore';
 import {useSegments} from 'expo-router';
-import LogRocket from 'logrocket';
+import LogRocket from '@logrocket/react-native';
 
 interface AuthGuardProps {
     children: ReactNode;
