@@ -31,6 +31,13 @@ export default function RootLayout() {
             updateId: Updates.isEmbeddedLaunch ? null : Updates.updateId,
             expoChannel: Updates.channel,
         });
+
+        LogRocket.identify('generic-user-id', {
+          name: 'Generic User',
+          email: 'generic.user@example.com',
+        });
+        console.log('LogRocket identified generic user');
+
     }, []);
 
     const [loaded, error] = useFonts({
