@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "PingPong StatKeeper",
-    "slug": "pingpong-statkeeper",
+    "name": "Grey Zone PingPong StatKeeper",
+    "slug": "pingpong",
+    "owner": "mosinacity",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -17,14 +18,14 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.rork.pingpong-statkeeper"
+      "bundleIdentifier": "com.mosinacity.pingpongstatkeeper"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.pingpong_statkeeper"
+      "package": "com.mosinacity.pingpongstatkeeper"
     },
     "web": {
       "bundler": "metro",
@@ -35,6 +36,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "ed168f63-83ac-4c89-9d45-7db0d85cd6ca"
+      }
     }
   }
 }

@@ -1,15 +1,27 @@
-import React, {ReactNode} from 'react';
+import React, {ReactNode, useEffect} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {useAuthStore} from '@/store/authStore';
 import {useSegments} from 'expo-router';
+import LogRocket from 'logrocket';
 
 interface AuthGuardProps {
     children: ReactNode;
 }
 
 export default function AuthGuard({children}: AuthGuardProps) {
-    const {error} = useAuthStore();
+    const {error, user} = useAuthStore();
     const segments = useSegments();
+
+    useEffect(() => {
+        if (user) {
+            LogRocket.identify(user.id, {
+                name: user.name,
+                email: user.email,
+                nickname: user.nickname,
+            });
+            console.log('LogRocket identified user:', user.id);
+        }
+    }, [user]);
 
     if (segments[0] === 'auth') {
         return <>{children}</>;

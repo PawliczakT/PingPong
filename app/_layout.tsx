@@ -15,6 +15,7 @@ import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStor
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
 import {fetchNotificationsFromSupabase, useNotificationsRealtime} from "@/store/notificationStore";
 import GlobalTabBar from "@/components/GlobalTabBar";
+import LogRocket from 'logrocket';
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,9 @@ SplashScreen.preventAutoHideAsync().catch((e) => {
 });
 
 export default function RootLayout() {
+    // Initialize LogRocket
+    LogRocket.init('y1vslm/pingpong');
+
     const [loaded, error] = useFonts({
         ...FontAwesome.font,
     });
