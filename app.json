@@ -21,6 +21,7 @@
       "bundleIdentifier": "com.mosinacity.pingpongstatkeeper"
     },
     "android": {
+      "minSdkVersion": 25,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
