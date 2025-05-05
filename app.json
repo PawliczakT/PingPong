@@ -21,7 +21,6 @@
       "bundleIdentifier": "com.mosinacity.pingpongstatkeeper"
     },
     "android": {
-      "minSdkVersion": 25,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -34,7 +33,15 @@
     },
     "plugins": [
       "expo-router",
-      "@logrocket/react-native"
+      "@logrocket/react-native",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 25
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
