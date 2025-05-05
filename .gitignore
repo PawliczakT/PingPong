@@ -46,3 +46,6 @@ coverage/
 # diagnostic files
 cascade-diagnostics.txt
 qodana.sarif.json
+
+# credentials
+credentials/
