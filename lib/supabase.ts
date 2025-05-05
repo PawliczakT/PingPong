@@ -6,15 +6,18 @@ import * as AuthSession from 'expo-auth-session';
 import 'react-native-url-polyfill/auto';
 import Constants from 'expo-constants';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 const googleClientIdIOS = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS || '';
 const googleClientIdAndroid = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase URL or Anonymous Key. Please check your environment variables.');
+    const errorMsg = 'KRYTYCZNY BŁĄD: Brakuje Supabase URL lub Anon Key. Sprawdź plik .env i prefiks EXPO_PUBLIC_, a następnie przebuduj aplikację.';
+    console.error(errorMsg);
+    throw new Error(errorMsg);
 }
+
 
 const ExpoSecureStoreAdapter = {
     getItem: (key: string) => {
