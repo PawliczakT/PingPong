@@ -16,6 +16,9 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.keystore
+credentials.json
+.idea
 
 # Metro
 .metro-health-check*
@@ -36,3 +39,13 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .vercel
+
+# test coverage
+coverage/
+
+# diagnostic files
+cascade-diagnostics.txt
+qodana.sarif.json
+
+# credentials
+credentials/
