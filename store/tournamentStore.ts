@@ -11,7 +11,7 @@ type TournamentStore = {
     loading: boolean;
     error: string | null;
     lastFetchTimestamp: number | null;
-    fetchTournaments: () => Promise<void>;
+    fetchTournaments: (options?: { force?: boolean }) => Promise<void>;
     createTournament: (name: string, date: string, format: TournamentFormat, playerIds: string[]) => Promise<string | undefined>;
     updateMatchResult: (
         tournamentId: string,
@@ -464,88 +464,102 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
     error: null,
     lastFetchTimestamp: null,
 
-    fetchTournaments: async () => {
-        // Sprawdź, czy ostatnie odświeżenie było wystarczająco dawno
-        const now = Date.now();
-        const lastFetch = get().lastFetchTimestamp || 0;
-        const minInterval = 1500; // Zwiększam interwał do 1.5 sekundy
-
-        if (now - lastFetch < minInterval) {
-            console.log(`[STORE] Pomijanie fetchTournaments - zbyt krótki interwał (${now - lastFetch}ms)`);
+    fetchTournaments: async (options?: { force?: boolean }) => {
+        if (get().loading && !options?.force) {
+            console.log('[STORE] Skipping fetchTournaments - already loading and not forced.');
             return;
         }
 
-        set({loading: true, error: null});
-        console.log('[STORE] set loading: true (fetchTournaments)');
+        const lastFetchTimestamp = get().lastFetchTimestamp;
+        const now = Date.now();
+        const FETCH_INTERVAL = 1500; // 1.5 seconds
+
+        if (lastFetchTimestamp && (now - lastFetchTimestamp < FETCH_INTERVAL) && !options?.force) {
+            console.log(`[STORE] Pomijanie fetchTournaments - zbyt krótki interwał (${now - lastFetchTimestamp}ms)`);
+            return;
+        }
+
+        console.log('[STORE] Setting loading: true (fetchTournaments)');
+        set({ loading: true, error: null });
+
         try {
-            const {data: tournamentsData, error: tErr} = await supabase
+            const { data: rawTournaments, error } = await supabase
                 .from('tournaments')
-                .select('*');
-            if (tErr) throw tErr;
+                .select(`
+                    id, name, date, format, status, winner_id, created_at, updated_at,
+                    tournament_participants ( player_id ),
+                    tournament_matches ( * ) 
+                `)
+                .order('date', { ascending: false });
 
-            const {data: participantsData, error: pErr} = await supabase
-                .from('tournament_participants')
-                .select('tournament_id, player_id');
-            if (pErr) throw pErr;
+            if (error) {
+                console.error('Failed to fetch tournaments:', error);
+                throw error;
+            }
 
-            const {data: matchesData, error: mErr} = await supabase
-                .from('tournament_matches')
-                .select('*');
-            if (mErr) throw mErr;
+            if (!rawTournaments) {
+                set({ tournaments: [], loading: false, error: 'No tournaments data returned', lastFetchTimestamp: Date.now() });
+                return;
+            }
 
-            const participantsByTournament: Record<string, string[]> = {};
-            (participantsData || []).forEach((p: any) => {
-                if (!participantsByTournament[p.tournament_id]) {
-                    participantsByTournament[p.tournament_id] = [];
-                }
-                participantsByTournament[p.tournament_id].push(p.player_id);
-            });
+            const processedTournaments = rawTournaments.map(t => {
+                // Ensure tournament_participants and tournament_matches are arrays, even if null/undefined from Supabase
+                const participantsData = Array.isArray(t.tournament_participants) ? t.tournament_participants : [];
+                const matchesData = Array.isArray(t.tournament_matches) ? t.tournament_matches : [];
 
-            const matchesByTournament: Record<string, TournamentMatch[]> = {};
-            (matchesData || []).forEach((m: any) => {
-                if (!matchesByTournament[m.tournament_id]) {
-                    matchesByTournament[m.tournament_id] = [];
-                }
-                matchesByTournament[m.tournament_id].push({
-                    id: m.id,
-                    tournamentId: m.tournament_id,
-                    round: m.round,
-                    player1Id: m.player1_id,
-                    player2Id: m.player2_id,
-                    winner: m.winner_id ?? null,
-                    matchId: m.id ?? null,
-                    status: m.status === 'pending_players' ? 'pending' : m.status,
-                    player1Score: m.player1_score ?? null,
-                    player2Score: m.player2_score ?? null,
-                    nextMatchId: m.next_match_id ?? null,
-                    sets: m.sets,
-                    group: m.group
-                });
-            });
-
-            const tournaments: Tournament[] = (tournamentsData || []).map((t: any) => {
-                const matches = matchesByTournament[t.id] || [];
                 return {
                     id: t.id,
                     name: t.name,
-                    format: t.format ?? 'KNOCKOUT',
                     date: t.date,
-                    status: t.status,
+                    format: t.format as TournamentFormat,
+                    status: t.status as TournamentStatus,
+                    participants: participantsData.map((p: any) => p.player_id),
+                    matches: matchesData.map((m: any) => ({
+                        id: m.id,
+                        tournamentId: m.tournament_id,
+                        round: m.round,
+                        group: m.group,
+                        matchNumber: m.match_number,
+                        player1Id: m.player1_id,
+                        player2Id: m.player2_id,
+                        player1Score: m.player1_score,
+                        player2Score: m.player2_score,
+                        winner: m.winner_id,
+                        matchId: m.match_id,
+                        nextMatchId: m.next_match_id,
+                        status: m.status as TournamentMatch['status'],
+                        sets: m.sets || [], // Default to empty array if sets is null/undefined
+                        roundName: m.round_name,
+                        startTime: m.start_time,
+                    })),
+                    winner: t.winner_id,
                     createdAt: t.created_at,
                     updatedAt: t.updated_at,
-                    participants: participantsByTournament[t.id] || [],
-                    matches,
-                    tournamentMatches: matches,
-                    winner: t.winner_id,
                 };
             });
+            
+            // Sort tournaments: active, upcoming, completed, then by date descending
+            processedTournaments.sort((a, b) => {
+                const statusOrder: Record<TournamentStatus, number> = {
+                    [TournamentStatus.IN_PROGRESS]: 1,
+                    [TournamentStatus.UPCOMING]: 2,
+                    [TournamentStatus.COMPLETED]: 3,
+                };
+                const statusA = a.status as TournamentStatus;
+                const statusB = b.status as TournamentStatus;
 
-            set({tournaments, loading: false, lastFetchTimestamp: Date.now()});
-            console.log('[STORE] set loading: false (fetchTournaments)');
+                if (statusOrder[statusA] !== statusOrder[statusB]) {
+                    return statusOrder[statusA] - statusOrder[statusB];
+                }
+                return new Date(b.date).getTime() - new Date(a.date).getTime();
+            });
+
+            set({ tournaments: processedTournaments, loading: false, error: null, lastFetchTimestamp: Date.now() });
+            console.log('[STORE] Tournaments fetched and processed successfully.');
         } catch (error: any) {
-            console.error("Fetch Tournaments Error:", error);
-            set({loading: false, error: error.message || 'Failed to fetch tournaments'});
-            console.log('[STORE] set loading: false (catch fetchTournaments)');
+            console.error('Error in fetchTournaments:', error);
+            set({ error: `Failed to fetch tournaments: ${error.message}`, loading: false });
+            console.log('[STORE] set loading: false (fetchTournaments error)');
         }
     },
 
@@ -579,7 +593,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 throw pErr;
             }
 
-            await get().fetchTournaments();
+            await get().fetchTournaments({ force: true }); // Ensure data is re-fetched
             set({loading: false});
             console.log('[STORE] set loading: false (createTournament)');
             return tournamentId;
