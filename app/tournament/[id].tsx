@@ -9,7 +9,7 @@ import * as Haptics from "expo-haptics";
 import {colors} from "@/constants/colors";
 import {useTournamentStore} from "@/store/tournamentStore";
 import {usePlayerStore} from "@/store/playerStore";
-import {Player, TournamentMatch} from "@/types";
+import {Player, TournamentFormat, TournamentMatch} from "@/types";
 import {formatDate} from "@/utils/formatters";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
@@ -133,10 +133,45 @@ export default function TournamentDetailScreen() {
                 console.error("Haptics error:", e));
         }
         const allMatchesCompleted = tournamentMatches.every(match => (match.status as 'completed' | 'pending' | 'scheduled') === 'completed');
-        if (!allMatchesCompleted && tournamentMatches.length > 0) {
-            Alert.alert("Cannot Complete", "All matches must be completed before selecting a winner.");
-            return;
+        const hasKnockout = tournamentMatches.some(m => m.round > 1);
+        const allGroupCompleted = tournamentMatches.filter(m => m.round === 1).every(m => m.status === 'completed');
+
+        // Sprawdź czy wszystkie mecze są zakończone - oddzielna logika dla każdego formatu
+        if (tournament.format === TournamentFormat.ROUND_ROBIN) {
+            // W formacie ROUND_ROBIN wszystkie mecze muszą być rozegrane
+            if (!allMatchesCompleted) {
+                Alert.alert("Turniej niekompletny", "Wszystkie mecze muszą być rozegrane przed wyborem zwycięzcy.");
+                return;
+            }
+        } else if (tournament.format === TournamentFormat.GROUP) {
+            // W formacie GROUP wszystkie mecze grupowe muszą być rozegrane i faza pucharowa wygenerowana
+            if (!allGroupCompleted) {
+                Alert.alert("Faza grupowa niekompletna", "Wszystkie mecze grupowe muszą być rozegrane przed wyborem zwycięzcy.");
+                return;
+            }
+            
+            if (!hasKnockout) {
+                Alert.alert("Brak fazy pucharowej", "Musisz wygenerować fazę pucharową przed wyborem zwycięzcy.");
+                return;
+            }
+            
+            if (!allMatchesCompleted) {
+                Alert.alert("Turniej niekompletny", "Wszystkie mecze muszą być rozegrane przed wyborem zwycięzcy.");
+                return;
+            }
+        } else {
+            // Format KNOCKOUT
+            const finalMatch = tournamentMatches.find(match => {
+                const maxRound = Math.max(...tournamentMatches.map(m => m.round));
+                return match.round === maxRound;
+            });
+            
+            if (finalMatch && finalMatch.status !== 'completed') {
+                Alert.alert("Finał nierozegrany", "Mecz finałowy musi być rozegrany przed wyborem zwycięzcy.");
+                return;
+            }
         }
+        
         if (showConfirmComplete) {
             setShowConfirmComplete(false);
         } else {
@@ -208,6 +243,165 @@ export default function TournamentDetailScreen() {
     };
 
     const winner = tournament.winner ? playerStore.getPlayerById(tournament.winner) : null;
+
+    // Helper function for round robin standings
+    function calculateRoundRobinStandings(participants: Player[], matches: TournamentMatch[]) {
+        // Initialize player stats
+        const standings = participants.map(player => ({
+            player,
+            matches: 0,
+            wins: 0,
+            losses: 0,
+            points: 0,
+            pointsAgainst: 0,
+            pointsDiff: 0
+        }));
+
+        // Calculate stats from matches
+        matches.forEach(match => {
+            if (match.status !== 'completed' || !match.player1Id || !match.player2Id) return;
+
+            const player1Index = standings.findIndex(s => s.player.id === match.player1Id);
+            const player2Index = standings.findIndex(s => s.player.id === match.player2Id);
+            if (player1Index === -1 || player2Index === -1) return;
+
+            // Increment match count
+            standings[player1Index].matches++;
+            standings[player2Index].matches++;
+
+            if (match.player1Score !== null && match.player2Score !== null) {
+                // Add points
+                standings[player1Index].points += match.player1Score;
+                standings[player2Index].points += match.player2Score;
+                standings[player1Index].pointsAgainst += match.player2Score;
+                standings[player2Index].pointsAgainst += match.player1Score;
+
+                // Determine winner and loser
+                if (match.player1Score > match.player2Score) {
+                    standings[player1Index].wins++;
+                    standings[player2Index].losses++;
+                } else if (match.player2Score > match.player1Score) {
+                    standings[player2Index].wins++;
+                    standings[player1Index].losses++;
+                }
+            }
+        });
+
+        // Calculate point differential
+        standings.forEach(standing => {
+            standing.pointsDiff = standing.points - standing.pointsAgainst;
+        });
+
+        // Sort by wins, then by point differential
+        return standings.sort((a, b) => {
+            if (a.wins !== b.wins) return b.wins - a.wins;
+            if (a.pointsDiff !== b.pointsDiff) return b.pointsDiff - a.pointsDiff;
+            return b.points - a.points;
+        });
+    }
+
+    // Helper function for group standings
+    function calculateGroupStandings(participants: Player[], matches: TournamentMatch[]) {
+        // Get all group numbers
+        const groupNumbers = Array.from(new Set(matches.filter(m => m.group !== undefined).map(m => m.group)));
+        
+        // Create a map of group standings
+        const groupStandings: Record<number, {
+            player: Player,
+            matches: number,
+            wins: number,
+            losses: number,
+            points: number,
+            pointsAgainst: number,
+            pointsDiff: number
+        }[]> = {};
+        
+        // Initialize groups
+        groupNumbers.forEach(groupNum => {
+            if (groupNum === undefined) return;
+            
+            // Get all players in this group
+            const groupMatches = matches.filter(m => m.group === groupNum);
+            const playerIds = new Set<string>();
+            
+            groupMatches.forEach(match => {
+                if (match.player1Id) playerIds.add(match.player1Id);
+                if (match.player2Id) playerIds.add(match.player2Id);
+            });
+            
+            // Initialize standings for this group
+            groupStandings[groupNum] = Array.from(playerIds)
+                .map(playerId => {
+                    const player = participants.find(p => p.id === playerId);
+                    if (!player) return null;
+                    
+                    return {
+                        player,
+                        matches: 0,
+                        wins: 0,
+                        losses: 0,
+                        points: 0,
+                        pointsAgainst: 0,
+                        pointsDiff: 0
+                    };
+                })
+                .filter(Boolean) as {
+                    player: Player,
+                    matches: number,
+                    wins: number,
+                    losses: number,
+                    points: number,
+                    pointsAgainst: number,
+                    pointsDiff: number
+                }[];
+        });
+        
+        // Calculate statistics based on completed matches
+        const completedMatches = matches.filter(m => m.status === 'completed' && m.group !== undefined);
+        completedMatches.forEach(match => {
+            if (!match.player1Id || !match.player2Id || match.player1Score === null || match.player2Score === null || match.group === undefined) return;
+            
+            // Find the players in the group standings
+            const player1Standing = groupStandings[match.group]?.find(s => s.player.id === match.player1Id);
+            const player2Standing = groupStandings[match.group]?.find(s => s.player.id === match.player2Id);
+            
+            if (!player1Standing || !player2Standing) return;
+            
+            // Update matches played
+            player1Standing.matches++;
+            player2Standing.matches++;
+            
+            // Update points
+            player1Standing.points += match.player1Score;
+            player2Standing.points += match.player2Score;
+            player1Standing.pointsAgainst += match.player2Score;
+            player2Standing.pointsAgainst += match.player1Score;
+            
+            // Update wins/losses
+            if (match.player1Score > match.player2Score) {
+                player1Standing.wins++;
+                player2Standing.losses++;
+            } else {
+                player1Standing.losses++;
+                player2Standing.wins++;
+            }
+            
+            // Update point difference
+            player1Standing.pointsDiff = player1Standing.points - player1Standing.pointsAgainst;
+            player2Standing.pointsDiff = player2Standing.points - player2Standing.pointsAgainst;
+        });
+        
+        // Sort standings in each group by wins (desc), then by point differential (desc)
+        Object.keys(groupStandings).forEach(groupKey => {
+            const groupNum = parseInt(groupKey);
+            groupStandings[groupNum].sort((a, b) => {
+                if (a.wins !== b.wins) return b.wins - a.wins;
+                return b.pointsDiff - a.pointsDiff;
+            });
+        });
+        
+        return groupStandings;
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -319,23 +513,128 @@ export default function TournamentDetailScreen() {
                 {activeTab === "bracket" && (
                     <View style={styles.section}>
                         {(() => {
-                            const flatMatches = bracketRounds.flat();
-                            if (bracketRounds.length > 0) {
+                            if (tournament.format === TournamentFormat.ROUND_ROBIN) {
+                                // Round Robin format - show standings table
+                                const standings = calculateRoundRobinStandings(participants, tournamentMatches);
                                 return (
-                                    <TournamentBracket
-                                        matches={flatMatches}
-                                        onMatchPress={handleMatchPress}
-                                    />
-                                );
-                            } else {
-                                return (
-                                    <View style={[styles.emptyStateContainer, styles.emptyBracket]}>
-                                        <Ionicons name="trophy-outline" size={48} color={colors.textLight}/>
-                                        <Text style={styles.emptyText}>
-                                            {tournament.status === 'pending' ? 'Start the tournament to generate the bracket.' : 'No matches generated yet.'}
-                                        </Text>
+                                    <View style={styles.roundRobinContainer}>
+                                        <Text style={styles.standingsTitle}>Standings</Text>
+                                        
+                                        {/* Header row */}
+                                        <View style={styles.standingsHeader}>
+                                            <Text style={[styles.standingsHeaderCell, styles.playerNameColumn]}>Player</Text>
+                                            <Text style={styles.standingsHeaderCell}>P</Text>
+                                            <Text style={styles.standingsHeaderCell}>W</Text>
+                                            <Text style={styles.standingsHeaderCell}>L</Text>
+                                            <Text style={styles.standingsHeaderCell}>Pts+</Text>
+                                            <Text style={styles.standingsHeaderCell}>Pts-</Text>
+                                            <Text style={styles.standingsHeaderCell}>Diff</Text>
+                                        </View>
+                                        
+                                        {/* Player rows */}
+                                        {standings.map((standing, index) => (
+                                            <View key={standing.player.id} style={[styles.standingsRow, index % 2 === 0 ? styles.standingsRowEven : styles.standingsRowOdd]}>
+                                                <View style={[styles.standingsCell, styles.playerNameColumn, styles.playerNameCell]}>
+                                                    <PlayerAvatar name={standing.player.name} player={standing.player} size={24} />
+                                                    <Text style={styles.standingsPlayerName} numberOfLines={1} ellipsizeMode="tail">
+                                                        {standing.player.name}
+                                                    </Text>
+                                                </View>
+                                                <Text style={styles.standingsCell}>{standing.matches}</Text>
+                                                <Text style={styles.standingsCell}>{standing.wins}</Text>
+                                                <Text style={styles.standingsCell}>{standing.losses}</Text>
+                                                <Text style={styles.standingsCell}>{standing.points}</Text>
+                                                <Text style={styles.standingsCell}>{standing.pointsAgainst}</Text>
+                                                <Text style={styles.standingsCell}>{standing.pointsDiff}</Text>
+                                            </View>
+                                        ))}
                                     </View>
                                 );
+                            } else if (tournament.format === TournamentFormat.GROUP) {
+                                // Group format - show group standings and generate knockout phase button
+                                const groupStandings = calculateGroupStandings(participants, tournamentMatches);
+                                const allGroupMatchesCompleted = tournamentMatches.filter(m => m.round === 1).every(m => m.status === 'completed');
+                                const hasKnockout = tournamentMatches.some(m => m.round > 1);
+                                return (
+                                    <View style={styles.groupStandingsContainer}>
+                                        <Text style={styles.standingsTitle}>Group Standings</Text>
+                                        
+                                        {/* Generate knockout phase button */}
+                                        {allGroupMatchesCompleted && !hasKnockout && (
+                                            <Button
+                                                title="Generate Knockout Phase"
+                                                onPress={async () => {
+                                                    try {
+                                                        await tournamentStore.generateTournamentMatches(tournament.id);
+                                                        Alert.alert("Success", "Knockout phase generated successfully");
+                                                    } catch (error) {
+                                                        console.error("Failed to generate knockout phase:", error);
+                                                        Alert.alert("Error", "Failed to generate knockout phase. Please try again.");
+                                                    }
+                                                }}
+                                                style={styles.generateKnockoutButton}
+                                            />
+                                        )}
+                                        
+                                        {/* Display each group */}
+                                        {Object.entries(groupStandings).map(([groupNum, groupStanding]) => (
+                                            <View key={`group-${groupNum}`} style={styles.groupSection}>
+                                                <Text style={styles.groupTitle}>Group {groupNum}</Text>
+                                                
+                                                <View style={styles.standingsTable}>
+                                                    {/* Header row */}
+                                                    <View style={styles.standingsHeader}>
+                                                        <Text style={[styles.standingsHeaderCell, styles.playerNameColumn]}>Player</Text>
+                                                        <Text style={styles.standingsHeaderCell}>P</Text>
+                                                        <Text style={styles.standingsHeaderCell}>W</Text>
+                                                        <Text style={styles.standingsHeaderCell}>L</Text>
+                                                        <Text style={styles.standingsHeaderCell}>Pts+</Text>
+                                                        <Text style={styles.standingsHeaderCell}>Pts-</Text>
+                                                        <Text style={styles.standingsHeaderCell}>Diff</Text>
+                                                    </View>
+                                                    
+                                                    {/* Player rows */}
+                                                    {groupStanding.map((standing, index) => (
+                                                        <View key={standing.player.id} style={[styles.standingsRow, index % 2 === 0 ? styles.standingsRowEven : styles.standingsRowOdd]}>
+                                                            <View style={[styles.standingsCell, styles.playerNameColumn, styles.playerNameCell]}>
+                                                                <PlayerAvatar name={standing.player.name} player={standing.player} size={24} />
+                                                                <Text style={styles.standingsPlayerName} numberOfLines={1} ellipsizeMode="tail">
+                                                                    {standing.player.name}
+                                                                </Text>
+                                                            </View>
+                                                            <Text style={styles.standingsCell}>{standing.matches}</Text>
+                                                            <Text style={styles.standingsCell}>{standing.wins}</Text>
+                                                            <Text style={styles.standingsCell}>{standing.losses}</Text>
+                                                            <Text style={styles.standingsCell}>{standing.points}</Text>
+                                                            <Text style={styles.standingsCell}>{standing.pointsAgainst}</Text>
+                                                            <Text style={styles.standingsCell}>{standing.pointsDiff}</Text>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </View>
+                                );
+                            } else {
+                                // Knockout format - show bracket
+                                const flatMatches = bracketRounds.flat();
+                                if (bracketRounds.length > 0) {
+                                    return (
+                                        <TournamentBracket
+                                            matches={flatMatches}
+                                            onMatchPress={handleMatchPress}
+                                        />
+                                    );
+                                } else {
+                                    return (
+                                        <View style={[styles.emptyStateContainer, styles.emptyBracket]}>
+                                            <Ionicons name="trophy-outline" size={48} color={colors.textLight}/>
+                                            <Text style={styles.emptyText}>
+                                                {tournament.status === 'pending' ? 'Start the tournament to generate the bracket.' : 'No matches generated yet.'}
+                                            </Text>
+                                        </View>
+                                    );
+                                }
                             }
                         })()}
                     </View>
@@ -352,61 +651,131 @@ export default function TournamentDetailScreen() {
                                 </Text>
                             </View>
                         ) : (
-                            tournamentMatches.map((match) => {
-                                const player1 = match.player1Id ? playerStore.getPlayerById(match.player1Id) : null;
-                                const player2 = match.player2Id ? playerStore.getPlayerById(match.player2Id) : null;
-                                const isCompleted = match.status === 'completed';
-                                const isScheduled = match.status === 'scheduled';
-                                const canPlay = isScheduled && player1 && player2;
-                                const isTBD = isScheduled && (!player1 || !player2);
+                            <View style={styles.roundMatches}>
+                                {/* Group matches by group for GROUP format in round 1 */}
+                                {tournament.format === TournamentFormat.GROUP && bracketRounds[0] ? (
+                                    // First identify all groups
+                                    Array.from(new Set(bracketRounds[0].map(m => m.group).filter(Boolean)))
+                                        .map(groupNum => {
+                                            // Get matches for this group
+                                            const groupMatches = bracketRounds[0]
+                                                .filter(m => m.group === groupNum);
+                                            
+                                            if (groupMatches.length === 0) return null;
+                                            
+                                            return (
+                                                <View key={`group-${groupNum}`} style={{marginBottom: 16}}>
+                                                    <Text style={{fontSize: 14, fontWeight: 'bold', marginBottom: 4, color: colors.text}}>
+                                                        Group {groupNum}
+                                                    </Text>
+                                                    {groupMatches.map(match => (
+                                                        <Pressable
+                                                            key={match.id}
+                                                            style={[
+                                                                styles.matchListItem,
+                                                                (match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && styles.matchListItemCompleted,
+                                                                (match.status === "scheduled" && match.player1Id && match.player2Id) && styles.matchListItemPlayable,
+                                                                (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) && styles.matchListItemTBD,
+                                                            ]}
+                                                            onPress={() => {
+                                                                if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed') {
+                                                                    if (match.matchId) {
+                                                                        router.push(`/match/${match.matchId}`);
+                                                                    } else {
+                                                                        Alert.alert('Mecz zakończony', 'Nie możesz już rozegrać ani edytować tego meczu.');
+                                                                    }
+                                                                    return;
+                                                                }
+                                                                if (match.status === "scheduled" && match.player1Id && match.player2Id) {
+                                                                    handleMatchPress(match);
+                                                                    return;
+                                                                }
+                                                                if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.matchId) {
+                                                                    router.push(`/match/${match.matchId}`);
+                                                                    return;
+                                                                }
+                                                                let message = "This match cannot be played or viewed yet.";
+                                                                if (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) {
+                                                                    message = "Waiting for players from previous rounds.";
+                                                                }
 
-                                let display = `Round ${match.round}: ${player1?.name ?? 'TBD'} vs ${player2?.name ?? 'TBD'}`;
-                                if (isCompleted && match.player1Score != null && match.player2Score != null) {
-                                    let player1SetSum = Array.isArray(match.sets) && match.sets.length > 0 ? match.sets.reduce((sum, set) => sum + (set.player1Score || 0), 0) : match.player1Score;
-                                    let player2SetSum = Array.isArray(match.sets) && match.sets.length > 0 ? match.sets.reduce((sum, set) => sum + (set.player2Score || 0), 0) : match.player2Score;
-                                    display = `${player1?.name ?? 'TBD'} (${player1SetSum}) vs ${player2?.name ?? 'TBD'} (${player2SetSum})`;
-                                }
+                                                                Alert.alert("Match Info", message);
+                                                            }}
+                                                            disabled={(match.status as 'completed' | 'pending' | 'scheduled') === 'completed'}
+                                                        >
+                                                            <Text style={[styles.matchListText, (match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && {opacity: 0.7}]}
+                                                                  numberOfLines={1} ellipsizeMode="tail">
+                                                                {`Round ${match.round}: ${match.player1Id ? playerStore.getPlayerById(match.player1Id)?.name : 'TBD'} vs ${match.player2Id ? playerStore.getPlayerById(match.player2Id)?.name : 'TBD'}`}
+                                                            </Text>
+                                                            <View style={styles.matchListIcons}>
+                                                                {(match.status === "scheduled" && match.player1Id && match.player2Id) &&
+                                                                    <Play size={18} color={colors.primary} style={{marginLeft: 8}}/>}
+                                                                {(match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && <Text style={styles.viewDetailsText}>Wynik</Text>}
+                                                                {(match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) && <Text style={styles.tbdText}>TBD</Text>}
+                                                            </View>
+                                                        </Pressable>
+                                                    ))}
+                                                </View>
+                                            );
+                                        })
+                                ) : (
+                                    // Normal display for other rounds or tournament formats
+                                    bracketRounds.map((roundMatches, roundIndex) => (
+                                        <View key={`round-${roundIndex}`} style={{marginBottom: 16}}>
+                                            <Text style={{fontSize: 14, fontWeight: 'bold', marginBottom: 4, color: colors.text}}>
+                                                Round {roundIndex + 1}
+                                            </Text>
+                                            {roundMatches.map(match => (
+                                                <Pressable
+                                                    key={match.id}
+                                                    style={[
+                                                        styles.matchListItem,
+                                                        (match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && styles.matchListItemCompleted,
+                                                        (match.status === "scheduled" && match.player1Id && match.player2Id) && styles.matchListItemPlayable,
+                                                        (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) && styles.matchListItemTBD,
+                                                    ]}
+                                                    onPress={() => {
+                                                        if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed') {
+                                                            if (match.matchId) {
+                                                                router.push(`/match/${match.matchId}`);
+                                                            } else {
+                                                                Alert.alert('Mecz zakończony', 'Nie możesz już rozegrać ani edytować tego meczu.');
+                                                            }
+                                                            return;
+                                                        }
+                                                        if (match.status === "scheduled" && match.player1Id && match.player2Id) {
+                                                            handleMatchPress(match);
+                                                            return;
+                                                        }
+                                                        if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.matchId) {
+                                                            router.push(`/match/${match.matchId}`);
+                                                            return;
+                                                        }
+                                                        let message = "This match cannot be played or viewed yet.";
+                                                        if (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) {
+                                                            message = "Waiting for players from previous rounds.";
+                                                        }
 
-                                return (
-                                    <Pressable
-                                        key={match.id}
-                                        style={[
-                                            styles.matchListItem,
-                                            isCompleted && styles.matchListItemCompleted,
-                                            canPlay && styles.matchListItemPlayable,
-                                            isTBD && styles.matchListItemTBD,
-                                        ]}
-                                        onPress={() => {
-                                            if (isCompleted) {
-                                                if (match.matchId) {
-                                                    router.push(`/match/${match.matchId}`);
-                                                } else {
-                                                    Alert.alert('Mecz zakończony', 'Nie możesz już rozegrać ani edytować tego meczu.');
-                                                }
-                                                return;
-                                            }
-                                            if (canPlay) {
-                                                handleMatchPress(match);
-                                                return;
-                                            }
-                                            if (isTBD) {
-                                                Alert.alert('Mecz niedostępny', 'Czekaj na rozstrzygnięcie poprzednich rund.');
-                                                return;
-                                            }
-                                        }}
-                                        disabled={isCompleted}
-                                    >
-                                        <Text style={[styles.matchListText, isCompleted && {opacity: 0.7}]}
-                                              numberOfLines={1} ellipsizeMode="tail">{display}</Text>
-                                        <View style={styles.matchListIcons}>
-                                            {canPlay &&
-                                                <Play size={18} color={colors.primary} style={{marginLeft: 8}}/>}
-                                            {isCompleted && <Text style={styles.viewDetailsText}>Wynik</Text>}
-                                            {isTBD && <Text style={styles.tbdText}>TBD</Text>}
+                                                        Alert.alert("Match Info", message);
+                                                    }}
+                                                    disabled={(match.status as 'completed' | 'pending' | 'scheduled') === 'completed'}
+                                                >
+                                                    <Text style={[styles.matchListText, (match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && {opacity: 0.7}]}
+                                                          numberOfLines={1} ellipsizeMode="tail">
+                                                        {`Round ${match.round}: ${match.player1Id ? playerStore.getPlayerById(match.player1Id)?.name : 'TBD'} vs ${match.player2Id ? playerStore.getPlayerById(match.player2Id)?.name : 'TBD'}`}
+                                                    </Text>
+                                                    <View style={styles.matchListIcons}>
+                                                        {(match.status === "scheduled" && match.player1Id && match.player2Id) &&
+                                                            <Play size={18} color={colors.primary} style={{marginLeft: 8}}/>}
+                                                        {(match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && <Text style={styles.viewDetailsText}>Wynik</Text>}
+                                                        {(match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) && <Text style={styles.tbdText}>TBD</Text>}
+                                                    </View>
+                                                </Pressable>
+                                            ))}
                                         </View>
-                                    </Pressable>
-                                );
-                            })
+                                    ))
+                                )}
+                            </View>
                         )}
                     </View>
                 )}
@@ -746,5 +1115,104 @@ const styles = StyleSheet.create({
     },
     startButton: {
         marginTop: 10,
-    }
+    },
+    roundRobinContainer: {
+        marginTop: 10,
+        marginHorizontal: 10,
+        borderRadius: 8,
+        overflow: 'hidden',
+        backgroundColor: colors.card,
+    },
+    standingsTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.text,
+        marginVertical: 10,
+        marginHorizontal: 10,
+    },
+    standingsTable: {
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    standingsHeader: {
+        flexDirection: 'row',
+        backgroundColor: colors.primary,
+        padding: 8,
+    },
+    standingsHeaderCell: {
+        flex: 1,
+        color: '#fff',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        fontSize: 12,
+    },
+    standingsRow: {
+        flexDirection: 'row',
+        padding: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
+    },
+    standingsCell: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: 12,
+    },
+    standingsRowEven: {
+        backgroundColor: '#f9f9f9',
+    },
+    standingsRowOdd: {
+        backgroundColor: '#ffffff',
+    },
+    playerNameColumn: {
+        flex: 2,
+        justifyContent: 'flex-start',
+    },
+    playerNameCell: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+    },
+    standingsPlayerName: {
+        marginLeft: 8,
+        fontSize: 12,
+        flex: 1,
+    },
+    groupStandingsContainer: {
+        marginTop: 16,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 2},
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    groupSection: {
+        marginTop: 16,
+    },
+    groupTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        color: colors.text,
+    },
+    generateKnockoutButton: {
+        backgroundColor: colors.primary,
+        borderRadius: 8,
+        padding: 12,
+        alignItems: 'center',
+        marginVertical: 12,
+    },
+    generateKnockoutButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    roundMatches: {
+        padding: 16,
+    },
 });
