@@ -48,6 +48,11 @@ export default function CreateTournamentScreen() {
             return;
         }
 
+        if (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0) {
+            Alert.alert("Error", "Knockout tournaments require a number of players divisible by 4");
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
@@ -188,7 +193,7 @@ export default function CreateTournamentScreen() {
                     title="Create Tournament"
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={!name.trim() || selectedPlayerIds.length < 2}
+                    disabled={!name.trim() || selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
                     style={styles.submitButton}
                 />
             </ScrollView>
