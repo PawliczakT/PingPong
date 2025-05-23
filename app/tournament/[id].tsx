@@ -19,7 +19,6 @@ export default function TournamentDetailScreen() {
     const {id} = useLocalSearchParams();
     const router = useRouter();
 
-    const [forceUpdate, setForceUpdate] = useState(0);
     const [showConfirmComplete, setShowConfirmComplete] = useState(false);
     const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"bracket" | "matches" | "players">(
@@ -38,17 +37,12 @@ export default function TournamentDetailScreen() {
     // Pobierz obiekt zwycięzcy na podstawie ID
     const winner = tournament?.winner ? playerStore.getPlayerById(tournament.winner) : null;
 
-    // Dodajemy forceUpdate jako zależność, aby wymusić ponowne pobranie danych gdy się zmieni
     useEffect(() => {
-        if (!id) return;
-        // Bez tej instrukcji console.log, byłoby problemy z optymalizacją i efekt nie działałby prawidłowo
-        console.log(`[TournamentDetailScreen] Forcing update: ${forceUpdate}`);
-        
-        // Gdy forceUpdate się zmienia, pobierz świeże dane turnieju
-        if (forceUpdate > 0) {
+        if (!tournament) return;
+        if (tournament.status === 'completed') {
             tournamentStore.fetchTournaments();
         }
-    }, [id, forceUpdate]);
+    }, [tournament?.status]);
 
     function groupMatchesByRound(matches: TournamentMatch[]): TournamentMatch[][] {
         if (!matches || matches.length === 0) return [];
@@ -95,44 +89,6 @@ export default function TournamentDetailScreen() {
             })();
         }
     }, [tournamentMatches, tournament]);
-
-    useEffect(() => {
-        if (!tournament) return;
-        
-        console.log('[TournamentDetailScreen] Tournament status changed to:', tournament.status);
-        console.log('[TournamentDetailScreen] Tournament winner:', tournament.winner);
-        
-        // Jeśli turniej jest zakończony, odśwież dane jeszcze raz
-        if (tournament.status === 'completed') {
-            console.log('[TournamentDetailScreen] Tournament completed, refreshing data...');
-            
-            // Dodajemy timeouty, aby przerwać potencjalne blokujące operacje
-            setTimeout(() => {
-                tournamentStore.fetchTournaments()
-                    .then(() => {
-                        // Następnie wymuszamy ponowne pobranie danych turnieju
-                        const refreshedTournament = tournamentStore.getTournamentById(tournament.id);
-                        console.log('[TournamentDetailScreen] Refreshed tournament data:', 
-                          refreshedTournament?.status, 'winner:', refreshedTournament?.winner);
-                        
-                        // Wymuszamy ponowne renderowanie komponentu
-                        setForceUpdate(prev => prev + 1);
-                        console.log('[TournamentDetailScreen] Force update triggered:', forceUpdate + 1);
-                        
-                        // Opóźnione dodatkowe odświeżenie
-                        setTimeout(() => {
-                            // Wymuszamy jeszcze jedno odświeżenie, aby upewnić się, że dane są aktualne
-                            console.log('[TournamentDetailScreen] Checking winner status:', 
-                              refreshedTournament?.winner, playerStore.getPlayerById(refreshedTournament?.winner || ''));
-                            
-                            // Wymuszamy ponowne renderowanie komponentu
-                            setForceUpdate(prev => prev + 1);
-                            console.log('[TournamentDetailScreen] Second force update triggered');
-                        }, 1000);
-                    });
-            }, 500); // Opóźniamy pierwsze odświeżenie o 500ms
-        }
-    }, [tournament?.status]);
 
     useEffect(() => {
         setShowConfirmComplete(false);
