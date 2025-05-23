@@ -10,6 +10,7 @@ type TournamentStore = {
     tournaments: Tournament[];
     loading: boolean;
     error: string | null;
+    lastFetchTimestamp: number | null;
     fetchTournaments: () => Promise<void>;
     createTournament: (name: string, date: string, format: TournamentFormat, playerIds: string[]) => Promise<string | undefined>;
     updateMatchResult: (
@@ -392,6 +393,7 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
                     return null;
                 } else {
                     console.log(`[autoSelectRoundRobinWinner] Turniej ${tournamentId} zakou0144czony. Zwyciu0119zca: ${winner.playerId}`);
+                    // Po wyłonieniu zwycięzcy odśwież dane turnieju
                     return winner.playerId;
                 }
             } catch (error) {
@@ -460,9 +462,21 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
     tournaments: [],
     loading: false,
     error: null,
+    lastFetchTimestamp: null,
 
     fetchTournaments: async () => {
+        // Sprawdź, czy ostatnie odświeżenie było wystarczająco dawno
+        const now = Date.now();
+        const lastFetch = get().lastFetchTimestamp || 0;
+        const minInterval = 1500; // Zwiększam interwał do 1.5 sekundy
+
+        if (now - lastFetch < minInterval) {
+            console.log(`[STORE] Pomijanie fetchTournaments - zbyt krótki interwał (${now - lastFetch}ms)`);
+            return;
+        }
+
         set({loading: true, error: null});
+        console.log('[STORE] set loading: true (fetchTournaments)');
         try {
             const {data: tournamentsData, error: tErr} = await supabase
                 .from('tournaments')
@@ -526,15 +540,18 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 };
             });
 
-            set({tournaments, loading: false});
+            set({tournaments, loading: false, lastFetchTimestamp: Date.now()});
+            console.log('[STORE] set loading: false (fetchTournaments)');
         } catch (error: any) {
             console.error("Fetch Tournaments Error:", error);
             set({loading: false, error: error.message || 'Failed to fetch tournaments'});
+            console.log('[STORE] set loading: false (catch fetchTournaments)');
         }
     },
 
     createTournament: async (name: string, date: string, format: TournamentFormat, playerIds: string[]): Promise<string | undefined> => {
         set({loading: true, error: null});
+        console.log('[STORE] set loading: true (createTournament)');
         let tournamentId: string | undefined = undefined;
         try {
             if (playerIds.length < 2) {
@@ -564,6 +581,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             await get().fetchTournaments();
             set({loading: false});
+            console.log('[STORE] set loading: false (createTournament)');
             return tournamentId;
 
         } catch (error: any) {
@@ -573,12 +591,14 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 await supabase.from('tournaments').delete().eq('id', tournamentId);
             }
             set({loading: false, error: error.message || 'Failed to create tournament'});
+            console.log('[STORE] set loading: false (catch createTournament)');
             return undefined;
         }
     },
 
     generateAndStartTournament: async (tournamentId: string) => {
         set({loading: true, error: null});
+        console.log('[STORE] set loading: true (generateAndStartTournament)');
         let generatedMatchesInserted = false;
 
         try {
@@ -641,6 +661,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                 await get().fetchTournaments();
                 set({loading: false});
+                console.log('[STORE] set loading: false (generateAndStartTournament)');
             } else if (existingTournament.format === 'GROUP') {
                 const numGroups = Math.min(4, Math.ceil(playerIds.length / 3)); // Aim for 3-4 players per group
                 const groups = generateGroups(playerIds, numGroups);
@@ -673,6 +694,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 
                 await get().fetchTournaments();
                 set({loading: false});
+                console.log('[STORE] set loading: false (generateAndStartTournament)');
             } else {
                 const numPlayers = playerIds.length;
                 const numRounds = Math.ceil(Math.log2(numPlayers));
@@ -762,6 +784,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                 await get().fetchTournaments();
                 set({loading: false});
+                console.log('[STORE] set loading: false (generateAndStartTournament)');
             }
 
         } catch (error: any) {
@@ -770,6 +793,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
             }
             set({loading: false, error: error.message || 'Failed to generate and start tournament'});
+            console.log('[STORE] set loading: false (catch generateAndStartTournament)');
         }
     },
 
@@ -779,6 +803,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         sets?: MatchSet[]
     }) => {
         set({loading: true, error: null});
+        console.log('[STORE] set loading: true (updateMatchResult)');
         try {
             // Uu017cywamy timeout, aby uniknu0105u0107 blokowania gu0142u00f3wnego wu0105tku
             await new Promise(resolve => setTimeout(resolve, 10));
@@ -814,7 +839,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 player2_score: scores.player2Score,
                 winner_id: winnerId,
                 status: 'completed',
-                sets: scores.sets || undefined
+                sets: scores.sets,
             };
 
             // Aktualizacja danych meczu z opu00f3u017anieniem, aby uniknu0105u0107 blokowania interfejsu
@@ -917,17 +942,14 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         if (allMatchesCompleted && tournamentMatches.length > 0) {
                             console.log(`Wszystkie mecze zakou0144czone (${tournamentMatches.length}). Wybieranie zwyciu0119zcy...`);
                             try {
-                                const winnerId = await new Promise<string | null>(resolve => {
-                                    setTimeout(async () => {
-                                        const id = await autoSelectRoundRobinWinner(tournamentId);
-                                        resolve(id);
-                                    }, 100);
-                                });
+                                const winnerId = await autoSelectRoundRobinWinner(tournamentId);
                                 console.log(`Zakou0144czono turniej. Zwyciu0119zca: ${winnerId}`);
+                                // Po wyłonieniu zwycięzcy odśwież dane turnieju
+                                await get().fetchTournaments();
                             } catch (error) {
                                 console.error("Bu0142u0105d podczas wybierania zwyciu0119zcy:", error);
                             } finally {
-                                // Zawsze zresetuj stan u0142adowania, niezaleu017cnie od wyniku
+                                // Zawsze zresetuj stan ładowania, niezależnie od wyniku
                                 set({loading: false});
                             }
                         } else {
@@ -959,14 +981,17 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             
             // Dodatkowe zabezpieczenie - ustawiamy loading na false na kou0144cu funkcji
             set({loading: false});
+            console.log('[STORE] set loading: false (finally updateMatchResult)');
 
         } catch (error: any) {
             console.error("Update Match Result Error:", error);
             set({loading: false, error: error.message || 'Failed to update match'});
+            console.log('[STORE] set loading: false (catch updateMatchResult)');
         } finally {
             // Zawsze resetujemy stan u0142adowania
             console.log("[updateMatchResult] Finalizacja - resetowanie stanu u0142adowania");
             set({loading: false});
+            console.log('[STORE] set loading: false (finally updateMatchResult)');
         }
     },
 
@@ -1023,7 +1048,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
         console.log(`[setTournamentWinner] Setting winner ${winnerId} for tournament ${tournamentId}`);
         set({loading: true, error: null});
-
+        console.log('[STORE] set loading: true (setTournamentWinner)');
         try {
             // Najpierw aktualizujemy stan lokalny
             set(state => ({
@@ -1047,16 +1072,23 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             // Odu015bwieu017c dane turnieju aby mieu0107 pewnou015bu0107, u017ce wszystko jest aktualne
             await get().fetchTournaments();
             console.log(`[setTournamentWinner] Successfully set winner ${winnerId} for tournament ${tournamentId}`);
+            set({loading: false});
+            console.log('[STORE] set loading: false (setTournamentWinner)');
         } catch (error: any) {
             console.error("Failed to set tournament winner:", error);
             set({error: error.message || "Failed to set winner"});
-        } finally {
-            // Zawsze resetuj stan u0142adowania niezaleu017cnie od wyniku
-            console.log(`[setTournamentWinner] Resetting loading state`);
             set({loading: false});
+            console.log('[STORE] set loading: false (catch setTournamentWinner)');
         }
     },
 }));
+
+// Dodanie zmiennej do śledzenia ostatniego stanu turniejów
+let lastTournamentsState: {
+    tournamentId: string;
+    isCompleted: boolean;
+    hasWinner: boolean;
+}[] = [];
 
 export function useTournamentsRealtime() {
     useEffect(() => {
@@ -1066,10 +1098,54 @@ export function useTournamentsRealtime() {
                 'postgres_changes',
                 {event: '*', schema: 'public', table: 'tournaments'},
                 () => {
-                    if (typeof useTournamentStore.getState().fetchTournaments === 'function') {
-                        useTournamentStore.getState().fetchTournaments().catch((e) =>
-                            console.error("Error fetching tournaments:", e));
+                    // Blokada: nie fetchuj, jeśli loading już jest true
+                    if (useTournamentStore.getState().loading) {
+                        console.log(`[STORE] Pomijanie odświeżania (loading już aktywny)`);
+                        return;
                     }
+
+                    // Sprawdź czy minęła minimalna przerwa między odświeżeniami
+                    const now = Date.now();
+                    const lastFetch = useTournamentStore.getState().lastFetchTimestamp || 0;
+                    const minInterval = 2000; // Zwiększam minimalny interwał do 2 sekund dla subskrypcji
+
+                    if (now - lastFetch < minInterval) {
+                        console.log(`[STORE] Pomijanie odświeżania (za wcześnie, przerwa: ${now - lastFetch}ms)`);
+                        return;
+                    }
+
+                    // Sprawdź czy stan turniejów znacząco się zmienił, aby uniknąć niepotrzebnych odświeżeń
+                    const currentTournaments = useTournamentStore.getState().tournaments;
+                    const currentState = currentTournaments.map(t => ({
+                        tournamentId: t.id,
+                        isCompleted: t.status === 'completed',
+                        hasWinner: Boolean(t.winner)
+                    }));
+
+                    // Sprawdzanie, czy jedyną zmianą jest zakończenie turnieju, który już ma zwycięzcę
+                    const significantChange = !lastTournamentsState.length || currentState.some((curr, i) => {
+                        const prev = lastTournamentsState[i];
+                        // Jeśli turniej już był zakończony i miał zwycięzcę, to nie ma potrzeby odświeżania
+                        if (prev && prev.tournamentId === curr.tournamentId && 
+                            prev.isCompleted && prev.hasWinner && 
+                            curr.isCompleted && curr.hasWinner) {
+                            return false;
+                        }
+                        return !prev || prev.tournamentId !== curr.tournamentId || 
+                               prev.isCompleted !== curr.isCompleted ||
+                               prev.hasWinner !== curr.hasWinner;
+                    });
+
+                    lastTournamentsState = currentState;
+
+                    if (!significantChange) {
+                        console.log(`[STORE] Pomijanie odświeżania (brak istotnych zmian w turniejach)`);
+                        return;
+                    }
+
+                    console.log(`[STORE] Odświeżanie danych przez subskrypcję (przerwa: ${now - lastFetch}ms)`);
+                    useTournamentStore.getState().fetchTournaments().catch((e) =>
+                        console.error("Error fetching tournaments:", e));
                 }
             )
             .subscribe();
