@@ -233,7 +233,7 @@ async function generateKnockoutPhase(tournamentId: string, qualifiedPlayers: str
     return;
 }
 
-async function autoSelectRoundRobinWinner(tournamentId: string): Promise<void> {
+async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string | null> {
     console.log(`[autoSelectRoundRobinWinner] Rozpoczynanie wyboru zwyciu0119zcy dla turnieju ${tournamentId}`);
     
     try {
@@ -246,12 +246,12 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<void> {
 
         if (tournamentError) {
             console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas pobierania turnieju:`, tournamentError);
-            return;
+            return null;
         }
 
         if (!tournamentData) {
             console.error(`[autoSelectRoundRobinWinner] Nie znaleziono turnieju o ID ${tournamentId}`);
-            return;
+            return null;
         }
         
         console.log(`[autoSelectRoundRobinWinner] Pobrano dane turnieju:`, tournamentData);
@@ -279,7 +279,7 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<void> {
         console.log(`[autoSelectRoundRobinWinner] Czy wszystkie mecze su0105 zakou0144czone: ${allMatchesCompleted}`);
         if (!allMatchesCompleted || matches.length === 0) {
             console.log(`[autoSelectRoundRobinWinner] Nie wszystkie mecze su0105 zakou0144czone lub brak meczu00f3w, przerywam.`);
-            return;
+            return null;
         }
 
         // Oblicz punkty dla kau017cdego gracza
@@ -372,25 +372,39 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<void> {
             const winner = rankedPlayers[0];
             console.log(`[autoSelectRoundRobinWinner] Zwyciu0119zca: ${winner.playerId}`);
             
-            // Ustaw zwyciu0119zcu0119 turnieju
-            const { error } = await supabase
-                .from('tournaments')
-                .update({ 
-                    winner_id: winner.playerId,
-                    status: 'completed' 
-                })
-                .eq('id', tournamentId);
+            try {
+                // Ustaw zwyciu0119zcu0119 turnieju - uu017cywamy timeout, u017ceby uniknu0105u0107 blokowania gu0142u00f3wnego wu0105tku
+                const { error } = await new Promise<{error?: any}>((resolve) => {
+                    setTimeout(async () => {
+                        const result = await supabase
+                            .from('tournaments')
+                            .update({ 
+                                winner_id: winner.playerId,
+                                status: 'completed' 
+                            })
+                            .eq('id', tournamentId);
+                        resolve(result);
+                    }, 100); // Opu00f3u017anienie 100ms
+                });
 
-            if (error) {
-                console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas ustawiania zwyciu0119zcy:`, error);
-            } else {
-                console.log(`[autoSelectRoundRobinWinner] Turniej ${tournamentId} zakou0144czony. Zwyciu0119zca: ${winner.playerId}`);
+                if (error) {
+                    console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas ustawiania zwyciu0119zcy:`, error);
+                    return null;
+                } else {
+                    console.log(`[autoSelectRoundRobinWinner] Turniej ${tournamentId} zakou0144czony. Zwyciu0119zca: ${winner.playerId}`);
+                    return winner.playerId;
+                }
+            } catch (error) {
+                console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas aktualizacji turnieju:`, error);
+                return null;
             }
         } else {
             console.error(`[autoSelectRoundRobinWinner] Brak graczy do wybrania zwyciu0119zcy`);
+            return null;
         }
     } catch (error) {
         console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas wyau0142aniania zwyciu0119zcy:`, error);
+        return null;
     }
 }
 
@@ -409,10 +423,10 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     .from('tournament_participants')
                     .select('player_id')
                     .eq('tournament_id', tournamentId);
-                    
+
                 if (pErr) throw pErr;
                 const playerIds = participantsData.map(p => p.player_id);
-                
+
                 const numGroups = Math.min(4, Math.ceil(playerIds.length / 3)); // Aim for 3-4 players per group
                 
                 const groups = Array.from(new Set(groupMatches.map(m => m.group).filter(Boolean))).map(groupNum => {
@@ -425,14 +439,14 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     });
                     return Array.from(groupPlayerIds);
                 });
-                
+
                 const qualifiedPlayers = getTopPlayersFromGroups(groups, groupMatches);
-                
+
                 await generateKnockoutPhase(tournamentId, qualifiedPlayers);
-                
+
                 await get().fetchTournaments();
                 set({loading: false});
-                
+
                 return Promise.resolve();
             } catch (error: any) {
                 console.error('Generate Tournament Matches Error:', error);
@@ -440,7 +454,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 return Promise.reject(error);
             }
         }
-        
+
         return Promise.resolve();
     },
     tournaments: [],
@@ -766,6 +780,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
     }) => {
         set({loading: true, error: null});
         try {
+            // Uu017cywamy timeout, aby uniknu0105u0107 blokowania gu0142u00f3wnego wu0105tku
+            await new Promise(resolve => setTimeout(resolve, 10));
+            
             const currentMatch = get().tournaments.find(t => t.id === tournamentId)
                 ?.matches.find(m => m.id === matchId);
 
@@ -800,8 +817,17 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 sets: scores.sets || undefined
             };
 
-            const {error: updateErr} = await supabase
-                .from('tournament_matches').update(updateData).eq('id', matchId);
+            // Aktualizacja danych meczu z opu00f3u017anieniem, aby uniknu0105u0107 blokowania interfejsu
+            const {error: updateErr} = await new Promise<{error?: any}>(resolve => {
+                setTimeout(async () => {
+                    const result = await supabase
+                        .from('tournament_matches')
+                        .update(updateData)
+                        .eq('id', matchId);
+                    resolve(result);
+                }, 50);
+            });
+            
             if (updateErr) throw updateErr;
 
             if (currentMatch.nextMatchId) {
@@ -828,27 +854,57 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     }
 
                     if (Object.keys(updateData).length > 0) {
-                        await supabase.from('tournament_matches').update(updateData).eq('id', nextMatchId);
+                        // Aktualizacja nastu0119pnego meczu z opu00f3u017anieniem
+                        await new Promise(resolve => {
+                            setTimeout(async () => {
+                                await supabase
+                                    .from('tournament_matches')
+                                    .update(updateData)
+                                    .eq('id', nextMatchId);
+                                resolve(null);
+                            }, 50);
+                        });
                     }
                 }
             } else {
+                console.log(`[updateMatchResult] Brak nastu0119pnego meczu - sprawdzanie czy turniej siu0119 zakou0144czyu0142`);
                 const tournament = get().tournaments.find(t => t.id === tournamentId);
                 
                 if (tournament?.format === TournamentFormat.KNOCKOUT) {
-                    // Dla formatu KNOCKOUT, ostatni mecz (finał) kończy turniej
-                    await get().setTournamentWinner(tournamentId, winnerId);
-                } else if (tournament?.format === TournamentFormat.ROUND_ROBIN) {
-                    // Dla formatu ROUND_ROBIN sprawdzamy, czy wszystkie mecze zostały rozegrane
-                    // Pobierz u015bwieu017ce dane o turnieju i jego meczach z bazy danych
+                    console.log(`[updateMatchResult] Turniej w formacie KNOCKOUT - ustawianie zwyciu0119zcy ${winnerId}`);
+                    // Dla formatu KNOCKOUT, ostatni mecz (finau0142) kou0144czy turniej
                     try {
-                        const { data: freshTournament, error: tournamentError } = await supabase
-                            .from('tournaments')
-                            .select('*, tournament_matches(status)')
-                            .eq('id', tournamentId)
-                            .single();
+                        await new Promise(resolve => {
+                            setTimeout(async () => {
+                                await get().setTournamentWinner(tournamentId, winnerId);
+                                resolve(null);
+                            }, 100);
+                        });
+                        console.log(`[updateMatchResult] Ustawiono zwyciu0119zcu0119 turnieju KNOCKOUT`);
+                    } catch (error) {
+                        console.error(`[updateMatchResult] Bu0142u0105d podczas ustawiania zwyciu0119zcy:`, error);
+                    } finally {
+                        set({loading: false});
+                    }
+                } else if (tournament?.format === TournamentFormat.ROUND_ROBIN) {
+                    console.log(`[updateMatchResult] Turniej w formacie ROUND_ROBIN - sprawdzanie czy wszystkie mecze zakou0144czone`);
+                    // Dla formatu ROUND_ROBIN sprawdzamy, czy wszystkie mecze zostau0142y rozegrane
+                    try {
+                        // Pobieramy dane z opu00f3u017anieniem
+                        const { data: freshTournament, error: tournamentError } = await new Promise<{data?: any, error?: any}>(resolve => {
+                            setTimeout(async () => {
+                                const result = await supabase
+                                    .from('tournaments')
+                                    .select('*, tournament_matches(status)')
+                                    .eq('id', tournamentId)
+                                    .single();
+                                resolve(result);
+                            }, 50);
+                        });
 
                         if (tournamentError) {
                             console.error("Bu0142u0105d podczas pobierania danych turnieju:", tournamentError);
+                            set({loading: false});
                             return;
                         }
 
@@ -860,24 +916,57 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                         if (allMatchesCompleted && tournamentMatches.length > 0) {
                             console.log(`Wszystkie mecze zakou0144czone (${tournamentMatches.length}). Wybieranie zwyciu0119zcy...`);
-                            await autoSelectRoundRobinWinner(tournamentId);
+                            try {
+                                const winnerId = await new Promise<string | null>(resolve => {
+                                    setTimeout(async () => {
+                                        const id = await autoSelectRoundRobinWinner(tournamentId);
+                                        resolve(id);
+                                    }, 100);
+                                });
+                                console.log(`Zakou0144czono turniej. Zwyciu0119zca: ${winnerId}`);
+                            } catch (error) {
+                                console.error("Bu0142u0105d podczas wybierania zwyciu0119zcy:", error);
+                            } finally {
+                                // Zawsze zresetuj stan u0142adowania, niezaleu017cnie od wyniku
+                                set({loading: false});
+                            }
                         } else {
                             console.log(`Turniej trwa dalej. Zakou0144czonych meczu00f3w: ${tournamentMatches.filter((m: any) => m.status === 'completed').length}/${tournamentMatches.length}`);
+                            set({loading: false});
                         }
                     } catch (error) {
                         console.error("Bu0142u0105d podczas sprawdzania stanu turnieju:", error);
+                        set({loading: false});
+                        return;
                     }
                 } else if (tournament?.format === TournamentFormat.GROUP) {
-                    // Dla formatu GROUP nie kończymy turnieju automatycznie
-                    console.log("Match completed, but tournament continues as it's a GROUP format");
+                    // Dla formatu GROUP nie kou0144czymy turnieju automatycznie
+                    console.log(`[updateMatchResult] Turniej w formacie GROUP - nie wybieramy zwyciu0119zcy automatycznie`);
+                    set({loading: false});
+                } else {
+                    // Resetowanie stanu u0142adowania dla innych przypadku00f3w
+                    set({loading: false});
                 }
             }
 
-            await get().fetchTournaments();
+            // Na kou0144cu operacji zawsze odu015bwieu017camy dane z bazy
+            await new Promise(resolve => {
+                setTimeout(async () => {
+                    await get().fetchTournaments();
+                    resolve(null);
+                }, 100);
+            });
+            
+            // Dodatkowe zabezpieczenie - ustawiamy loading na false na kou0144cu funkcji
+            set({loading: false});
 
         } catch (error: any) {
             console.error("Update Match Result Error:", error);
             set({loading: false, error: error.message || 'Failed to update match'});
+        } finally {
+            // Zawsze resetujemy stan u0142adowania
+            console.log("[updateMatchResult] Finalizacja - resetowanie stanu u0142adowania");
+            set({loading: false});
         }
     },
 
@@ -932,7 +1021,11 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             return;
         }
 
+        console.log(`[setTournamentWinner] Setting winner ${winnerId} for tournament ${tournamentId}`);
+        set({loading: true, error: null});
+
         try {
+            // Najpierw aktualizujemy stan lokalny
             set(state => ({
                 tournaments: state.tournaments.map(t =>
                     t.id === tournamentId ? {
@@ -943,18 +1036,23 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 )
             }));
 
-            set({loading: true});
+            // Nastu0119pnie aktualizujemy bazu0119 danych
             const {error} = await supabase.from('tournaments').update({
                 winner_id: winnerId,
                 status: TournamentStatus.COMPLETED
             }).eq('id', tournamentId);
 
             if (error) throw error;
+            
+            // Odu015bwieu017c dane turnieju aby mieu0107 pewnou015bu0107, u017ce wszystko jest aktualne
+            await get().fetchTournaments();
+            console.log(`[setTournamentWinner] Successfully set winner ${winnerId} for tournament ${tournamentId}`);
         } catch (error: any) {
             console.error("Failed to set tournament winner:", error);
             set({error: error.message || "Failed to set winner"});
-            await get().fetchTournaments();
         } finally {
+            // Zawsze resetuj stan u0142adowania niezaleu017cnie od wyniku
+            console.log(`[setTournamentWinner] Resetting loading state`);
             set({loading: false});
         }
     },
