@@ -726,7 +726,11 @@ export default function TournamentDetailScreen() {
                                                             <View style={styles.matchListIcons}>
                                                                 {(match.status === "scheduled" && match.player1Id && match.player2Id) &&
                                                                     <Play size={18} color={colors.primary} style={{marginLeft: 8}}/>}
-                                                                {(match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && <Text style={styles.viewDetailsText}>Wynik</Text>}
+                                                                {(match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.player1Score !== null && match.player2Score !== null ? (
+                                                                    <Text style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
+                                                                ) : (
+                                                                    <Text style={styles.viewDetailsText}>Wynik</Text>
+                                                                )}
                                                                 {(match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) && <Text style={styles.tbdText}>TBD</Text>}
                                                             </View>
                                                         </Pressable>
@@ -783,7 +787,11 @@ export default function TournamentDetailScreen() {
                                                     <View style={styles.matchListIcons}>
                                                         {(match.status === "scheduled" && match.player1Id && match.player2Id) &&
                                                             <Play size={18} color={colors.primary} style={{marginLeft: 8}}/>}
-                                                        {(match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && <Text style={styles.viewDetailsText}>Wynik</Text>}
+                                                        {(match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.player1Score !== null && match.player2Score !== null ? (
+                                                            <Text style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
+                                                        ) : (
+                                                            <Text style={styles.viewDetailsText}>Wynik</Text>
+                                                        )}
                                                         {(match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) && <Text style={styles.tbdText}>TBD</Text>}
                                                     </View>
                                                 </Pressable>
