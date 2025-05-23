@@ -44,32 +44,15 @@ export default function TournamentDetailScreen() {
         }
     }, [tournament?.status]);
 
-    function groupMatchesByRound(matches: TournamentMatch[]): TournamentMatch[][] {
-        if (!matches || matches.length === 0) return [];
-        const grouped: { [round: number]: TournamentMatch[] } = {};
-        matches.forEach(match => {
-            if (!grouped[match.round]) grouped[match.round] = [];
-            grouped[match.round].push(match);
-        });
-        return Object.keys(grouped)
-            .sort((a, b) => Number(a) - Number(b))
-            .map(round => grouped[Number(round)]);
-    }
-
-    const bracketRounds = groupMatchesByRound(tournamentMatches);
-
-    function getUniqueMatches(matches: TournamentMatch[]): TournamentMatch[] {
-        const seen = new Set();
-        return matches.filter(match => {
-            if (!match.matchId) return false;
-            if (seen.has(match.matchId)) return false;
-            seen.add(match.matchId);
-            return true;
-        });
-    }
-
     useEffect(() => {
         if (!tournament) return;
+        if (tournament.status === 'completed') {
+            console.log(`[TournamentDetailScreen] useEffect: Tournament ${tournament.id} is COMPLETED, no further progression logic needed.`);
+            return;
+        }
+
+        console.log(`[TournamentDetailScreen] useEffect: Processing tournament ${tournament.id} with status ${tournament.status} and format ${tournament.format}`);
+
         const groupMatches = tournamentMatches.filter(m => m.round === 1);
         const allGroupCompleted = groupMatches.length > 0 && groupMatches.every(m => m.status === 'completed');
         const hasKnockout = tournamentMatches.some(m => m.round > 1);
@@ -411,6 +394,30 @@ export default function TournamentDetailScreen() {
         
         return groupStandings;
     }
+
+    function groupMatchesByRound(matches: TournamentMatch[]): TournamentMatch[][] {
+        if (!matches || matches.length === 0) return [];
+        const grouped: { [round: number]: TournamentMatch[] } = {};
+        matches.forEach(match => {
+            if (!grouped[match.round]) grouped[match.round] = [];
+            grouped[match.round].push(match);
+        });
+        return Object.keys(grouped)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(round => grouped[Number(round)]);
+    }
+
+    function getUniqueMatches(matches: TournamentMatch[]): TournamentMatch[] {
+        const seen = new Set();
+        return matches.filter(match => {
+            if (!match.matchId) return false;
+            if (seen.has(match.matchId)) return false;
+            seen.add(match.matchId);
+            return true;
+        });
+    }
+
+    const bracketRounds = groupMatchesByRound(tournamentMatches);
 
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
