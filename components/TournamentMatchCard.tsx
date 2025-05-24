@@ -1,6 +1,7 @@
 import React, {useState} from "react";
 import {Button, StyleSheet, Text, TextInput, View} from "react-native";
 import {TournamentMatch} from "@/types";
+import {colors} from "@/constants/colors";
 
 interface TournamentMatchCardProps {
     match: TournamentMatch;
@@ -23,12 +24,26 @@ const TournamentMatchCard: React.FC<TournamentMatchCardProps> = ({match, onSaveR
 
     return (
         <View style={styles.card}>
-            <Text>{match.player1Id ?? "TBD"} vs {match.player2Id ?? "TBD"}</Text>
+            <Text style={styles.matchTitle}>{match.player1Id ?? "TBD"} vs {match.player2Id ?? "TBD"}</Text>
             {isCompleted ? (
-                <View style={styles.resultRow}>
-                    <Text style={styles.scoreText}>{match.player1Score}</Text>
-                    <Text>:</Text>
-                    <Text style={styles.scoreText}>{match.player2Score}</Text>
+                <View>
+                    <View style={styles.resultRow}>
+                        <Text style={styles.scoreText}>{match.player1Score}</Text>
+                        <Text>:</Text>
+                        <Text style={styles.scoreText}>{match.player2Score}</Text>
+                    </View>
+                    {match.sets && Array.isArray(match.sets) && match.sets.length > 0 && (
+                        <View style={styles.setsContainer}>
+                            <Text style={styles.setsLabel}>Sets:</Text>
+                            <View style={styles.setsList}>
+                                {match.sets.map((set, index) => (
+                                    <Text key={index} style={styles.setText}>
+                                        {set.player1Score !== undefined ? set.player1Score : 0}-{set.player2Score !== undefined ? set.player2Score : 0}
+                                    </Text>
+                                ))}
+                            </View>
+                        </View>
+                    )}
                 </View>
             ) : canEnterResult ? (
                 <View>
@@ -63,11 +78,16 @@ const TournamentMatchCard: React.FC<TournamentMatchCardProps> = ({match, onSaveR
 };
 
 const styles = StyleSheet.create({
-    card: {padding: 12, margin: 8, borderWidth: 1, borderRadius: 8},
+    card: {padding: 12, margin: 8, borderWidth: 1, borderRadius: 8, borderColor: colors.border},
+    matchTitle: {fontSize: 16, fontWeight: "500", marginBottom: 8},
     inputRow: {flexDirection: "row", alignItems: "center", marginVertical: 8},
-    input: {borderWidth: 1, borderRadius: 4, width: 40, marginHorizontal: 4, textAlign: "center"},
+    input: {borderWidth: 1, borderRadius: 4, width: 40, marginHorizontal: 4, textAlign: "center", borderColor: colors.border},
     resultRow: {flexDirection: "row", alignItems: "center", marginTop: 8},
     scoreText: {fontWeight: "bold", fontSize: 16, marginHorizontal: 4},
+    setsContainer: {marginTop: 8},
+    setsLabel: {fontSize: 12, color: colors.textLight, marginBottom: 2},
+    setsList: {flexDirection: "row", flexWrap: "wrap"},
+    setText: {fontSize: 12, color: colors.textLight, marginRight: 8},
 });
 
 export default TournamentMatchCard;

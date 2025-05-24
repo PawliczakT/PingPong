@@ -77,11 +77,22 @@ export default function TournamentBracket({
                     )}
 
                     {isCompleted && (
-                        <Text style={styles.scoreText}>
-                            {Array.isArray(match.sets) && match.sets.length > 0
-                                ? match.sets.reduce((sum: number, set: MatchSet) => sum + (set.player1Score || 0), 0)
-                                : match.player1Score}
-                        </Text>
+                        <>
+                            <Text style={styles.scoreText}>
+                                {Array.isArray(match.sets) && match.sets.length > 0
+                                    ? match.sets.reduce((sum: number, set: MatchSet) => sum + (set.player1Score || 0), 0)
+                                    : match.player1Score !== undefined ? match.player1Score : 0}
+                            </Text>
+                            {Array.isArray(match.sets) && match.sets.length > 0 && (
+                                <View style={styles.setsContainer}>
+                                    {match.sets.map((set, index) => (
+                                        <Text key={index} style={styles.setText}>
+                                            {set.player1Score !== undefined ? set.player1Score : 0}-{set.player2Score !== undefined ? set.player2Score : 0}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )}
+                        </>
                     )}
                 </Pressable>
                 <View style={styles.separator}/>
@@ -103,11 +114,22 @@ export default function TournamentBracket({
                         <Text style={styles.pendingText}>TBD</Text>
                     )}
                     {isCompleted && (
-                        <Text style={styles.scoreText}>
-                            {Array.isArray(match.sets) && match.sets.length > 0
-                                ? match.sets.reduce((sum: number, set: MatchSet) => sum + (set.player2Score || 0), 0)
-                                : match.player2Score}
-                        </Text>
+                        <>
+                            <Text style={styles.scoreText}>
+                                {Array.isArray(match.sets) && match.sets.length > 0
+                                    ? match.sets.reduce((sum: number, set: MatchSet) => sum + (set.player2Score || 0), 0)
+                                    : match.player2Score !== undefined ? match.player2Score : 0}
+                            </Text>
+                            {Array.isArray(match.sets) && match.sets.length > 0 && (
+                                <View style={styles.setsContainer}>
+                                    {match.sets.map((set, index) => (
+                                        <Text key={index} style={styles.setText}>
+                                            {set.player1Score !== undefined ? set.player1Score : 0}-{set.player2Score !== undefined ? set.player2Score : 0}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )}
+                        </>
                     )}
                 </Pressable>
             </Pressable>
@@ -205,10 +227,19 @@ const styles = StyleSheet.create({
         color: colors.primary,
     },
     scoreText: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: "bold",
-        color: colors.text,
         marginLeft: 8,
+    },
+    setsContainer: {
+        flexDirection: "column",
+        alignItems: "flex-start",
+        marginLeft: 8,
+    },
+    setText: {
+        fontSize: 10,
+        color: colors.textLight,
+        marginVertical: 1,
     },
     separator: {
         height: 1,
