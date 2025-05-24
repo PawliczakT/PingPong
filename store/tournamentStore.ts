@@ -581,9 +581,37 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 throw new Error("Knockout tournaments require an even number of players");
             }
 
+            // Handle empty or missing tournament name
+            let finalName = name?.trim();
+            if (!finalName) {
+                // Get existing tournaments to find the next number
+                const {data: existingTournaments, error: fetchErr} = await supabase
+                    .from('tournaments')
+                    .select('name')
+                    .ilike('name', 'Tournament %');
+                
+                if (fetchErr) {
+                    console.warn("Error fetching existing tournament names:", fetchErr);
+                    finalName = "Tournament 1"; // Default if can't fetch
+                } else {
+                    // Find the highest tournament number
+                    let maxNumber = 0;
+                    existingTournaments?.forEach(t => {
+                        const match = t.name.match(/Tournament (\d+)/);
+                        if (match && match[1]) {
+                            const num = parseInt(match[1]);
+                            if (!isNaN(num) && num > maxNumber) {
+                                maxNumber = num;
+                            }
+                        }
+                    });
+                    finalName = `Tournament ${maxNumber + 1}`;
+                }
+            }
+
             const {data: tData, error: tErr} = await supabase
                 .from('tournaments')
-                .insert({name, date, format, status: 'pending'})
+                .insert({name: finalName, date, format, status: 'pending'})
                 .select()
                 .single();
 
