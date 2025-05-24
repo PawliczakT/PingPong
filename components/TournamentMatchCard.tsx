@@ -38,7 +38,7 @@ const TournamentMatchCard: React.FC<TournamentMatchCardProps> = ({match, onSaveR
                             value={score1}
                             onChangeText={setScore1}
                             keyboardType="numeric"
-                            placeholder="Wynik gracza 1"
+                            placeholder="Player 1 Score"
                         />
                         <Text>:</Text>
                         <TextInput
@@ -46,17 +46,17 @@ const TournamentMatchCard: React.FC<TournamentMatchCardProps> = ({match, onSaveR
                             value={score2}
                             onChangeText={setScore2}
                             keyboardType="numeric"
-                            placeholder="Wynik gracza 2"
+                            placeholder="Player 2 Score"
                         />
                     </View>
                     <Button
-                        title={loading ? "Zapisuję..." : "Zapisz wynik"}
+                        title={loading ? "Saving..." : "Save Score"}
                         onPress={handleSave}
                         disabled={loading || !score1 || !score2}
                     />
                 </View>
             ) : (
-                <Text style={{fontStyle: "italic"}}>Czekamy na parę graczy...</Text>
+                <Text style={{fontStyle: "italic"}}>Waiting for players...</Text>
             )}
         </View>
     );

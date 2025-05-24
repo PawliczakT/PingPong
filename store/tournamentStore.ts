@@ -13,11 +13,7 @@ type TournamentStore = {
     lastFetchTimestamp: number | null;
     fetchTournaments: (options?: { force?: boolean }) => Promise<void>;
     createTournament: (name: string, date: string, format: TournamentFormat, playerIds: string[]) => Promise<string | undefined>;
-    updateMatchResult: (
-        tournamentId: string,
-        matchId: string,
-        scores: { player1Score: number; player2Score: number; sets?: MatchSet[] }
-    ) => Promise<void>;
+    updateMatchResult: (tournamentId: string, matchId: string, scores: { player1Score: number; player2Score: number; sets?: MatchSet[] }) => Promise<void>;
     getTournamentById: (id: string) => Tournament | undefined;
     getTournamentMatches: (tournamentId: string) => TournamentMatch[];
     updateTournamentStatus: (tournamentId: string, status: Tournament['status']) => Promise<void>;
@@ -43,7 +39,7 @@ function generateRoundRobinSchedule(playerIds: string[]): { player1Id: string, p
     const schedule: { player1Id: string, player2Id: string }[] = [];
     for (let i = 0; i < playerIds.length; i++) {
         for (let j = i + 1; j < playerIds.length; j++) {
-            // Tylko jeden mecz dla kau017cdej pary graczy
+            // Only one match for each pair of players
             schedule.push({player1Id: playerIds[i], player2Id: playerIds[j]});
         }
     }
@@ -239,10 +235,10 @@ async function generateKnockoutPhase(tournamentId: string, qualifiedPlayers: str
 }
 
 async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string | null> {
-    console.log(`[autoSelectRoundRobinWinner] Rozpoczynanie wyboru zwyciu0119zcy dla turnieju ${tournamentId}`);
+    console.log(`[autoSelectRoundRobinWinner] Starting winner selection for tournament ${tournamentId}`);
 
     try {
-        // Pobierz dane turnieju
+        // Fetch tournament data
         const {data: tournamentData, error: tournamentError} = await supabase
             .from('tournaments')
             .select('*, tournament_matches(*)')
@@ -250,16 +246,16 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             .single();
 
         if (tournamentError) {
-            console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas pobierania turnieju:`, tournamentError);
+            console.error(`[autoSelectRoundRobinWinner] Error fetching tournament:`, tournamentError);
             return null;
         }
 
         if (!tournamentData) {
-            console.error(`[autoSelectRoundRobinWinner] Nie znaleziono turnieju o ID ${tournamentId}`);
+            console.error(`[autoSelectRoundRobinWinner] Tournament ${tournamentId} not found`);
             return null;
         }
 
-        console.log(`[autoSelectRoundRobinWinner] Pobrano dane turnieju:`, tournamentData);
+        console.log(`[autoSelectRoundRobinWinner] Fetched tournament data:`, tournamentData);
 
         const matches: TournamentMatch[] = tournamentData.tournament_matches?.map((m: any) => ({
             id: m.id,
@@ -277,35 +273,35 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             matchId: m.match_id,
         })) || [];
 
-        console.log(`[autoSelectRoundRobinWinner] Znaleziono ${matches.length} meczu00f3w w turnieju`);
+        console.log(`[autoSelectRoundRobinWinner] Found ${matches.length} matches in tournament`);
 
-        // Sprawdu017a czy wszystkie mecze su0105 zakou0144czone
+        // Check if all matches are completed
         const allMatchesCompleted = matches.every(m => m.status === 'completed');
-        console.log(`[autoSelectRoundRobinWinner] Czy wszystkie mecze su0105 zakou0144czone: ${allMatchesCompleted}`);
+        console.log(`[autoSelectRoundRobinWinner] Are all matches completed: ${allMatchesCompleted}`);
         if (!allMatchesCompleted || matches.length === 0) {
-            console.log(`[autoSelectRoundRobinWinner] Nie wszystkie mecze su0105 zakou0144czone lub brak meczu00f3w, przerywam.`);
+            console.log(`[autoSelectRoundRobinWinner] Not all matches are completed or no matches found, exiting.`);
             return null;
         }
 
-        // Oblicz punkty dla kau017cdego gracza
+        // Calculate points for each player
         const playerStats: Record<string, {
             playerId: string,
-            points: number,     // zwyciu0119stwa
-            matches: number,    // liczba rozegranych meczu00f3w
-            smallPoints: number, // suma mau0142ych punktu00f3w (ru00f3u017cnica punktu00f3w w setach)
-            wins: number,        // liczba zwyciu0119stw
-            losses: number,      // liczba porau017cek
-            headToHead: Record<string, number> // wyniki bezpou015brednich starau0144
+            points: number,     // wins
+            matches: number,    // number of played matches
+            smallPoints: number, // sum of small points (set difference)
+            wins: number,        // number of wins
+            losses: number,      // number of losses
+            headToHead: Record<string, number> // head-to-head results
         }> = {};
 
-        // Inicjalizuj statystyki dla kau017cdego gracza
+        // Initialize stats for each player
         const playerIds = new Set<string>();
         matches.forEach(match => {
             if (match.player1Id) playerIds.add(match.player1Id);
             if (match.player2Id) playerIds.add(match.player2Id);
         });
 
-        console.log(`[autoSelectRoundRobinWinner] Zidentyfikowano ${playerIds.size} graczy`);
+        console.log(`[autoSelectRoundRobinWinner] Identified ${playerIds.size} players`);
 
         playerIds.forEach(playerId => {
             playerStats[playerId] = {
@@ -319,7 +315,7 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             };
         });
 
-        // Oblicz statystyki na podstawie meczu00f3w
+        // Calculate stats based on matches
         matches.forEach(match => {
             if (match.status !== 'completed' || !match.player1Id || !match.player2Id) return;
 
@@ -332,53 +328,53 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             const p1Score = match.player1Score || 0;
             const p2Score = match.player2Score || 0;
 
-            console.log(`[autoSelectRoundRobinWinner] Mecz: ${match.player1Id} vs ${match.player2Id}, Wynik: ${p1Score}:${p2Score}`);
+            console.log(`[autoSelectRoundRobinWinner] Match: ${match.player1Id} vs ${match.player2Id}, Result: ${p1Score}:${p2Score}`);
 
-            // Dodaj wyniki bezpou015brednich starau0144
+            // Add head-to-head results
             if (p1Score > p2Score) {
-                player1.points += 2; // 2 punkty za zwyciu0119stwo
+                player1.points += 2; // 2 points for a win
                 player1.wins++;
                 player2.losses++;
                 player1.headToHead[match.player2Id] = 1;
                 player2.headToHead[match.player1Id] = -1;
             } else if (p2Score > p1Score) {
-                player2.points += 2; // 2 punkty za zwyciu0119stwo
+                player2.points += 2; // 2 points for a win
                 player2.wins++;
                 player1.losses++;
                 player2.headToHead[match.player1Id] = 1;
                 player1.headToHead[match.player2Id] = -1;
             }
 
-            // Oblicz mau0142e punkty (ru00f3u017cnica punktu00f3w w setach)
+            // Calculate small points (set difference)
             player1.smallPoints += p1Score - p2Score;
             player2.smallPoints += p2Score - p1Score;
         });
 
-        console.log(`[autoSelectRoundRobinWinner] Statystyki graczy:`, playerStats);
+        console.log(`[autoSelectRoundRobinWinner] Player stats:`, playerStats);
 
-        // Posortuj graczy wg punktu00f3w, bezpou015brednich starau0144 i mau0142ych punktu00f3w
+        // Sort players by points, then by head-to-head, then by small points (set difference)
         const rankedPlayers = Object.values(playerStats).sort((a, b) => {
-            // 1. Najpierw po punktach (wiu0119cej punktu00f3w = wyu017csza pozycja)
+            // 1. First by points (more points = higher position)
             if (a.points !== b.points) return b.points - a.points;
 
-            // 2. Jeu015bli punkty su0105 ru00f3wne, sprawdu017a bezpou015brednie starcie
+            // 2. If points are equal, check head-to-head
             if (a.headToHead[b.playerId] !== undefined) {
                 return a.headToHead[b.playerId] > 0 ? -1 : 1;
             }
 
-            // 3. Jeu015bli nie ma bezpou015bredniego starcia lub jest remis, sprawdu017a mau0142e punkty
+            // 3. If head-to-head is equal or not applicable, check small points
             return b.smallPoints - a.smallPoints;
         });
 
-        console.log(`[autoSelectRoundRobinWinner] Posortowani gracze:`, rankedPlayers);
+        console.log(`[autoSelectRoundRobinWinner] Ranked players:`, rankedPlayers);
 
-        // Jeu015bli jest chociau017c jeden gracz, wybierz zwyciu0119zcu0119
+        // If there is at least one player, select the winner
         if (rankedPlayers.length > 0) {
             const winner = rankedPlayers[0];
-            console.log(`[autoSelectRoundRobinWinner] Zwyciu0119zca: ${winner.playerId}`);
+            console.log(`[autoSelectRoundRobinWinner] Winner: ${winner.playerId}`);
 
             try {
-                // Ustaw zwyciu0119zcu0119 turnieju - uu017cywamy timeout, u017ceby uniknu0105u0107 blokowania gu0142u00f3wnego wu0105tku
+                // Update tournament winner with a delay to avoid blocking the main thread
                 const {error} = await new Promise<{ error?: any }>((resolve) => {
                     setTimeout(async () => {
                         const result = await supabase
@@ -389,27 +385,27 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
                             })
                             .eq('id', tournamentId);
                         resolve(result);
-                    }, 100); // Opu00f3u017anienie 100ms
+                    }, 100); // Delay 100ms
                 });
 
                 if (error) {
-                    console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas ustawiania zwyciu0119zcy:`, error);
+                    console.error(`[autoSelectRoundRobinWinner] Error updating tournament winner:`, error);
                     return null;
                 } else {
-                    console.log(`[autoSelectRoundRobinWinner] Turniej ${tournamentId} zakou0144czony. Zwyciu0119zca: ${winner.playerId}`);
-                    // Po wyłonieniu zwycięzcy odśwież dane turnieju
+                    console.log(`[autoSelectRoundRobinWinner] Tournament ${tournamentId} completed. Winner: ${winner.playerId}`);
+                    // After selecting the winner, refresh the tournament data
                     return winner.playerId;
                 }
             } catch (error) {
-                console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas aktualizacji turnieju:`, error);
+                console.error(`[autoSelectRoundRobinWinner] Error selecting winner:`, error);
                 return null;
             }
         } else {
-            console.error(`[autoSelectRoundRobinWinner] Brak graczy do wybrania zwyciu0119zcy`);
+            console.error(`[autoSelectRoundRobinWinner] No players to select winner from`);
             return null;
         }
     } catch (error) {
-        console.error(`[autoSelectRoundRobinWinner] Bu0142u0105d podczas wyau0142aniania zwyciu0119zcy:`, error);
+        console.error(`[autoSelectRoundRobinWinner] Error selecting winner:`, error);
         return null;
     }
 }
@@ -479,7 +475,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         const FETCH_INTERVAL = 1500; // 1.5 seconds
 
         if (lastFetchTimestamp && (now - lastFetchTimestamp < FETCH_INTERVAL) && !options?.force) {
-            console.log(`[STORE] Pomijanie fetchTournaments - zbyt krótki interwał (${now - lastFetchTimestamp}ms)`);
+            console.log(`[STORE] Skipping fetchTournaments - too short interval (${now - lastFetchTimestamp}ms)`);
             return;
         }
 
@@ -836,7 +832,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         set({loading: true, error: null});
         console.log('[STORE] set loading: true (updateMatchResult)');
         try {
-            // Uu017cywamy timeout, aby uniknu0105u0107 blokowania gu0142u00f3wnego wu0105tku
+            // Use a delay to avoid blocking the main thread
             await new Promise(resolve => setTimeout(resolve, 10));
 
             const currentMatch = get().tournaments.find(t => t.id === tournamentId)
@@ -872,7 +868,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 sets: scores.sets,
             };
 
-            // Aktualizacja danych meczu z opu00f3u017anieniem, aby uniknu0105u0107 blokowania interfejsu
+            // Update match data with a delay to avoid blocking the interface
             const {error: updateErr} = await new Promise<{ error?: any }>(resolve => {
                 setTimeout(async () => {
                     const result = await supabase
@@ -909,7 +905,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     }
 
                     if (Object.keys(updateData).length > 0) {
-                        // Aktualizacja nastu0119pnego meczu z opu00f3u017anieniem
+                        // Update next match with a delay
                         await new Promise(resolve => {
                             setTimeout(async () => {
                                 await supabase
@@ -922,12 +918,12 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     }
                 }
             } else {
-                console.log(`[updateMatchResult] Brak nastu0119pnego meczu - sprawdzanie czy turniej siu0119 zakou0144czyu0142`);
+                console.log(`[updateMatchResult] No next match - checking if tournament is completed`);
                 const tournament = get().tournaments.find(t => t.id === tournamentId);
 
                 if (tournament?.format === TournamentFormat.KNOCKOUT) {
-                    console.log(`[updateMatchResult] Turniej w formacie KNOCKOUT - ustawianie zwyciu0119zcy ${winnerId}`);
-                    // Dla formatu KNOCKOUT, ostatni mecz (finau0142) kou0144czy turniej
+                    console.log(`[updateMatchResult] Tournament is in KNOCKOUT format - setting winner ${winnerId}`);
+                    // For KNOCKOUT format, the last match (final) completes the tournament
                     try {
                         await new Promise(resolve => {
                             setTimeout(async () => {
@@ -935,15 +931,15 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                                 resolve(null);
                             }, 100);
                         });
-                        console.log(`[updateMatchResult] Ustawiono zwyciu0119zcu0119 turnieju KNOCKOUT`);
+                        console.log(`[updateMatchResult] Successfully set winner ${winnerId} for tournament ${tournamentId}`);
                     } catch (error) {
-                        console.error(`[updateMatchResult] Bu0142u0105d podczas ustawiania zwyciu0119zcy:`, error);
+                        console.error(`[updateMatchResult] Error setting winner:`, error);
                     }
                 } else if (tournament?.format === TournamentFormat.ROUND_ROBIN) {
-                    console.log(`[updateMatchResult] Turniej w formacie ROUND_ROBIN - sprawdzanie czy wszystkie mecze zakou0144czone`);
-                    // Dla formatu ROUND_ROBIN sprawdzamy, czy wszystkie mecze zostau0142y rozegrane
+                    console.log(`[updateMatchResult] Tournament is in ROUND_ROBIN format - checking if all matches are completed`);
+                    // For ROUND_ROBIN format, check if all matches are completed
                     try {
-                        // Pobieramy dane z opu00f3u017anieniem
+                        // Fetch data with a delay
                         const {data: freshTournament, error: tournamentError} = await new Promise<{
                             data?: any,
                             error?: any
@@ -959,40 +955,40 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         });
 
                         if (tournamentError) {
-                            console.error("Bu0142u0105d podczas pobierania danych turnieju:", tournamentError);
+                            console.error("Error fetching tournament data:", tournamentError);
                             return;
                         }
 
                         const tournamentMatches = freshTournament?.tournament_matches || [];
-                        console.log(`Sprawdzanie ${tournamentMatches.length} meczu00f3w w turnieju ${tournamentId}`);
+                        console.log(`Checking ${tournamentMatches.length} matches in tournament ${tournamentId}`);
 
                         const allMatchesCompleted = tournamentMatches.every((m: any) => m.status === 'completed');
-                        console.log(`Czy wszystkie mecze su0105 zakou0144czone: ${allMatchesCompleted}`);
+                        console.log(`Are all matches completed: ${allMatchesCompleted}`);
 
                         if (allMatchesCompleted && tournamentMatches.length > 0) {
-                            console.log(`Wszystkie mecze zakou0144czone (${tournamentMatches.length}). Wybieranie zwyciu0119zcy...`);
+                            console.log(`All matches completed (${tournamentMatches.length}). Selecting winner...`);
                             try {
                                 const winnerId = await autoSelectRoundRobinWinner(tournamentId);
-                                console.log(`Zakou0144czono turniej. Zwyciu0119zca: ${winnerId}`);
+                                console.log(`Tournament ${tournamentId} completed. Winner: ${winnerId}`);
                             } catch (error) {
-                                console.error("Bu0142u0105d podczas wybierania zwyciu0119zcy:", error);
+                                console.error("Error selecting winner:", error);
                             }
                         } else {
-                            console.log(`Turniej trwa dalej. Zakou0144czonych meczu00f3w: ${tournamentMatches.filter((m: any) => m.status === 'completed').length}/${tournamentMatches.length}`);
+                            console.log(`Tournament is ongoing. Completed matches: ${tournamentMatches.filter((m: any) => m.status === 'completed').length}/${tournamentMatches.length}`);
                         }
                     } catch (error) {
-                        console.error("Bu0142u0105d podczas sprawdzania stanu turnieju:", error);
+                        console.error("Error checking tournament status:", error);
                     }
                 } else if (tournament?.format === TournamentFormat.GROUP) {
-                    // Dla formatu GROUP nie kou0144czymy turnieju automatycznie
-                    console.log(`[updateMatchResult] Turniej w formacie GROUP - nie wybieramy zwyciu0119zcy automatycznie`);
+                    // For GROUP format, do not automatically complete the tournament
+                    console.log(`[updateMatchResult] Tournament is in GROUP format - not automatically completing`);
                 }
             }
 
-            // Na kou0144cu operacji zawsze odu015bwieu017camy dane z bazy
+            // Always refresh tournament data at the end
             await new Promise(resolve => {
                 setTimeout(async () => {
-                    await get().fetchTournaments({ force: true });
+                    await get().fetchTournaments({force: true});
                     resolve(null);
                 }, 100);
             });
@@ -1005,8 +1001,8 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             console.log('[STORE] set loading: false (catch updateMatchResult)');
             return;
         } finally {
-            // Zawsze resetujemy stan u0142adowania tylko raz na końcu
-            console.log("[updateMatchResult] Finalizacja - resetowanie stanu u0142adowania");
+            // Always reset the loading state only once at the end
+            console.log("[updateMatchResult] Finalizing - resetting loading state");
             set({loading: false});
             console.log('[STORE] set loading: false (finally updateMatchResult)');
         }
@@ -1067,7 +1063,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         set({loading: true, error: null});
         console.log('[STORE] set loading: true (setTournamentWinner)');
         try {
-            // Najpierw aktualizujemy stan lokalny
+            // First, update the local state
             set(state => ({
                 tournaments: state.tournaments.map(t =>
                     t.id === tournamentId ? {
@@ -1078,7 +1074,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 )
             }));
 
-            // Nastu0119pnie aktualizujemy bazu0119 danych
+            // Then, update the database
             const {error} = await supabase.from('tournaments').update({
                 winner_id: winnerId,
                 status: TournamentStatus.COMPLETED
@@ -1086,7 +1082,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             if (error) throw error;
 
-            // Odu015bwieu017c dane turnieju aby mieu0107 pewnou015bu0107, u017ce wszystko jest aktualne
+            // Refresh tournament data to ensure everything is up-to-date
             await get().fetchTournaments();
             console.log(`[setTournamentWinner] Successfully set winner ${winnerId} for tournament ${tournamentId}`);
             set({loading: false});
@@ -1100,7 +1096,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
     },
 }));
 
-// Dodanie zmiennej do śledzenia ostatniego stanu turniejów
+// Add a variable to track the last tournament state
 let lastTournamentsState: {
     tournamentId: string;
     isCompleted: boolean;
@@ -1110,23 +1106,23 @@ let lastTournamentsState: {
 export function useTournamentsRealtime() {
     useEffect(() => {
         const handleChanges = () => {
-            // Blokada: nie fetchuj, jeśli loading już jest true
+            // Block: do not fetch if loading is already true
             if (useTournamentStore.getState().loading) {
-                console.log(`[STORE] Pomijanie odświeżania (loading już aktywny)`);
+                console.log(`[STORE] Skipping refresh (loading already active)`);
                 return;
             }
 
-            // Sprawdź czy minęła minimalna przerwa między odświeżeniami
+            // Check if the minimum interval between refreshes has passed
             const now = Date.now();
             const lastFetch = useTournamentStore.getState().lastFetchTimestamp || 0;
-            const minInterval = 2000; // Zwiększam minimalny interwał do 2 sekund dla subskrypcji
+            const minInterval = 2000; // Increase the minimum interval to 2 seconds for subscriptions
 
             if (now - lastFetch < minInterval) {
-                console.log(`[STORE] Pomijanie odświeżania (za wcześnie, przerwa: ${now - lastFetch}ms)`);
+                console.log(`[STORE] Skipping refresh (too soon, interval: ${now - lastFetch}ms)`);
                 return;
             }
 
-            // Sprawdź czy stan turniejów znacząco się zmienił, aby uniknąć niepotrzebnych odświeżeń
+            // Check if the tournament state has changed significantly to avoid unnecessary refreshes
             const currentTournaments = useTournamentStore.getState().tournaments;
             const currentState = currentTournaments.map(t => ({
                 tournamentId: t.id,
@@ -1134,10 +1130,10 @@ export function useTournamentsRealtime() {
                 hasWinner: Boolean(t.winner)
             }));
 
-            // Sprawdzanie, czy jedyną zmianą jest zakończenie turnieju, który już ma zwycięzcę
+            // Check if the only change is a tournament being completed that already has a winner
             const significantChange = !lastTournamentsState.length || currentState.some((curr, i) => {
                 const prev = lastTournamentsState[i];
-                // Jeśli turniej już był zakończony i miał zwycięzcę, to nie ma potrzeby odświeżania
+                // If the tournament was already completed and had a winner, do not refresh
                 if (prev && prev.tournamentId === curr.tournamentId &&
                     prev.isCompleted && prev.hasWinner &&
                     curr.isCompleted && curr.hasWinner) {
@@ -1151,16 +1147,16 @@ export function useTournamentsRealtime() {
             lastTournamentsState = currentState;
 
             if (!significantChange) {
-                console.log(`[STORE] Pomijanie odświeżania (brak istotnych zmian w turniejach)`);
+                console.log(`[STORE] Skipping refresh (no significant changes in tournaments)`);
                 return;
             }
 
-            console.log(`[STORE] Odświeżanie danych przez subskrypcję (przerwa: ${now - lastFetch}ms)`);
+            console.log(`[STORE] Refreshing data through subscription (interval: ${now - lastFetch}ms)`);
             useTournamentStore.getState().fetchTournaments().catch((e) =>
                 console.error("Error fetching tournaments:", e));
         };
 
-        // Nasłuchuj zmian w tabeli tournaments
+        // Listen for changes in the tournaments table
         const tournamentsChannel = supabase
             .channel('tournaments-changes')
             .on(
@@ -1170,7 +1166,7 @@ export function useTournamentsRealtime() {
             )
             .subscribe();
 
-        // Nasłuchuj zmian w tabeli tournament_matches
+        // Listen for changes in the tournament_matches table
         const matchesChannel = supabase
             .channel('tournament-matches-changes')
             .on(
