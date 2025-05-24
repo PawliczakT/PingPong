@@ -61,6 +61,15 @@ export default function MatchCard({match, onPress}: MatchCardProps) {
                     <Text style={styles.scoreText}>
                         {match.player1Score} - {match.player2Score}
                     </Text>
+                    {match.sets && Array.isArray(match.sets) && match.sets.length > 0 && (
+                        <View style={styles.setsContainer}>
+                            {match.sets.map((set, index) => (
+                                <Text key={index} style={styles.setText}>
+                                    {set.player1Score !== undefined ? set.player1Score : 0}-{set.player2Score !== undefined ? set.player2Score : 0}
+                                </Text>
+                            ))}
+                        </View>
+                    )}
                 </View>
 
                 <View style={styles.playerContainer}>
@@ -130,5 +139,15 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "bold",
         color: colors.text,
+        marginBottom: 4,
+    },
+    setsContainer: {
+        flexDirection: "column",
+        alignItems: "center",
+    },
+    setText: {
+        fontSize: 12,
+        color: colors.textLight,
+        marginVertical: 1,
     },
 });
