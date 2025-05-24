@@ -766,7 +766,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 matchIdMatrix.push(firstRoundMatches);
 
                 for (let round = 2; round <= numRounds; round++) {
-                    const prevRoundMatches = matchIdMatrix[round - 2];
+                    const prevRoundMatches = matchIdMatrix[round - 2]; // -2 to adjust for our offset
                     const currRoundMatches: string[] = [];
 
                     for (let i = 0; i < prevRoundMatches.length; i += 2) {
@@ -880,6 +880,23 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             });
 
             if (updateErr) throw updateErr;
+
+            // Dodaj mecz również do ogólnej historii meczów
+            try {
+                const matchStore = require('./matchStore').useMatchStore.getState();
+                await matchStore.addMatch(
+                    currentMatch.player1Id,
+                    currentMatch.player2Id,
+                    scores.player1Score,
+                    scores.player2Score,
+                    scores.sets || [],
+                    tournamentId // Przekazanie ID turnieju
+                );
+                console.log(`[updateMatchResult] Successfully added tournament match to general match history`);
+            } catch (error) {
+                console.error(`[updateMatchResult] Error adding match to general history:`, error);
+                // Nie przerywamy procesu, jeśli ten krok się nie powiedzie
+            }
 
             if (currentMatch.nextMatchId) {
                 const nextMatchId = currentMatch.nextMatchId;
