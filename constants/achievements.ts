@@ -1,5 +1,5 @@
 import {Achievement, AchievementType} from "@/types";
-import {Award, Crown, Flame, Medal, Star, Target, Trophy, Zap} from "lucide-react-native";
+import {Award, Crown, Flame, Medal, Star, Target, Trophy, Zap, Users, ArrowUp} from "lucide-react-native";
 
 export const achievements: Achievement[] = [
     {
@@ -43,6 +43,60 @@ export const achievements: Achievement[] = [
         name: 'Tournament Victory',
         description: 'Win an official tournament.',
         icon: 'trophy',
+        target: 1,
+        progress: 0,
+        unlocked: false
+    },
+    {
+        type: AchievementType.TOURNAMENT_HOST,
+        name: 'Tournament Organizer',
+        description: 'Create and start your first tournament.',
+        icon: 'star',
+        target: 1,
+        progress: 0,
+        unlocked: false
+    },
+    {
+        type: AchievementType.TOURNAMENT_SERIES,
+        name: 'Serial Organizer',
+        description: 'Create a tournament with an auto-generated name.',
+        icon: 'zap',
+        target: 1,
+        progress: 0,
+        unlocked: false
+    },
+    {
+        type: AchievementType.TOURNAMENT_MULTI_FORMAT,
+        name: 'Format Explorer',
+        description: 'Create tournaments in at least 2 different formats.',
+        icon: 'target',
+        target: 2,
+        progress: 0,
+        unlocked: false
+    },
+    {
+        type: AchievementType.TOURNAMENT_OVERSEER,
+        name: 'The Tournament Master',
+        description: 'Successfully complete 5 tournaments.',
+        icon: 'crown',
+        target: 5,
+        progress: 0,
+        unlocked: false
+    },
+    {
+        type: AchievementType.TOURNAMENT_PARTY,
+        name: 'The More The Merrier',
+        description: 'Create a tournament with 8+ participants.',
+        icon: 'users',
+        target: 1,
+        progress: 0,
+        unlocked: false
+    },
+    {
+        type: AchievementType.TOURNAMENT_UNDERDOG,
+        name: 'The Underdog',
+        description: 'Win a tournament match against a player with higher rating.',
+        icon: 'arrow-up',
         target: 1,
         progress: 0,
         unlocked: false
@@ -563,6 +617,10 @@ export const getAchievementIcon = (type: AchievementType) => {
         case "star":
             return Star;
         case "award":
+        case "users":
+            return Users;
+        case "arrow-up":
+            return ArrowUp;
         default:
             return Award;
     }

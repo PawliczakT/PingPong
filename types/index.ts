@@ -145,6 +145,12 @@ export enum AchievementType {
     TOURNAMENT_FINALIST = 'tournament_finalist', // Reach the final of any official tournament
     DEFEAT_TOP_SEED_TOURNAMENT = 'defeat_top_seed_tournament', // Defeat the top-seeded player in a tournament
     TOURNAMENT_WIN_FLAWLESS = 'tournament_win_flawless', // Win a tournament without losing a single match
+    TOURNAMENT_HOST = 'tournament_host', // Create and start a tournament
+    TOURNAMENT_SERIES = 'tournament_series', // Create tournament with auto-generated name
+    TOURNAMENT_MULTI_FORMAT = 'tournament_multi_format', // Create tournaments in different formats
+    TOURNAMENT_OVERSEER = 'tournament_overseer', // Complete 5 tournaments
+    TOURNAMENT_PARTY = 'tournament_party', // Create tournament with 8+ participants
+    TOURNAMENT_UNDERDOG = 'tournament_underdog', // Win against higher rated player in tournament
     DEUCE_SET_WIN = 'deuce_set_win', // Win a set that went to deuce
     SET_COMEBACK_5_POINTS = 'set_comeback_5_points', // Win a set after being down by 5 or more points
     NEAR_PERFECT_SET = 'near_perfect_set', // Win a set 11-1
