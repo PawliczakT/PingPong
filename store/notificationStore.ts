@@ -235,8 +235,8 @@ export const useNotificationStore = create<NotificationState>()(
             const settings = useSettingsStore.getState().notificationSettings;
             if (!settings.achievements) return;
 
-            const title = "Achievement Unlocked";
-            const body = `You've earned the "${achievement.name}" achievement!`;
+            const title = `Achievement Unlocked: ${achievement.name}`;
+            const body = `You've earned the "${achievement.name}"! ${achievement.description || ''}`;
 
             try {
                 if (Platform.OS !== 'web') {

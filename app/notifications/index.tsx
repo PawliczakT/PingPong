@@ -13,8 +13,8 @@ export default function NotificationsScreen() {
 
     const notifications: Notification[] = notificationHistory.map(notification => ({
         ...notification,
-        message: notification.title,
-        createdAt: new Date().toISOString(),
+        message: notification.body,
+        createdAt: notification.timestamp || new Date().toISOString(),
     }));
 
     const handleNotificationPress = (notification: Notification) => {
