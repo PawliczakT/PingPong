@@ -38,11 +38,6 @@ export default function CreateTournamentScreen() {
     };
 
     const handleSubmit = async () => {
-        if (!name.trim()) {
-            Alert.alert("Error", "Tournament name is required");
-            return;
-        }
-
         if (selectedPlayerIds.length < 2) {
             Alert.alert("Error", "At least 2 players are required");
             return;
@@ -57,7 +52,7 @@ export default function CreateTournamentScreen() {
 
         try {
             await createTournament(
-                name.trim(),
+                name.trim(), // Może być puste - nazwa zostanie wygenerowana w store
                 new Date(date).toISOString(),
                 format,
                 selectedPlayerIds
@@ -92,10 +87,10 @@ export default function CreateTournamentScreen() {
             />
 
             <ScrollView style={styles.content}>
-                <Text style={styles.label}>Tournament Name *</Text>
+                <Text style={styles.label}>Tournament Name</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter tournament name"
+                    placeholder="Enter tournament name (or leave empty for auto-generated name)"
                     value={name}
                     onChangeText={setName}
                 />
@@ -193,7 +188,7 @@ export default function CreateTournamentScreen() {
                     title="Create Tournament"
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={!name.trim() || selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
+                    disabled={selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
                     style={styles.submitButton}
                 />
             </ScrollView>
