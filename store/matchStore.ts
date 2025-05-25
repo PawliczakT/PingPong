@@ -1,7 +1,9 @@
 import {create} from "zustand";
-import {Achievement, HeadToHead, Match, Set} from "@/types";
+import {HeadToHead, Match, Player, Set} from "@/types";
 import {usePlayerStore} from "./playerStore";
+import {useStatsStore} from "./statsStore";
 import {useNotificationStore} from "./notificationStore";
+import {useAchievementStore} from "./achievementStore";
 import {calculateEloRating} from "@/utils/elo";
 import {supabase} from "@/lib/supabase";
 import {useEffect} from "react";
@@ -33,14 +35,14 @@ export const useMatchStore = create<MatchState>()(
 
         addMatch: async (player1Id, player2Id, player1Score, player2Score, sets, tournamentId) => {
             set({isLoading: true, error: null});
-            let newMatch: Match | null = null;
+            let newMatch: Match;
 
             try {
                 const winner = player1Score > player2Score ? player1Id : player2Id;
                 const playerStore = usePlayerStore.getState();
-                const statsStore = require("./statsStore").useStatsStore.getState();
+                const statsStore = useStatsStore.getState();
                 const notificationStore = useNotificationStore.getState();
-                const achievementStore = require("./achievementStore").useAchievementStore.getState();
+                const achievementStore = useAchievementStore.getState();
 
                 const player1 = playerStore.getPlayerById(player1Id);
                 const player2 = playerStore.getPlayerById(player2Id);
@@ -55,6 +57,7 @@ export const useMatchStore = create<MatchState>()(
                     winner === player1Id
                 );
 
+                // 1. Zapisz mecz do bazy danych
                 const {data, error: insertError} = await supabase.from('matches').insert([
                     {
                         player1_id: player1Id,
@@ -77,62 +80,123 @@ export const useMatchStore = create<MatchState>()(
                     player1Score: data.player1_score,
                     player2Score: data.player2_score,
                     sets: data.sets,
+                    winnerId: data.winner,
                     winner: data.winner,
                     date: data.date,
                     tournamentId: data.tournament_id,
+                    isComplete: true
                 };
 
-                await Promise.all([
-                    playerStore.updatePlayerRating(player1Id, player1NewRating),
-                    playerStore.updatePlayerRating(player2Id, player2NewRating),
-                    playerStore.updatePlayerStats(player1Id, winner === player1Id),
-                    playerStore.updatePlayerStats(player2Id, winner === player2Id),
-                    statsStore.updatePlayerStreak(player1Id, winner === player1Id),
-                    statsStore.updatePlayerStreak(player2Id, winner === player2Id),
-                    statsStore.addRankingChange({
-                        playerId: player1Id,
-                        oldRating: player1.eloRating,
-                        newRating: player1NewRating,
+                // 2. Wykonaj operacje w batchu zamiast indywidualnie
+                // Przygotuj batch dla rankingów graczy do aktualizacji w jednym zapytaniu
+                const batchUpdates = [
+                    {id: player1Id, rating: player1NewRating, won: winner === player1Id},
+                    {id: player2Id, rating: player2NewRating, won: winner === player2Id}
+                ];
+
+                // Przygotuj dane dla historii rankingu
+                const rankingChanges = [
+                    {
+                        player_id: player1Id,
+                        old_rating: player1.eloRating,
+                        new_rating: player1NewRating,
                         change: player1NewRating - player1.eloRating,
                         date: new Date().toISOString(),
-                        matchId: newMatch.id
-                    }),
-                    statsStore.addRankingChange({
-                        playerId: player2Id,
-                        oldRating: player2.eloRating,
-                        newRating: player2NewRating,
+                        match_id: newMatch.id
+                    },
+                    {
+                        player_id: player2Id,
+                        old_rating: player2.eloRating,
+                        new_rating: player2NewRating,
                         change: player2NewRating - player2.eloRating,
                         date: new Date().toISOString(),
-                        matchId: newMatch.id
+                        match_id: newMatch.id
+                    }
+                ];
+
+                // Wykonaj wszystkie aktualizacje bazy danych równolegle
+                await Promise.all([
+                    // Aktualizuj rating i statystyki graczy w jednym zapytaniu dla każdego gracza
+                    supabase.from('players').update({
+                        elo_rating: player1NewRating,
+                        wins: player1.wins + (winner === player1Id ? 1 : 0),
+                        losses: player1.losses + (winner === player1Id ? 0 : 1)
+                    }).eq('id', player1Id),
+
+                    supabase.from('players').update({
+                        elo_rating: player2NewRating,
+                        wins: player2.wins + (winner === player2Id ? 1 : 0),
+                        losses: player2.losses + (winner === player2Id ? 0 : 1)
+                    }).eq('id', player2Id),
+
+                    // Dodaj zmiany rankingu jednym zapytaniem
+                    supabase.from('ranking_history').insert(rankingChanges),
+
+                    // Aktualizuj serie zwycięstw
+                    statsStore.updatePlayerStreak(player1Id, winner === player1Id),
+                    statsStore.updatePlayerStreak(player2Id, winner === player2Id)
+                ]);
+
+                // 3. Aktualizuj lokalny stan graczy na podstawie dokonanych zmian
+                // Nie ma potrzeby pobierać graczy ponownie z bazy danych
+                const updatedPlayer1: Player = {
+                    ...player1,
+                    eloRating: player1NewRating,
+                    wins: player1.wins + (winner === player1Id ? 1 : 0),
+                    losses: player1.losses + (winner === player1Id ? 0 : 1)
+                };
+
+                const updatedPlayer2: Player = {
+                    ...player2,
+                    eloRating: player2NewRating,
+                    wins: player2.wins + (winner === player2Id ? 1 : 0),
+                    losses: player2.losses + (winner === player2Id ? 0 : 1)
+                };
+
+                // Zaktualizuj lokalny stan graczy
+                const playerStoreSet = usePlayerStore.setState;
+                playerStoreSet(state => ({
+                    ...state,
+                    players: state.players.map(p => {
+                        if (p.id === player1Id) return updatedPlayer1;
+                        if (p.id === player2Id) return updatedPlayer2;
+                        return p;
                     })
-                ]);
+                }));
 
-                const updatedPlayer1 = playerStore.getPlayerById(player1Id) || player1;
-                const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
-                await notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
+                // 4. Wykonaj operacje UI w tle (powiadomienia i osiągnięcia)
+                // Te operacje mogą być wykonane asynchronicznie, bez czekania na ich zakończenie
+                Promise.all([
+                    notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2),
 
-                if (Math.abs(player1NewRating - player1.eloRating) >= 15) {
-                    await notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
-                }
-                if (Math.abs(player2NewRating - player2.eloRating) >= 15) {
-                    await notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
-                }
+                    // Wysyłaj powiadomienia o zmianie rankingu tylko jeśli zmiana jest znacząca
+                    Math.abs(player1NewRating - player1.eloRating) >= 15 ?
+                        notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating) :
+                        Promise.resolve(),
 
-                const [player1Achievements, player2Achievements] = await Promise.all([
-                    achievementStore.checkAndUpdateAchievements(player1Id),
+                    Math.abs(player2NewRating - player2.eloRating) >= 15 ?
+                        notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating) :
+                        Promise.resolve(),
+
+                    // Sprawdź osiągnięcia w tle
+                    achievementStore.checkAndUpdateAchievements(player1Id)
+                        .then(achievements => {
+                            if (Array.isArray(achievements)) {
+                                achievements.forEach(achievement => {
+                                    notificationStore.sendAchievementNotification(updatedPlayer1, achievement);
+                                });
+                            }
+                        }),
+
                     achievementStore.checkAndUpdateAchievements(player2Id)
-                ]);
-
-                if (Array.isArray(player1Achievements)) {
-                    player1Achievements.forEach((achievement: Achievement) => {
-                        notificationStore.sendAchievementNotification(updatedPlayer1, achievement);
-                    });
-                }
-                if (Array.isArray(player2Achievements)) {
-                    player2Achievements.forEach((achievement: Achievement) => {
-                        notificationStore.sendAchievementNotification(updatedPlayer2, achievement);
-                    });
-                }
+                        .then(achievements => {
+                            if (Array.isArray(achievements)) {
+                                achievements.forEach(achievement => {
+                                    notificationStore.sendAchievementNotification(updatedPlayer2, achievement);
+                                });
+                            }
+                        })
+                ]).catch(err => console.error("Background operations error:", err));
 
                 set({isLoading: false});
                 return newMatch;
@@ -201,9 +265,11 @@ export const fetchMatchesFromSupabase = async () => {
             player1Score: item.player1_score,
             player2Score: item.player2_score,
             sets: typeof item.sets === 'string' ? JSON.parse(item.sets) : item.sets,
+            winnerId: item.winner,
             winner: item.winner,
             date: item.date,
             tournamentId: item.tournament_id,
+            isComplete: true
         }));
         useMatchStore.setState({matches, isLoading: false});
     } catch (error) {

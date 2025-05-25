@@ -13,7 +13,11 @@ type TournamentStore = {
     lastFetchTimestamp: number | null;
     fetchTournaments: (options?: { force?: boolean }) => Promise<void>;
     createTournament: (name: string, date: string, format: TournamentFormat, playerIds: string[]) => Promise<string | undefined>;
-    updateMatchResult: (tournamentId: string, matchId: string, scores: { player1Score: number; player2Score: number; sets?: MatchSet[] }) => Promise<void>;
+    updateMatchResult: (tournamentId: string, matchId: string, scores: {
+        player1Score: number;
+        player2Score: number;
+        sets?: MatchSet[]
+    }) => Promise<void>;
     getTournamentById: (id: string) => Tournament | undefined;
     getTournamentMatches: (tournamentId: string) => TournamentMatch[];
     updateTournamentStatus: (tournamentId: string, status: Tournament['status']) => Promise<void>;
@@ -523,8 +527,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         id: m.id,
                         tournamentId: m.tournament_id,
                         round: m.round,
-                        group: m.group,
-                        matchNumber: m.match_number,
                         player1Id: m.player1_id,
                         player2Id: m.player2_id,
                         player1Score: m.player1_score,
@@ -532,8 +534,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         winner: m.winner_id,
                         matchId: m.match_id,
                         nextMatchId: m.next_match_id,
-                        status: m.status as TournamentMatch['status'],
+                        status: m.status,
                         sets: m.sets || [], // Default to empty array if sets is null/undefined
+                        group: m.group,
                         roundName: m.round_name,
                         startTime: m.start_time,
                     })),
@@ -570,7 +573,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
     createTournament: async (name: string, date: string, format: TournamentFormat, playerIds: string[]): Promise<string | undefined> => {
         set({loading: true, error: null});
-        console.log('[STORE] set loading: true (createTournament)');
         let tournamentId: string | undefined = undefined;
         try {
             if (playerIds.length < 2) {
@@ -584,31 +586,25 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             // Handle empty or missing tournament name
             let finalName = name?.trim();
             if (!finalName) {
-                // Get existing tournaments to find the next number
-                const {data: existingTournaments, error: fetchErr} = await supabase
+                // Zamiast pobierać wszystkie turnieje, pobierz tylko ostatni z numerem
+                const {data: latestTournament, error: fetchErr} = await supabase
                     .from('tournaments')
                     .select('name')
-                    .ilike('name', 'Tournament %');
-                
-                if (fetchErr) {
-                    console.warn("Error fetching existing tournament names:", fetchErr);
+                    .ilike('name', 'Tournament %')
+                    .order('created_at', {ascending: false})
+                    .limit(1);
+
+                if (fetchErr || !latestTournament?.length) {
                     finalName = "Tournament 1"; // Default if can't fetch
                 } else {
-                    // Find the highest tournament number
-                    let maxNumber = 0;
-                    existingTournaments?.forEach(t => {
-                        const match = t.name.match(/Tournament (\d+)/);
-                        if (match && match[1]) {
-                            const num = parseInt(match[1]);
-                            if (!isNaN(num) && num > maxNumber) {
-                                maxNumber = num;
-                            }
-                        }
-                    });
-                    finalName = `Tournament ${maxNumber + 1}`;
+                    // Sprawdź tylko ostatni turniej
+                    const match = latestTournament[0].name.match(/Tournament (\d+)/);
+                    const nextNumber = match && match[1] ? parseInt(match[1]) + 1 : 1;
+                    finalName = `Tournament ${nextNumber}`;
                 }
             }
 
+            // Użyj jednego zapytania do utworzenia turnieju i pobrania jego ID
             const {data: tData, error: tErr} = await supabase
                 .from('tournaments')
                 .insert({name: finalName, date, format, status: 'pending'})
@@ -620,235 +616,69 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             tournamentId = tData.id;
 
+            // Przygotuj uczestników turnieju
             const participantsRows = playerIds.map(pid => ({
                 tournament_id: tournamentId!,
                 player_id: pid
             }));
+
+            // Wstaw uczestników w jednym zapytaniu
             const {error: pErr} = await supabase.from('tournament_participants').insert(participantsRows);
             if (pErr) {
                 await supabase.from('tournaments').delete().eq('id', tournamentId);
                 throw pErr;
             }
 
-            await get().fetchTournaments({force: true}); // Ensure data is re-fetched
-            set({loading: false});
-            console.log('[STORE] set loading: false (createTournament)');
+            // Pobierz tylko ten nowy turniej zamiast wszystkich turniejów
+            const {data: newTournament, error: newTournErr} = await supabase
+                .from('tournaments')
+                .select(`
+                    id, name, date, format, status,
+                    tournament_participants(player_id)
+                `)
+                .eq('id', tournamentId)
+                .single();
+
+            if (!newTournErr && newTournament) {
+                // Aktualizuj lokalny stan bez ponownego pobierania wszystkich turniejów
+                set(state => {
+                    const participants = newTournament.tournament_participants.map((p: any) => p.player_id);
+                    const newTournamentObject: Tournament = {
+                        id: newTournament.id,
+                        name: newTournament.name,
+                        date: newTournament.date,
+                        format: newTournament.format,
+                        status: newTournament.status,
+                        participants: participants,
+                        matches: [],
+                        winner: undefined
+                    };
+
+                    return {
+                        ...state,
+                        tournaments: [...state.tournaments, newTournamentObject],
+                        loading: false
+                    };
+                });
+            } else {
+                // Jeśli nie udało się pobrać nowego turnieju, odśwież całą listę
+                await get().fetchTournaments({force: true});
+                set({loading: false});
+            }
+
             return tournamentId;
 
         } catch (error: any) {
             console.error("Create Tournament Error:", error);
             if (tournamentId) {
-                await supabase.from('tournament_participants').delete().eq('tournament_id', tournamentId);
-                await supabase.from('tournaments').delete().eq('id', tournamentId);
+                // Wykonaj czyszczenie w jednym zapytaniu
+                await Promise.all([
+                    supabase.from('tournament_participants').delete().eq('tournament_id', tournamentId),
+                    supabase.from('tournaments').delete().eq('id', tournamentId)
+                ]);
             }
             set({loading: false, error: error.message || 'Failed to create tournament'});
-            console.log('[STORE] set loading: false (catch createTournament)');
             return undefined;
-        }
-    },
-
-    generateAndStartTournament: async (tournamentId: string) => {
-        set({loading: true, error: null});
-        console.log('[STORE] set loading: true (generateAndStartTournament)');
-        let generatedMatchesInserted = false;
-
-        try {
-            const existingTournament = get().tournaments.find(t => t.id === tournamentId);
-            if (!existingTournament) throw new Error(`Tournament ${tournamentId} not found.`);
-            if (existingTournament.status !== 'pending') throw new Error(`Tournament ${tournamentId} is not in pending state.`);
-
-            const {data: participantsData, error: pFetchErr} = await supabase
-                .from('tournament_participants')
-                .select('player_id')
-                .eq('tournament_id', tournamentId);
-
-            if (pFetchErr) throw pFetchErr;
-            if (!participantsData || participantsData.length < 2) {
-                throw new Error("Not enough participants found for this tournament.");
-            }
-            const playerIds = participantsData.map(p => p.player_id);
-
-            if (existingTournament.format === TournamentFormat.KNOCKOUT && playerIds.length % 4 !== 0) {
-                throw new Error("Knockout tournaments require an even number of players");
-            }
-
-            type TournamentMatchInsert = {
-                id: string;
-                tournament_id: string;
-                round: number;
-                match_number: number;
-                player1_id: string | null;
-                player2_id: string | null;
-                player1_score: number | null;
-                player2_score: number | null;
-                winner_id: string | null;
-                status: TournamentMatch['status'];
-                next_match_id: string | null;
-                sets?: MatchSet[];
-                group?: number;
-            };
-
-            if (existingTournament.format === 'ROUND_ROBIN') {
-                const schedule = generateRoundRobinSchedule(playerIds);
-                const matchesToInsert: TournamentMatchInsert[] = schedule.map((match, index) => ({
-                    id: uuidv4(),
-                    tournament_id: tournamentId,
-                    round: 1,
-                    match_number: index + 1,
-                    player1_id: match.player1Id,
-                    player2_id: match.player2Id,
-                    player1_score: null,
-                    player2_score: null,
-                    winner_id: null,
-                    status: 'scheduled',
-                    next_match_id: null,
-                }));
-
-                const {error: mErr} = await supabase.from('tournament_matches').insert(matchesToInsert);
-                if (mErr) throw mErr;
-                generatedMatchesInserted = true;
-
-                const {error: statusErr} = await supabase
-                    .from('tournaments')
-                    .update({status: 'active'})
-                    .eq('id', tournamentId);
-                if (statusErr) throw statusErr;
-
-                await get().fetchTournaments();
-                set({loading: false});
-                console.log('[STORE] set loading: false (generateAndStartTournament)');
-            } else if (existingTournament.format === 'GROUP') {
-                const numGroups = Math.min(4, Math.ceil(playerIds.length / 3)); // Aim for 3-4 players per group
-                const groups = generateGroups(playerIds, numGroups);
-                const groupMatches = generateGroupMatches(tournamentId, groups);
-
-                const matchesToInsert: TournamentMatchInsert[] = groupMatches.map((match, index) => ({
-                    id: uuidv4(),
-                    tournament_id: tournamentId,
-                    round: 1, // Group stage is round 1
-                    match_number: index + 1,
-                    player1_id: match.player1Id,
-                    player2_id: match.player2Id,
-                    player1_score: null,
-                    player2_score: null,
-                    winner_id: null,
-                    status: 'scheduled',
-                    next_match_id: null,
-                    group: match.group
-                }));
-
-                const {error: mErr} = await supabase.from('tournament_matches').insert(matchesToInsert);
-                if (mErr) throw mErr;
-                generatedMatchesInserted = true;
-
-                const {error: statusErr} = await supabase
-                    .from('tournaments')
-                    .update({status: 'active'})
-                    .eq('id', tournamentId);
-                if (statusErr) throw statusErr;
-
-                await get().fetchTournaments();
-                set({loading: false});
-                console.log('[STORE] set loading: false (generateAndStartTournament)');
-            } else {
-                const numPlayers = playerIds.length;
-                const numRounds = Math.ceil(Math.log2(numPlayers));
-                let matchesToInsert: TournamentMatchInsert[] = [];
-                let matchIdMatrix: string[][] = [];
-                let shuffledPlayers: (string | null)[] = shuffleArray([...playerIds]);
-
-                if (shuffledPlayers.length % 2 !== 0) shuffledPlayers.push(null);
-                let firstRoundMatches: string[] = [];
-                for (let i = 0; i < shuffledPlayers.length; i += 2) {
-                    const matchId = uuidv4();
-                    firstRoundMatches.push(matchId);
-                    const p1 = shuffledPlayers[i];
-                    const p2 = shuffledPlayers[i + 1] ?? null;
-                    let status: TournamentMatch['status'] = 'pending';
-                    let winner = null;
-
-                    if (p1 && p2) {
-                        status = 'scheduled';
-                    } else if (p1 && !p2) {
-                        status = 'completed';
-                        winner = p1;
-                    } else if (!p1 && p2) {
-                        status = 'completed';
-                        winner = p2;
-                    }
-
-                    matchesToInsert.push({
-                        id: matchId,
-                        tournament_id: tournamentId,
-                        round: 1,
-                        match_number: i / 2 + 1,
-                        player1_id: p1,
-                        player2_id: p2,
-                        player1_score: winner === p1 ? 1 : null,
-                        player2_score: winner === p2 ? 1 : null,
-                        winner_id: winner,
-                        status: status,
-                        next_match_id: null,
-                    });
-                }
-                matchIdMatrix.push(firstRoundMatches);
-
-                for (let round = 2; round <= numRounds; round++) {
-                    const prevRoundMatches = matchIdMatrix[round - 2]; // -2 to adjust for our offset
-                    const currRoundMatches: string[] = [];
-
-                    for (let i = 0; i < prevRoundMatches.length; i += 2) {
-                        const matchId = uuidv4();
-                        currRoundMatches.push(matchId);
-
-                        const match1 = matchesToInsert.find(m => m.id === prevRoundMatches[i]);
-                        if (match1) match1.next_match_id = matchId;
-
-                        if (i + 1 < prevRoundMatches.length) {
-                            const match2 = matchesToInsert.find(m => m.id === prevRoundMatches[i + 1]);
-                            if (match2) match2.next_match_id = matchId;
-                        }
-
-                        matchesToInsert.push({
-                            id: matchId,
-                            tournament_id: tournamentId,
-                            round,
-                            match_number: i / 2 + 1,
-                            player1_id: null,
-                            player2_id: null,
-                            player1_score: null,
-                            player2_score: null,
-                            winner_id: null,
-                            status: 'pending',
-                            next_match_id: null,
-                        });
-                    }
-
-                    matchIdMatrix.push(currRoundMatches);
-                }
-
-                const {error: mErr} = await supabase.from('tournament_matches').insert(matchesToInsert);
-                if (mErr) throw mErr;
-                generatedMatchesInserted = true;
-
-                const {error: statusErr} = await supabase
-                    .from('tournaments')
-                    .update({status: 'active'})
-                    .eq('id', tournamentId);
-                if (statusErr) throw statusErr;
-
-                await get().fetchTournaments();
-                set({loading: false});
-                console.log('[STORE] set loading: false (generateAndStartTournament)');
-            }
-
-        } catch (error: any) {
-            console.error("Generate and Start Tournament Error:", error);
-            if (generatedMatchesInserted) {
-                await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
-            }
-            set({loading: false, error: error.message || 'Failed to generate and start tournament'});
-            console.log('[STORE] set loading: false (catch generateAndStartTournament)');
         }
     },
 
@@ -1068,7 +898,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
     },
 
     getTournamentMatches: (tournamentId: string) => {
-        const tournament = get().getTournamentById(tournamentId);
+        const tournament = get().tournaments.find(t => t.id === tournamentId);
         if (!tournament || !Array.isArray(tournament.matches)) return [];
         return tournament.matches.map((m: any) => ({
             id: m.id,
@@ -1137,6 +967,307 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             set({error: error.message || "Failed to set winner"});
             set({loading: false});
             console.log('[STORE] set loading: false (catch setTournamentWinner)');
+        }
+    },
+    generateAndStartTournament: async (tournamentId: string) => {
+        set({loading: true, error: null});
+        let generatedMatchesInserted = false;
+
+        try {
+            const existingTournament = get().tournaments.find(t => t.id === tournamentId);
+            if (!existingTournament) throw new Error(`Tournament ${tournamentId} not found.`);
+            if (existingTournament.status !== 'pending') throw new Error(`Tournament ${tournamentId} is not in pending state.`);
+
+            const {data: participantsData, error: pFetchErr} = await supabase
+                .from('tournament_participants')
+                .select('player_id')
+                .eq('tournament_id', tournamentId);
+
+            if (pFetchErr) throw pFetchErr;
+            if (!participantsData || participantsData.length < 2) {
+                throw new Error("Not enough participants found for this tournament.");
+            }
+            const playerIds = participantsData.map(p => p.player_id);
+
+            if (existingTournament.format === TournamentFormat.KNOCKOUT && playerIds.length % 4 !== 0) {
+                throw new Error("Knockout tournaments require an even number of players");
+            }
+
+            type TournamentMatchInsert = {
+                id: string;
+                tournament_id: string;
+                round: number;
+                match_number: number;
+                player1_id: string | null;
+                player2_id: string | null;
+                player1_score: number | null;
+                player2_score: number | null;
+                winner_id: string | null;
+                status: TournamentMatch['status'];
+                next_match_id: string | null;
+                sets?: MatchSet[];
+                group?: number;
+            };
+
+            if (existingTournament.format === 'ROUND_ROBIN') {
+                const schedule = generateRoundRobinSchedule(playerIds);
+                const matchesToInsert: TournamentMatchInsert[] = schedule.map((match, index) => ({
+                    id: uuidv4(),
+                    tournament_id: tournamentId,
+                    round: 1,
+                    match_number: index + 1,
+                    player1_id: match.player1Id,
+                    player2_id: match.player2Id,
+                    player1_score: null,
+                    player2_score: null,
+                    winner_id: null,
+                    status: 'scheduled',
+                    next_match_id: null,
+                }));
+
+                const {error: mErr} = await supabase.from('tournament_matches').insert(matchesToInsert);
+                if (mErr) throw mErr;
+                generatedMatchesInserted = true;
+
+                const {error: statusErr} = await supabase
+                    .from('tournaments')
+                    .update({status: TournamentStatus.IN_PROGRESS})
+                    .eq('id', tournamentId);
+                if (statusErr) throw statusErr;
+
+                // Zamiast pobierania wszystkich turniejów, zaktualizuj tylko lokalny stan
+                set(state => {
+                    const updatedTournaments = state.tournaments.map(t => {
+                        if (t.id === tournamentId) {
+                            // Przekonwertuj mecze z formatu bazy danych na format aplikacji
+                            const tournamentMatches: TournamentMatch[] = matchesToInsert.map(m => ({
+                                id: m.id,
+                                tournamentId: m.tournament_id,
+                                round: m.round,
+                                matchNumber: m.match_number || undefined,
+                                player1Id: m.player1_id,
+                                player2Id: m.player2_id,
+                                player1Score: m.player1_score,
+                                player2Score: m.player2_score,
+                                winner: m.winner_id,
+                                matchId: null,
+                                nextMatchId: m.next_match_id,
+                                status: m.status as 'pending' | 'scheduled' | 'completed' | 'bye',
+                                sets: m.sets || [],
+                                group: m.group
+                            }));
+
+                            return {
+                                ...t,
+                                status: TournamentStatus.IN_PROGRESS,
+                                matches: [...t.matches, ...tournamentMatches]
+                            };
+                        }
+                        return t;
+                    });
+                    return {
+                        ...state,
+                        loading: false,
+                        tournaments: updatedTournaments
+                    };
+                });
+            } else if (existingTournament.format === 'GROUP') {
+                const numGroups = Math.min(4, Math.ceil(playerIds.length / 3)); // Aim for 3-4 players per group
+                const groups = generateGroups(playerIds, numGroups);
+                const groupMatches = generateGroupMatches(tournamentId, groups);
+
+                const matchesToInsert: TournamentMatchInsert[] = groupMatches.map((match, index) => ({
+                    id: uuidv4(),
+                    tournament_id: tournamentId,
+                    round: 1, // Group stage is round 1
+                    match_number: index + 1,
+                    player1_id: match.player1Id,
+                    player2_id: match.player2Id,
+                    player1_score: null,
+                    player2_score: null,
+                    winner_id: null,
+                    status: 'scheduled',
+                    next_match_id: null,
+                    group: match.group
+                }));
+
+                const {error: mErr} = await supabase.from('tournament_matches').insert(matchesToInsert);
+                if (mErr) throw mErr;
+                generatedMatchesInserted = true;
+
+                const {error: statusErr} = await supabase
+                    .from('tournaments')
+                    .update({status: TournamentStatus.IN_PROGRESS})
+                    .eq('id', tournamentId);
+                if (statusErr) throw statusErr;
+
+                // Zamiast pobierania wszystkich turniejów, zaktualizuj tylko lokalny stan
+                set(state => {
+                    const updatedTournaments = state.tournaments.map(t => {
+                        if (t.id === tournamentId) {
+                            // Przekonwertuj mecze z formatu bazy danych na format aplikacji
+                            const tournamentMatches: TournamentMatch[] = matchesToInsert.map(m => ({
+                                id: m.id,
+                                tournamentId: m.tournament_id,
+                                round: m.round,
+                                matchNumber: m.match_number || undefined,
+                                player1Id: m.player1_id,
+                                player2Id: m.player2_id,
+                                player1Score: m.player1_score,
+                                player2Score: m.player2_score,
+                                winner: m.winner_id,
+                                matchId: null,
+                                nextMatchId: m.next_match_id,
+                                status: m.status as 'pending' | 'scheduled' | 'completed' | 'bye',
+                                sets: m.sets || [],
+                                group: m.group
+                            }));
+
+                            return {
+                                ...t,
+                                status: TournamentStatus.IN_PROGRESS,
+                                matches: [...t.matches, ...tournamentMatches]
+                            };
+                        }
+                        return t;
+                    });
+                    return {
+                        ...state,
+                        loading: false,
+                        tournaments: updatedTournaments
+                    };
+                });
+            } else {
+                const numPlayers = playerIds.length;
+                const numRounds = Math.ceil(Math.log2(numPlayers));
+                let matchesToInsert: TournamentMatchInsert[] = [];
+                let matchIdMatrix: string[][] = [];
+                let shuffledPlayers: (string | null)[] = shuffleArray([...playerIds]);
+
+                if (shuffledPlayers.length % 2 !== 0) shuffledPlayers.push(null);
+                let firstRoundMatches: string[] = [];
+                for (let i = 0; i < shuffledPlayers.length; i += 2) {
+                    const matchId = uuidv4();
+                    firstRoundMatches.push(matchId);
+                    const p1 = shuffledPlayers[i];
+                    const p2 = shuffledPlayers[i + 1] ?? null;
+                    let status: TournamentMatch['status'] = 'pending';
+                    let winner = null;
+
+                    if (p1 && p2) {
+                        status = 'scheduled';
+                    } else if (p1 && !p2) {
+                        status = 'completed';
+                        winner = p1;
+                    } else if (!p1 && p2) {
+                        status = 'completed';
+                        winner = p2;
+                    }
+
+                    matchesToInsert.push({
+                        id: matchId,
+                        tournament_id: tournamentId,
+                        round: 1,
+                        match_number: i / 2 + 1,
+                        player1_id: p1,
+                        player2_id: p2,
+                        player1_score: winner === p1 ? 1 : null,
+                        player2_score: winner === p2 ? 1 : null,
+                        winner_id: winner,
+                        status: status,
+                        next_match_id: null,
+                    });
+                }
+                matchIdMatrix.push(firstRoundMatches);
+
+                for (let round = 2; round <= numRounds; round++) {
+                    const prevRoundMatches = matchIdMatrix[round - 2]; // -2 to adjust for our offset
+                    const currRoundMatches: string[] = [];
+
+                    for (let i = 0; i < prevRoundMatches.length; i += 2) {
+                        const matchId = uuidv4();
+                        currRoundMatches.push(matchId);
+
+                        const match1 = matchesToInsert.find(m => m.id === prevRoundMatches[i]);
+                        if (match1) match1.next_match_id = matchId;
+
+                        if (i + 1 < prevRoundMatches.length) {
+                            const match2 = matchesToInsert.find(m => m.id === prevRoundMatches[i + 1]);
+                            if (match2) match2.next_match_id = matchId;
+                        }
+
+                        matchesToInsert.push({
+                            id: matchId,
+                            tournament_id: tournamentId,
+                            round,
+                            match_number: i / 2 + 1,
+                            player1_id: null,
+                            player2_id: null,
+                            player1_score: null,
+                            player2_score: null,
+                            winner_id: null,
+                            status: 'pending',
+                            next_match_id: null,
+                        });
+                    }
+
+                    matchIdMatrix.push(currRoundMatches);
+                }
+
+                const {error: mErr} = await supabase.from('tournament_matches').insert(matchesToInsert);
+                if (mErr) throw mErr;
+                generatedMatchesInserted = true;
+
+                const {error: statusErr} = await supabase
+                    .from('tournaments')
+                    .update({status: TournamentStatus.IN_PROGRESS})
+                    .eq('id', tournamentId);
+                if (statusErr) throw statusErr;
+
+                // Zamiast pobierania wszystkich turniejów, zaktualizuj tylko lokalny stan
+                set(state => {
+                    const updatedTournaments = state.tournaments.map(t => {
+                        if (t.id === tournamentId) {
+                            // Przekonwertuj mecze z formatu bazy danych na format aplikacji
+                            const tournamentMatches: TournamentMatch[] = matchesToInsert.map(m => ({
+                                id: m.id,
+                                tournamentId: m.tournament_id,
+                                round: m.round,
+                                matchNumber: m.match_number || undefined,
+                                player1Id: m.player1_id,
+                                player2Id: m.player2_id,
+                                player1Score: m.player1_score,
+                                player2Score: m.player2_score,
+                                winner: m.winner_id,
+                                matchId: null,
+                                nextMatchId: m.next_match_id,
+                                status: m.status as 'pending' | 'scheduled' | 'completed' | 'bye',
+                                sets: m.sets || [],
+                                group: m.group
+                            }));
+
+                            return {
+                                ...t,
+                                status: TournamentStatus.IN_PROGRESS,
+                                matches: [...t.matches, ...tournamentMatches]
+                            };
+                        }
+                        return t;
+                    });
+                    return {
+                        ...state,
+                        loading: false,
+                        tournaments: updatedTournaments
+                    };
+                });
+            }
+
+        } catch (error: any) {
+            console.error("Generate and Start Tournament Error:", error);
+            if (generatedMatchesInserted) {
+                await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
+            }
+            set({loading: false, error: error.message || 'Failed to generate and start tournament'});
         }
     },
 }));
