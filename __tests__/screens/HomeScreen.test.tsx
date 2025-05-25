@@ -127,7 +127,7 @@ describe('HomeScreen', () => {
 
     it('renders correctly with data', () => {
         render(<HomeScreen/>);
-        expect(screen.getByText('PingPong StatKeeper')).toBeTruthy();
+        expect(screen.getByText('Grey Zone PingPong StatKeeper')).toBeTruthy();
         expect(screen.getByText('Track your matches and rankings')).toBeTruthy();
         expect(screen.getByText('Top Players')).toBeTruthy();
         expect(screen.getByText('Recent Matches')).toBeTruthy();
