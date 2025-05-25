@@ -450,7 +450,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                 await generateKnockoutPhase(tournamentId, qualifiedPlayers);
 
-                await get().fetchTournaments();
+                // Real-time subscriptions zadbają o aktualizację
                 set({loading: false});
 
                 return Promise.resolve();
@@ -476,7 +476,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
         const lastFetchTimestamp = get().lastFetchTimestamp;
         const now = Date.now();
-        const FETCH_INTERVAL = 1500; // 1.5 seconds
+        const FETCH_INTERVAL = 3000; // 3 seconds - zmniejszona częstotliwość
 
         if (lastFetchTimestamp && (now - lastFetchTimestamp < FETCH_INTERVAL) && !options?.force) {
             console.log(`[STORE] Skipping fetchTournaments - too short interval (${now - lastFetchTimestamp}ms)`);
@@ -634,7 +634,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 throw pErr;
             }
 
-            await get().fetchTournaments({force: true}); // Ensure data is re-fetched
+            // Real-time subscriptions zadbają o aktualizację
             set({loading: false});
             console.log('[STORE] set loading: false (createTournament)');
             return tournamentId;
@@ -718,7 +718,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     .eq('id', tournamentId);
                 if (statusErr) throw statusErr;
 
-                await get().fetchTournaments();
+                // Real-time subscriptions zadbają o aktualizację
                 set({loading: false});
                 console.log('[STORE] set loading: false (generateAndStartTournament)');
             } else if (existingTournament.format === 'GROUP') {
@@ -751,7 +751,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     .eq('id', tournamentId);
                 if (statusErr) throw statusErr;
 
-                await get().fetchTournaments();
+                // Real-time subscriptions zadbają o aktualizację
                 set({loading: false});
                 console.log('[STORE] set loading: false (generateAndStartTournament)');
             } else {
@@ -841,7 +841,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     .eq('id', tournamentId);
                 if (statusErr) throw statusErr;
 
-                await get().fetchTournaments();
+                // Real-time subscriptions zadbają o aktualizację
                 set({loading: false});
                 console.log('[STORE] set loading: false (generateAndStartTournament)');
             }
@@ -870,6 +870,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             if (!currentMatch) throw new Error(`Match ${matchId} not found in tournament ${tournamentId}`);
             if (currentMatch.status === 'completed') {
                 console.warn(`Match ${matchId} is already completed.`);
+                set({loading: false});
                 return;
             }
             if (!currentMatch.player1Id || !currentMatch.player2Id) throw new Error(`Match ${matchId} lacks players.`);
@@ -889,8 +890,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             const winnerId = p1FinalScore > p2FinalScore ? currentMatch.player1Id : currentMatch.player2Id;
 
-            // Natychmiastowa aktualizacja UI
+            // Natychmiastowa aktualizacja UI - resetowanie loading od razu
             set(state => ({
+                loading: false,
                 tournaments: state.tournaments.map(t => {
                     if (t.id !== tournamentId) return t;
 
@@ -919,155 +921,130 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 sets: scores.sets,
             };
 
-            // Asynchroniczna aktualizacja bazy danych
-            const {error: updateErr} = await supabase
-                .from('tournament_matches')
-                .update(updateData)
-                .eq('id', matchId);
+            // Wszystkie operacje bazy danych równolegle w tle
+            const operations = [];
 
-            if (updateErr) throw updateErr;
+            // 1. Aktualizacja meczu turniejowego
+            operations.push(
+                supabase
+                    .from('tournament_matches')
+                    .update(updateData)
+                    .eq('id', matchId)
+            );
 
-            // Dodaj mecz również do ogólnej historii meczów
+            // 2. Dodanie do ogólnej historii meczów
             try {
                 const matchStore = require('./matchStore').useMatchStore.getState();
-                await matchStore.addMatch(
-                    currentMatch.player1Id,
-                    currentMatch.player2Id,
-                    scores.player1Score,
-                    scores.player2Score,
-                    scores.sets || [],
-                    tournamentId // Przekazanie ID turnieju
+                operations.push(
+                    matchStore.addMatch(
+                        currentMatch.player1Id,
+                        currentMatch.player2Id,
+                        scores.player1Score,
+                        scores.player2Score,
+                        scores.sets || [],
+                        tournamentId
+                    )
                 );
-                console.log(`[updateMatchResult] Successfully added tournament match to general match history`);
             } catch (error) {
-                console.error(`[updateMatchResult] Error adding match to general history:`, error);
-                // Nie przerywamy procesu, jeśli ten krok się nie powiedzie
+                console.warn(`[updateMatchResult] Skipping match history update:`, error);
             }
 
-            if (currentMatch.nextMatchId) {
-                const nextMatchId = currentMatch.nextMatchId;
-                const nextMatch = get().tournaments.find(t => t.id === tournamentId)
-                    ?.matches.find(m => m.id === nextMatchId);
+            // Wykonaj wszystkie operacje równolegle
+            const results = await Promise.allSettled(operations);
 
-                if (nextMatch) {
-                    const updateData: {
-                        player1_id?: string;
-                        player2_id?: string;
-                        status?: TournamentMatch['status'];
-                    } = {};
+            // Sprawdź czy główna aktualizacja się powiodła
+            const mainUpdate = results[0];
+            if (mainUpdate.status === 'rejected') {
+                throw new Error('Failed to update tournament match');
+            }
 
-                    if (nextMatch.player1Id === null) {
-                        updateData.player1_id = winnerId;
-                    } else if (nextMatch.player2Id === null) {
-                        updateData.player2_id = winnerId;
-                    }
+            console.log(`[updateMatchResult] Match updated successfully, processing next steps...`);
 
-                    if ((updateData.player1_id || nextMatch.player1Id) &&
-                        (updateData.player2_id || nextMatch.player2Id)) {
-                        updateData.status = 'scheduled';
-                    }
 
-                    if (Object.keys(updateData).length > 0) {
-                        // Update next match with a delay
-                        await new Promise(resolve => {
-                            setTimeout(async () => {
+            // Przetwarzanie następnych kroków w tle bez blokowania UI
+            setTimeout(async () => {
+                try {
+                    if (currentMatch.nextMatchId) {
+                        const nextMatchId = currentMatch.nextMatchId;
+                        const nextMatch = get().tournaments.find(t => t.id === tournamentId)
+                            ?.matches.find(m => m.id === nextMatchId);
+
+                        if (nextMatch) {
+                            const updateData: {
+                                player1_id?: string;
+                                player2_id?: string;
+                                status?: TournamentMatch['status'];
+                            } = {};
+
+                            if (nextMatch.player1Id === null) {
+                                updateData.player1_id = winnerId;
+                            } else if (nextMatch.player2Id === null) {
+                                updateData.player2_id = winnerId;
+                            }
+
+                            if ((updateData.player1_id || nextMatch.player1Id) &&
+                                (updateData.player2_id || nextMatch.player2Id)) {
+                                updateData.status = 'scheduled';
+                            }
+
+                            if (Object.keys(updateData).length > 0) {
                                 await supabase
                                     .from('tournament_matches')
                                     .update(updateData)
                                     .eq('id', nextMatchId);
-                                resolve(null);
-                            }, 50);
-                        });
-                    }
-                }
-            } else {
-                console.log(`[updateMatchResult] No next match - checking if tournament is completed`);
-                const tournament = get().tournaments.find(t => t.id === tournamentId);
 
-                if (tournament?.format === TournamentFormat.KNOCKOUT) {
-                    console.log(`[updateMatchResult] Tournament is in KNOCKOUT format - setting winner ${winnerId}`);
-                    // For KNOCKOUT format, the last match (final) completes the tournament
-                    try {
-                        await new Promise(resolve => {
-                            setTimeout(async () => {
-                                await get().setTournamentWinner(tournamentId, winnerId);
-                                resolve(null);
-                            }, 100);
-                        });
-                        console.log(`[updateMatchResult] Successfully set winner ${winnerId} for tournament ${tournamentId}`);
-                    } catch (error) {
-                        console.error(`[updateMatchResult] Error setting winner:`, error);
-                    }
-                } else if (tournament?.format === TournamentFormat.ROUND_ROBIN) {
-                    console.log(`[updateMatchResult] Tournament is in ROUND_ROBIN format - checking if all matches are completed`);
-                    // For ROUND_ROBIN format, check if all matches are completed
-                    try {
-                        // Fetch data with a delay
-                        const {data: freshTournament, error: tournamentError} = await new Promise<{
-                            data?: any,
-                            error?: any
-                        }>(resolve => {
-                            setTimeout(async () => {
-                                const result = await supabase
-                                    .from('tournaments')
-                                    .select('*, tournament_matches(status)')
-                                    .eq('id', tournamentId)
-                                    .single();
-                                resolve(result);
-                            }, 50);
-                        });
+                                // Aktualizuj lokalny stan dla następnego meczu
+                                set(state => ({
+                                    tournaments: state.tournaments.map(t => {
+                                        if (t.id !== tournamentId) return t;
 
-                        if (tournamentError) {
-                            console.error("Error fetching tournament data:", tournamentError);
-                            return;
-                        }
+                                        const updatedMatches = t.matches.map(m => {
+                                            if (m.id !== nextMatchId) return m;
+                                            return {
+                                                ...m,
+                                                player1Id: updateData.player1_id || m.player1Id,
+                                                player2Id: updateData.player2_id || m.player2Id,
+                                                status: updateData.status || m.status
+                                            };
+                                        });
 
-                        const tournamentMatches = freshTournament?.tournament_matches || [];
-                        console.log(`Checking ${tournamentMatches.length} matches in tournament ${tournamentId}`);
-
-                        const allMatchesCompleted = tournamentMatches.every((m: any) => m.status === 'completed');
-                        console.log(`Are all matches completed: ${allMatchesCompleted}`);
-
-                        if (allMatchesCompleted && tournamentMatches.length > 0) {
-                            console.log(`All matches completed (${tournamentMatches.length}). Selecting winner...`);
-                            try {
-                                const winnerId = await autoSelectRoundRobinWinner(tournamentId);
-                                console.log(`Tournament ${tournamentId} completed. Winner: ${winnerId}`);
-                            } catch (error) {
-                                console.error("Error selecting winner:", error);
+                                        return {...t, matches: updatedMatches};
+                                    })
+                                }));
                             }
-                        } else {
-                            console.log(`Tournament is ongoing. Completed matches: ${tournamentMatches.filter((m: any) => m.status === 'completed').length}/${tournamentMatches.length}`);
                         }
-                    } catch (error) {
-                        console.error("Error checking tournament status:", error);
+                    } else {
+                        console.log(`[updateMatchResult] No next match - checking if tournament is completed`);
+                        const tournament = get().tournaments.find(t => t.id === tournamentId);
+
+                        if (tournament?.format === TournamentFormat.KNOCKOUT) {
+                            console.log(`[updateMatchResult] Tournament is in KNOCKOUT format - setting winner ${winnerId}`);
+                            await get().setTournamentWinner(tournamentId, winnerId);
+                        } else if (tournament?.format === TournamentFormat.ROUND_ROBIN) {
+                            console.log(`[updateMatchResult] Tournament is in ROUND_ROBIN format - checking if all matches are completed`);
+
+                            const tournamentMatches = tournament.matches || [];
+                            const allMatchesCompleted = tournamentMatches.every(m => m.status === 'completed');
+
+                            if (allMatchesCompleted && tournamentMatches.length > 0) {
+                                console.log(`All matches completed. Selecting winner...`);
+                                const winner = await autoSelectRoundRobinWinner(tournamentId);
+                                console.log(`Tournament ${tournamentId} completed. Winner: ${winner}`);
+                            }
+                        }
                     }
-                } else if (tournament?.format === TournamentFormat.GROUP) {
-                    // For GROUP format, do not automatically complete the tournament
-                    console.log(`[updateMatchResult] Tournament is in GROUP format - not automatically completing`);
-                }
-            }
 
-            // Always refresh tournament data at the end
-            await new Promise(resolve => {
-                setTimeout(async () => {
+                    // Krytyczne: odśwież dane po zakończeniu meczu turniejowego
                     await get().fetchTournaments({force: true});
-                    resolve(null);
-                }, 100);
-            });
-
-            console.log('[STORE] set loading: false (finally updateMatchResult)');
+                } catch (error) {
+                    console.error('[updateMatchResult] Error in background processing:', error);
+                }
+            }, 100);
 
         } catch (error: any) {
             console.error("Update Match Result Error:", error);
             set({loading: false, error: error.message || 'Failed to update match'});
-            console.log('[STORE] set loading: false (catch updateMatchResult)');
             return;
-        } finally {
-            // Always reset the loading state only once at the end
-            console.log("[updateMatchResult] Finalizing - resetting loading state");
-            set({loading: false});
-            console.log('[STORE] set loading: false (finally updateMatchResult)');
         }
     },
 
@@ -1112,7 +1089,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         const {error} = await supabase.from('tournaments').update({status}).eq('id', tournamentId);
         if (error) {
             console.error("DB Status Update Error:", error);
-            await get().fetchTournaments();
+            // Real-time subscriptions zadbają o przywrócenie stanu
         }
     },
 
@@ -1145,8 +1122,8 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             if (error) throw error;
 
-            // Refresh tournament data to ensure everything is up-to-date
-            await get().fetchTournaments();
+            // Krytyczne: odśwież po ustawieniu zwycięzcy turnieju
+            await get().fetchTournaments({force: true});
             console.log(`[setTournamentWinner] Successfully set winner ${winnerId} for tournament ${tournamentId}`);
             set({loading: false});
             console.log('[STORE] set loading: false (setTournamentWinner)');
@@ -1164,11 +1141,14 @@ let lastTournamentsState: {
     tournamentId: string;
     isCompleted: boolean;
     hasWinner: boolean;
+    matchesCount: number;
 }[] = [];
 
 export function useTournamentsRealtime() {
     useEffect(() => {
-        const handleChanges = () => {
+        const handleChanges = (payload?: any) => {
+            console.log(`[STORE] Real-time change detected:`, payload?.eventType || 'unknown');
+
             // Block: do not fetch if loading is already true
             if (useTournamentStore.getState().loading) {
                 console.log(`[STORE] Skipping refresh (loading already active)`);
@@ -1178,43 +1158,46 @@ export function useTournamentsRealtime() {
             // Check if the minimum interval between refreshes has passed
             const now = Date.now();
             const lastFetch = useTournamentStore.getState().lastFetchTimestamp || 0;
-            const minInterval = 500; // Zmniejszone z 2000ms dla bardziej responsywnej aktualizacji
+            const minInterval = 1000; // Zwolnione do 1 sekundy - zbyt częste aktualizacje
 
             if (now - lastFetch < minInterval) {
                 console.log(`[STORE] Skipping refresh (too soon, interval: ${now - lastFetch}ms)`);
                 return;
             }
 
-            // Check if the tournament state has changed significantly to avoid unnecessary refreshes
+            // Debouncing mechanizm - tylko znaczące zmiany
             const currentTournaments = useTournamentStore.getState().tournaments;
             const currentState = currentTournaments.map(t => ({
                 tournamentId: t.id,
                 isCompleted: t.status === 'completed',
-                hasWinner: Boolean(t.winner)
+                hasWinner: Boolean(t.winner),
+                matchesCount: t.matches?.length || 0
             }));
 
-            // Check if the only change is a tournament being completed that already has a winner
+            // Sprawdź czy to znacząca zmiana
             const significantChange = !lastTournamentsState.length || currentState.some((curr, i) => {
                 const prev = lastTournamentsState[i];
-                // If the tournament was already completed and had a winner, do not refresh
-                if (prev && prev.tournamentId === curr.tournamentId &&
-                    prev.isCompleted && prev.hasWinner &&
-                    curr.isCompleted && curr.hasWinner) {
+                if (!prev || prev.tournamentId !== curr.tournamentId) return true;
+
+                // Ignoruj jeśli turniej był już zakończony i nadal jest
+                if (prev.isCompleted && curr.isCompleted && prev.hasWinner && curr.hasWinner) {
                     return false;
                 }
-                return !prev || prev.tournamentId !== curr.tournamentId ||
-                    prev.isCompleted !== curr.isCompleted ||
-                    prev.hasWinner !== curr.hasWinner;
-            });
 
-            lastTournamentsState = currentState;
+                // Sprawdź znaczące zmiany
+                return prev.isCompleted !== curr.isCompleted ||
+                    prev.hasWinner !== curr.hasWinner ||
+                    Math.abs(prev.matchesCount - curr.matchesCount) > 0;
+            });
 
             if (!significantChange) {
                 console.log(`[STORE] Skipping refresh (no significant changes in tournaments)`);
                 return;
             }
 
-            console.log(`[STORE] Refreshing data through subscription (interval: ${now - lastFetch}ms)`);
+            lastTournamentsState = currentState;
+
+            console.log(`[STORE] Real-time update triggered (interval: ${now - lastFetch}ms)`);
             useTournamentStore.getState().fetchTournaments().catch((e) =>
                 console.error("Error fetching tournaments:", e));
         };

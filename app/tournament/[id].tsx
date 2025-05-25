@@ -36,12 +36,7 @@ export default function TournamentDetailScreen() {
     // Get the winner object based on ID
     const winner = tournament?.winner ? playerStore.getPlayerById(tournament.winner) : null;
 
-    useEffect(() => {
-        if (!tournament) return;
-        if (tournament.status === 'completed') {
-            tournamentStore.fetchTournaments();
-        }
-    }, [tournament?.status]);
+    // Real-time subscriptions zadbają o aktualizację danych
 
     useEffect(() => {
         if (!tournament) return;
@@ -58,19 +53,24 @@ export default function TournamentDetailScreen() {
 
         console.log('[KO] allGroupCompleted:', allGroupCompleted, 'hasKnockout:', hasKnockout, 'tournamentId:', tournament.id);
 
-        if (allGroupCompleted && !hasKnockout) {
-            (async () => {
+        if (allGroupCompleted && !hasKnockout && tournament.format === TournamentFormat.GROUP) {
+            // Tylko raz generuj knockout fazę i tylko dla GROUP formatów
+            const generateKnockout = async () => {
                 try {
                     await tournamentStore.generateTournamentMatches(tournament.id);
-                    await tournamentStore.fetchTournaments();
-                    console.log('[KO] Knockout phase generated and tournaments refreshed');
+                    await tournamentStore.fetchTournaments({force: true});
+                    console.log('[KO] Knockout phase generated and data refreshed');
                     Alert.alert('Knockout Phase', 'Knockout phase has been automatically created!');
                 } catch (err) {
                     console.error('[KO] Error generating knockout:', err);
                 }
-            })();
+            };
+            
+            // Opóźnienie żeby uniknąć wielokrotnego wywoływania
+            const timeoutId = setTimeout(generateKnockout, 500);
+            return () => clearTimeout(timeoutId);
         }
-    }, [tournamentMatches, tournament]);
+    }, [tournament?.id, tournament?.status, tournament?.format, tournamentMatches.length]);
 
     useEffect(() => {
         setShowConfirmComplete(false);

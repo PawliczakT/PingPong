@@ -103,7 +103,9 @@ export default function RecordTournamentMatchScreen() {
 
         try {
             console.log("handleSubmit: Calling updateMatchResult...");
-            await updateMatchResult(
+            
+            // Wywołaj updateMatchResult i nie czekaj na wszystkie operacje w tle
+            updateMatchResult(
                 tournamentId as string,
                 matchId as string,
                 {
@@ -111,17 +113,25 @@ export default function RecordTournamentMatchScreen() {
                     player2Score: player2Sets,
                     sets,
                 }
-            );
+            ).catch(error => {
+                console.error("Background updateMatchResult error:", error);
+                // W przypadku błędu w tle, pokaż komunikat, ale nie blokuj UI
+            });
 
+            // Natychmiastowa informacja o sukcesie
             if (Platform.OS !== "web") {
-                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
 
-            Alert.alert(
-                "Success",
-                "Match recorded successfully",
-                [{text: "OK", onPress: () => router.push(`/tournament/${tournamentId}`)}]
-            );
+            // Natychmiastowe przekierowanie bez czekania na zakończenie wszystkich operacji DB
+            setTimeout(() => {
+                Alert.alert(
+                    "Success",
+                    "Match recorded successfully",
+                    [{text: "OK", onPress: () => router.push(`/tournament/${tournamentId}`)}]
+                );
+            }, 200);
+
         } catch (error) {
             console.error("handleSubmit: Error during updateMatchResult:", error);
             Alert.alert("Error", "Failed to record match");

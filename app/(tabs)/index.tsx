@@ -1,4 +1,4 @@
-import React, {useEffect} from "react";
+import React, {useEffect, useMemo} from "react";
 import {Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Bell, PlusCircle, Trophy, Users} from "lucide-react-native";
@@ -24,11 +24,15 @@ export default function HomeScreen() {
     const {checkNetworkStatus, syncPendingMatches} = useNetworkStore();
     const {registerForPushNotifications, notificationHistory} = useNotificationStore();
 
-    const topPlayers = getActivePlayersSortedByRating().slice(0, 3);
-    const recentMatches = getRecentMatches(3);
-    console.log('[HomeScreen] Recent matches IDs:', recentMatches.map(match => match.id));
-    const upcomingTournaments = [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2);
-    const unreadNotifications = notificationHistory.filter(n => !n.read).length;
+    // Memoization żeby zmniejszyć re-renders
+    const topPlayers = useMemo(() => getActivePlayersSortedByRating().slice(0, 3), [getActivePlayersSortedByRating]);
+    const recentMatches = useMemo(() => {
+        const matches = getRecentMatches(3);
+        console.log('[HomeScreen] Recent matches IDs:', matches.map(match => match.id));
+        return matches;
+    }, [getRecentMatches]);
+    const upcomingTournaments = useMemo(() => [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2), [getUpcomingTournaments, getActiveTournaments]);
+    const unreadNotifications = useMemo(() => notificationHistory.filter(n => !n.read).length, [notificationHistory]);
 
     useEffect(() => {
         checkNetworkStatus().then(isOnline => {
@@ -153,12 +157,9 @@ export default function HomeScreen() {
                     </View>
 
                     {recentMatches.length > 0 ? (
-                        recentMatches.map((match) => {
-                            console.log(`[HomeScreen] Rendering match with ID: ${match.id} and key: home-recent-${match.id}`);
-                            return (
-                                <MatchCard key={`home-recent-${match.id}`} match={match}/>
-                            );
-                        })
+                        recentMatches.map((match) => (
+                            <MatchCard key={`home-recent-${match.id}`} match={match}/>
+                        ))
                     ) : (
                         <EmptyState
                             title="No Matches Yet"
