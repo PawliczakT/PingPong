@@ -26,6 +26,7 @@ export default function HomeScreen() {
 
     const topPlayers = getActivePlayersSortedByRating().slice(0, 3);
     const recentMatches = getRecentMatches(3);
+    console.log('[HomeScreen] Recent matches IDs:', recentMatches.map(match => match.id));
     const upcomingTournaments = [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2);
     const unreadNotifications = notificationHistory.filter(n => !n.read).length;
 
@@ -152,9 +153,12 @@ export default function HomeScreen() {
                     </View>
 
                     {recentMatches.length > 0 ? (
-                        recentMatches.map((match) => (
-                            <MatchCard key={match.id} match={match}/>
-                        ))
+                        recentMatches.map((match) => {
+                            console.log(`[HomeScreen] Rendering match with ID: ${match.id} and key: home-recent-${match.id}`);
+                            return (
+                                <MatchCard key={`home-recent-${match.id}`} match={match}/>
+                            );
+                        })
                     ) : (
                         <EmptyState
                             title="No Matches Yet"

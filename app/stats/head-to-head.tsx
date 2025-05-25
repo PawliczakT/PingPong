@@ -71,7 +71,7 @@ export default function HeadToHeadScreen() {
 
                             {headToHead.matches.length > 0 ? (
                                 headToHead.matches.map(match => (
-                                    <MatchCard key={match.id} match={match}/>
+                                    <MatchCard key={`head-to-head-${match.id}`} match={match}/>
                                 ))
                             ) : (
                                 <View style={styles.emptyMatches}>

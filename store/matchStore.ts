@@ -32,8 +32,8 @@ export const useMatchStore = create<MatchState>()(
         error: null,
 
         addMatch: async (player1Id, player2Id, player1Score, player2Score, sets, tournamentId) => {
+            console.log('[MatchStore] Adding match with ID:', `temp-${Date.now()}`);
             set({isLoading: true, error: null});
-            let newMatch: Match | null = null;
 
             try {
                 const winner = player1Score > player2Score ? player1Id : player2Id;
@@ -55,6 +55,29 @@ export const useMatchStore = create<MatchState>()(
                     winner === player1Id
                 );
 
+                // Tymczasowy ID dla natychmiastowej aktualizacji UI
+                const tempId = `temp-${Date.now()}`;
+
+                // Tymczasowy mecz do natychmiastowej aktualizacji UI
+                const tempMatch: Match = {
+                    id: tempId,
+                    player1Id,
+                    player2Id,
+                    player1Score,
+                    player2Score,
+                    sets,
+                    winner: winner,
+                    winnerId: winner === player1Id ? 1 : 2,
+                    date: new Date().toISOString(),
+                    tournamentId,
+                };
+
+                // Natychmiastowa aktualizacja lokalnego stanu
+                set(state => ({
+                    matches: [tempMatch, ...state.matches]
+                }));
+
+                // Asynchroniczne zapisywanie w bazie danych
                 const {data, error: insertError} = await supabase.from('matches').insert([
                     {
                         player1_id: player1Id,
@@ -70,7 +93,7 @@ export const useMatchStore = create<MatchState>()(
 
                 if (insertError) throw insertError;
 
-                newMatch = {
+                const newMatch: Match = {
                     id: data.id,
                     player1Id: data.player1_id,
                     player2Id: data.player2_id,
@@ -78,11 +101,20 @@ export const useMatchStore = create<MatchState>()(
                     player2Score: data.player2_score,
                     sets: data.sets,
                     winner: data.winner,
+                    winnerId: data.winner === player1Id ? 1 : 2,
                     date: data.date,
                     tournamentId: data.tournament_id,
                 };
 
-                await Promise.all([
+                console.log('[MatchStore] Added match with ID:', newMatch.id);
+
+                // Aktualizacja lokalnego stanu - zastąpienie tymczasowego meczu rzeczywistym
+                set(state => ({
+                    matches: state.matches.map(m => m.id === tempId ? newMatch : m)
+                }));
+
+                // Aktualizacja danych graczy i statystyk w tle
+                Promise.all([
                     playerStore.updatePlayerRating(player1Id, player1NewRating),
                     playerStore.updatePlayerRating(player2Id, player2NewRating),
                     playerStore.updatePlayerStats(player1Id, winner === player1Id),
@@ -105,36 +137,40 @@ export const useMatchStore = create<MatchState>()(
                         date: new Date().toISOString(),
                         matchId: newMatch.id
                     })
-                ]);
+                ]).catch(error => {
+                    console.error("Error updating player data:", error);
+                });
 
                 const updatedPlayer1 = playerStore.getPlayerById(player1Id) || player1;
                 const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
-                await notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
 
-                if (Math.abs(player1NewRating - player1.eloRating) >= 15) {
-                    await notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
-                }
-                if (Math.abs(player2NewRating - player2.eloRating) >= 15) {
-                    await notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
-                }
+                // Powiadomienia i osiągnięcia w tle - to może działać asynchronicznie
+                Promise.all([
+                    notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2),
+                    Math.abs(player1NewRating - player1.eloRating) >= 15 ?
+                        notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating) : Promise.resolve(),
+                    Math.abs(player2NewRating - player2.eloRating) >= 15 ?
+                        notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating) : Promise.resolve(),
+                    achievementStore.checkAndUpdateAchievements(player1Id).then((achievements: Achievement[] | undefined) => {
+                        if (Array.isArray(achievements)) {
+                            achievements.forEach((achievement: Achievement) => {
+                                notificationStore.sendAchievementNotification(updatedPlayer1, achievement);
+                            });
+                        }
+                    }),
+                    achievementStore.checkAndUpdateAchievements(player2Id).then((achievements: Achievement[] | undefined) => {
+                        if (Array.isArray(achievements)) {
+                            achievements.forEach((achievement: Achievement) => {
+                                notificationStore.sendAchievementNotification(updatedPlayer2, achievement);
+                            });
+                        }
+                    })
+                ]).catch(error => {
+                    console.error("Error processing match aftermath:", error);
+                }).finally(() => {
+                    set({isLoading: false});
+                });
 
-                const [player1Achievements, player2Achievements] = await Promise.all([
-                    achievementStore.checkAndUpdateAchievements(player1Id),
-                    achievementStore.checkAndUpdateAchievements(player2Id)
-                ]);
-
-                if (Array.isArray(player1Achievements)) {
-                    player1Achievements.forEach((achievement: Achievement) => {
-                        notificationStore.sendAchievementNotification(updatedPlayer1, achievement);
-                    });
-                }
-                if (Array.isArray(player2Achievements)) {
-                    player2Achievements.forEach((achievement: Achievement) => {
-                        notificationStore.sendAchievementNotification(updatedPlayer2, achievement);
-                    });
-                }
-
-                set({isLoading: false});
                 return newMatch;
 
             } catch (error) {
@@ -157,8 +193,17 @@ export const useMatchStore = create<MatchState>()(
             ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         },
 
-        getRecentMatches: (limit = 10) => {
-            return [...get().matches]
+        getRecentMatches: (limit = 3) => {
+            console.log('[MatchStore] Getting recent matches, limit:', limit);
+            // Filter out duplicates by ID before sorting and limiting
+            const uniqueMatches = Array.from(
+                new Map(get().matches.map(match => [match.id, match]))
+                .values()
+            );
+            
+            console.log('[MatchStore] Total unique matches:', uniqueMatches.length);
+            
+            return uniqueMatches
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 .slice(0, limit);
         },
@@ -202,6 +247,7 @@ export const fetchMatchesFromSupabase = async () => {
             player2Score: item.player2_score,
             sets: typeof item.sets === 'string' ? JSON.parse(item.sets) : item.sets,
             winner: item.winner,
+            winnerId: item.winner === item.player1_id ? 1 : 2,
             date: item.date,
             tournamentId: item.tournament_id,
         }));
@@ -220,17 +266,71 @@ export const useMatchesRealtime = () => {
             .channel('matches-changes')
             .on(
                 'postgres_changes',
-                {event: '*', schema: 'public', table: 'matches'},
-                () => {
-                    fetchMatchesFromSupabase().catch((e) => {
-                        console.warn("Error fetching matches from Supabase:", e);
-                    })
+                {event: 'INSERT', schema: 'public', table: 'matches'},
+                (payload) => {
+                    // Tylko dodaj nowy mecz zamiast pobierać wszystkie
+                    const newMatch: Match = {
+                        id: payload.new.id,
+                        player1Id: payload.new.player1_id,
+                        player2Id: payload.new.player2_id,
+                        player1Score: payload.new.player1_score,
+                        player2Score: payload.new.player2_score,
+                        sets: typeof payload.new.sets === 'string' ?
+                            JSON.parse(payload.new.sets) : payload.new.sets,
+                        winner: payload.new.winner,
+                        winnerId: payload.new.winner === payload.new.player1_id ? 1 : 2,
+                        date: payload.new.date,
+                        tournamentId: payload.new.tournament_id,
+                    };
+
+                    console.log('[MatchStore] Added match with ID:', newMatch.id);
+
+                    useMatchStore.setState(state => ({
+                        matches: [newMatch, ...state.matches]
+                    }));
+                }
+            )
+            .on(
+                'postgres_changes',
+                {event: 'UPDATE', schema: 'public', table: 'matches'},
+                (payload) => {
+                    // Aktualizuj konkretny mecz zamiast pobierać wszystkie
+                    const updatedMatch: Match = {
+                        id: payload.new.id,
+                        player1Id: payload.new.player1_id,
+                        player2Id: payload.new.player2_id,
+                        player1Score: payload.new.player1_score,
+                        player2Score: payload.new.player2_score,
+                        sets: typeof payload.new.sets === 'string' ?
+                            JSON.parse(payload.new.sets) : payload.new.sets,
+                        winner: payload.new.winner,
+                        winnerId: payload.new.winner === payload.new.player1_id ? 1 : 2,
+                        date: payload.new.date,
+                        tournamentId: payload.new.tournament_id,
+                    };
+
+                    useMatchStore.setState(state => ({
+                        matches: state.matches.map(m =>
+                            m.id === updatedMatch.id ? updatedMatch : m
+                        )
+                    }));
+                }
+            )
+            .on(
+                'postgres_changes',
+                {event: 'DELETE', schema: 'public', table: 'matches'},
+                (payload) => {
+                    // Usuń konkretny mecz zamiast pobierać wszystkie
+                    useMatchStore.setState(state => ({
+                        matches: state.matches.filter(m => m.id !== payload.old.id)
+                    }));
                 }
             )
             .subscribe();
+
         return () => {
-            supabase.removeChannel(channel).then(r =>
-                console.error("Error removing matches channel:", r));
+            supabase.removeChannel(channel).catch(error =>
+                console.error("Error removing matches channel:", error));
         };
     }, []);
 };

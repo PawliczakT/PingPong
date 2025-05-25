@@ -13,7 +13,11 @@ type TournamentStore = {
     lastFetchTimestamp: number | null;
     fetchTournaments: (options?: { force?: boolean }) => Promise<void>;
     createTournament: (name: string, date: string, format: TournamentFormat, playerIds: string[]) => Promise<string | undefined>;
-    updateMatchResult: (tournamentId: string, matchId: string, scores: { player1Score: number; player2Score: number; sets?: MatchSet[] }) => Promise<void>;
+    updateMatchResult: (tournamentId: string, matchId: string, scores: {
+        player1Score: number;
+        player2Score: number;
+        sets?: MatchSet[]
+    }) => Promise<void>;
     getTournamentById: (id: string) => Tournament | undefined;
     getTournamentMatches: (tournamentId: string) => TournamentMatch[];
     updateTournamentStatus: (tournamentId: string, status: Tournament['status']) => Promise<void>;
@@ -589,7 +593,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     .from('tournaments')
                     .select('name')
                     .ilike('name', 'Tournament %');
-                
+
                 if (fetchErr) {
                     console.warn("Error fetching existing tournament names:", fetchErr);
                     finalName = "Tournament 1"; // Default if can't fetch
@@ -858,11 +862,8 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         sets?: MatchSet[]
     }) => {
         set({loading: true, error: null});
-        console.log('[STORE] set loading: true (updateMatchResult)');
-        try {
-            // Use a delay to avoid blocking the main thread
-            await new Promise(resolve => setTimeout(resolve, 10));
 
+        try {
             const currentMatch = get().tournaments.find(t => t.id === tournamentId)
                 ?.matches.find(m => m.id === matchId);
 
@@ -888,6 +889,28 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             const winnerId = p1FinalScore > p2FinalScore ? currentMatch.player1Id : currentMatch.player2Id;
 
+            // Natychmiastowa aktualizacja UI
+            set(state => ({
+                tournaments: state.tournaments.map(t => {
+                    if (t.id !== tournamentId) return t;
+
+                    const updatedMatches = t.matches.map(m => {
+                        if (m.id !== matchId) return m;
+
+                        return {
+                            ...m,
+                            player1Score: scores.player1Score,
+                            player2Score: scores.player2Score,
+                            sets: scores.sets || [],
+                            winner: winnerId,
+                            status: 'completed' as const
+                        };
+                    });
+
+                    return {...t, matches: updatedMatches};
+                })
+            }));
+
             const updateData = {
                 player1_score: scores.player1Score,
                 player2_score: scores.player2Score,
@@ -896,16 +919,11 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 sets: scores.sets,
             };
 
-            // Update match data with a delay to avoid blocking the interface
-            const {error: updateErr} = await new Promise<{ error?: any }>(resolve => {
-                setTimeout(async () => {
-                    const result = await supabase
-                        .from('tournament_matches')
-                        .update(updateData)
-                        .eq('id', matchId);
-                    resolve(result);
-                }, 50);
-            });
+            // Asynchroniczna aktualizacja bazy danych
+            const {error: updateErr} = await supabase
+                .from('tournament_matches')
+                .update(updateData)
+                .eq('id', matchId);
 
             if (updateErr) throw updateErr;
 
@@ -1094,7 +1112,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         const {error} = await supabase.from('tournaments').update({status}).eq('id', tournamentId);
         if (error) {
             console.error("DB Status Update Error:", error);
-            get().fetchTournaments();
+            await get().fetchTournaments();
         }
     },
 
@@ -1160,7 +1178,7 @@ export function useTournamentsRealtime() {
             // Check if the minimum interval between refreshes has passed
             const now = Date.now();
             const lastFetch = useTournamentStore.getState().lastFetchTimestamp || 0;
-            const minInterval = 2000; // Increase the minimum interval to 2 seconds for subscriptions
+            const minInterval = 500; // Zmniejszone z 2000ms dla bardziej responsywnej aktualizacji
 
             if (now - lastFetch < minInterval) {
                 console.log(`[STORE] Skipping refresh (too soon, interval: ${now - lastFetch}ms)`);

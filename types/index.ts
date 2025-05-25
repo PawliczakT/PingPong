@@ -22,7 +22,6 @@ export interface Set {
 }
 
 export interface Match {
-    winnerId: number;
     id: string;
     player1Id: string;
     player2Id: string;
@@ -32,7 +31,8 @@ export interface Match {
     date: string;
     tournamentId?: string;
     roundName?: string;
-    winner?: string;
+    winner: string;
+    winnerId: number; // Zachowane dla kompatybilności
     isComplete?: boolean;
 }
 

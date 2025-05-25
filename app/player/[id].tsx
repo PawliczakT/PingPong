@@ -210,7 +210,7 @@ export default function PlayerDetailScreen() {
                     <View style={styles.section}>
                         {matches.length > 0 ? (
                             matches.map((match) => (
-                                <MatchCard key={match.id} match={match}/>
+                                <MatchCard key={`player-detail-${match.id}`} match={match}/>
                             ))
                         ) : (
                             <View style={styles.emptyMatches}>
