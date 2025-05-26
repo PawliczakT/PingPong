@@ -78,6 +78,7 @@ export const useMatchStore = create<MatchState>()(
                     player2Score: data.player2_score,
                     sets: data.sets,
                     winner: data.winner,
+                    winnerId: data.winner,
                     date: data.date,
                     tournamentId: data.tournament_id,
                 };
@@ -202,6 +203,7 @@ export const fetchMatchesFromSupabase = async () => {
             player2Score: item.player2_score,
             sets: typeof item.sets === 'string' ? JSON.parse(item.sets) : item.sets,
             winner: item.winner,
+            winnerId: item.winner,
             date: item.date,
             tournamentId: item.tournament_id,
         }));
