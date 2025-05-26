@@ -1,11 +1,13 @@
 import React, {useState} from "react";
-import {Alert, Platform, ScrollView, StyleSheet, Text, TextInput} from "react-native";
+import {Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from "react-native";
 import {Stack, useRouter} from "expo-router";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import Button from "@/components/Button";
 import * as Haptics from "expo-haptics";
+import {pickImage, uploadImageToSupabase} from "@/utils/imageUpload";
+import {Image as ExpoImage} from "expo-image";
 
 export default function CreatePlayerScreen() {
     const router = useRouter();
@@ -14,7 +16,25 @@ export default function CreatePlayerScreen() {
     const [name, setName] = useState("");
     const [nickname, setNickname] = useState("");
     const [avatarUrl, setAvatarUrl] = useState("");
+    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+    const [selectedImageBase64, setSelectedImageBase64] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+
+    const handleImagePick = async () => {
+        try {
+            const result = await pickImage();
+
+            if (!result.canceled && result.assets && result.assets[0]) {
+                setSelectedImageUri(result.assets[0].uri);
+                setSelectedImageBase64(result.assets[0].base64);
+                // Don't upload yet, we'll do it when submitting the form
+            }
+        } catch (error) {
+            Alert.alert("Error", "Failed to select image");
+            console.error("Image selection error:", error);
+        }
+    };
 
     const handleSubmit = async () => {
         if (!name.trim()) {
@@ -25,7 +45,35 @@ export default function CreatePlayerScreen() {
         setIsSubmitting(true);
 
         try {
-            await addPlayer(name.trim(), nickname.trim() || undefined, avatarUrl.trim() || undefined);
+            let finalAvatarUrl = avatarUrl;
+
+            // If a local image was selected, use it directly or attempt to upload
+            if (selectedImageUri) {
+                setUploadingImage(true);
+                // Generate a temporary ID for the file name
+                const tempId = `temp_${Date.now()}`;
+
+                // Use the selected image URI directly or try to upload
+                const {url, error} = await uploadImageToSupabase(
+                    selectedImageUri,
+                    selectedImageBase64,
+                    tempId
+                );
+
+                if (error) {
+                    Alert.alert("Avatar Error", error);
+                    setUploadingImage(false);
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                if (url) {
+                    finalAvatarUrl = url;
+                }
+                setUploadingImage(false);
+            }
+
+            await addPlayer(name.trim(), nickname.trim() || undefined, finalAvatarUrl || undefined);
 
             if (Platform.OS !== "web") {
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -73,25 +121,54 @@ export default function CreatePlayerScreen() {
                     onChangeText={setNickname}
                 />
 
-                <Text style={styles.label}>Avatar URL (optional)</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Enter avatar image URL"
-                    value={avatarUrl}
-                    onChangeText={setAvatarUrl}
-                    autoCapitalize="none"
-                    keyboardType="url"
-                />
+                <Text style={styles.label}>Avatar</Text>
+                <View style={styles.avatarContainer}>
+                    <TouchableOpacity
+                        style={styles.avatarButton}
+                        onPress={handleImagePick}
+                        disabled={isSubmitting || uploadingImage}
+                    >
+                        {selectedImageUri ? (
+                            <ExpoImage
+                                source={{uri: selectedImageUri}}
+                                style={styles.avatarImage}
+                                contentFit="cover"
+                                transition={200}
+                            />
+                        ) : (
+                            <View style={styles.avatarPlaceholder}>
+                                <Text style={styles.avatarPlaceholderText}>Select Image</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
+                    <View style={styles.avatarInputContainer}>
+                        <Text style={styles.label}>OR Avatar URL (optional)</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Enter avatar image URL"
+                            value={avatarUrl}
+                            onChangeText={(text) => {
+                                setAvatarUrl(text);
+                                if (text) setSelectedImageUri(null);
+                            }}
+                            autoCapitalize="none"
+                            keyboardType="url"
+                            editable={!selectedImageUri}
+                        />
+                    </View>
+                </View>
 
                 <Text style={styles.helperText}>
-                    For avatar, use a direct link to an image (e.g., from Unsplash)
+                    Tap on the avatar button to select an image from your device, or provide a direct URL to an online
+                    image.
                 </Text>
 
                 <Button
-                    title="Add Player"
+                    title={uploadingImage ? "Uploading Image..." : "Add Player"}
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={!name.trim()}
+                    disabled={!name.trim() || uploadingImage}
                     style={styles.button}
                 />
             </ScrollView>
@@ -130,5 +207,42 @@ const styles = StyleSheet.create({
     },
     button: {
         marginBottom: 20,
+    },
+    avatarContainer: {
+        flexDirection: "row",
+        marginBottom: 16,
+        alignItems: "flex-start",
+    },
+    avatarButton: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        overflow: "hidden",
+        marginRight: 16,
+        backgroundColor: colors.card,
+    },
+    avatarImage: {
+        width: "100%",
+        height: "100%",
+    },
+    avatarPlaceholder: {
+        width: "100%",
+        height: "100%",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 50,
+        borderStyle: "dashed",
+    },
+    avatarPlaceholderText: {
+        fontSize: 12,
+        color: colors.textLight,
+        textAlign: "center",
+        padding: 8,
+    },
+    avatarInputContainer: {
+        flex: 1,
     },
 });
