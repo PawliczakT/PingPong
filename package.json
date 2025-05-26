@@ -77,7 +77,9 @@
     "react-native-web": "~0.19.13",
     "superjson": "^2.2.2",
     "zod": "^3.24.3",
-    "zustand": "^5.0.2"
+    "zustand": "^5.0.2",
+    "expo-face-detector": "~13.0.2",
+    "expo-image-manipulator": "~13.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

@@ -6,7 +6,7 @@ import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import Button from "@/components/Button";
 import * as Haptics from "expo-haptics";
-import {pickImage, uploadImageToSupabase} from "@/utils/imageUpload";
+import {pickAndProcessAvatarWithAWS, uploadImageToSupabase} from "@/utils/imageUpload";
 import {Image as ExpoImage} from "expo-image";
 
 export default function EditPlayerScreen() {
@@ -18,9 +18,9 @@ export default function EditPlayerScreen() {
 
     const [name, setName] = useState("");
     const [nickname, setNickname] = useState("");
-    const [avatarUrl, setAvatarUrl] = useState("");
-    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-    const [selectedImageBase64, setSelectedImageBase64] = useState<string | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | undefined>("");
+    const [selectedImageUri, setSelectedImageUri] = useState<string | undefined>(undefined);
+    const [selectedImageBase64, setSelectedImageBase64] = useState<string | undefined>(undefined);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -28,23 +28,36 @@ export default function EditPlayerScreen() {
         if (player) {
             setName(player.name);
             setNickname(player.nickname || "");
-            setAvatarUrl(player.avatarUrl || "");
+            setAvatarUrl(player.avatarUrl || undefined);
         }
     }, [player]);
 
-    const handleImagePick = async () => {
+    // Pick and process image with face detection
+    const handlePickImage = async () => {
         try {
-            const result = await pickImage();
+            setIsSubmitting(true);
+            const result = await pickAndProcessAvatarWithAWS();
 
-            if (!result.canceled && result.assets && result.assets[0]) {
-                setSelectedImageUri(result.assets[0].uri);
-                setSelectedImageBase64(result.assets[0].base64);
-                // Clear the URL if we're picking a local image
-                setAvatarUrl("");
+            if (!result.canceled && result.uri) {
+                setSelectedImageUri(result.uri);
+                setSelectedImageBase64(result.base64);
+                // Set avatarUrl temporarily to show the image in the form
+                setAvatarUrl(result.uri); // result.uri jest tutaj string, więc jest zgodny z SetStateAction<string | undefined>
+
+                // Inform the user that the image was processed using AWS
+                if (result.awsProcessed) {
+                    Alert.alert(
+                        'Success',
+                        'The face was automatically detected and cropped using AWS Rekognition!',
+                        [{text: 'OK'}]
+                    );
+                }
             }
         } catch (error) {
-            Alert.alert("Error", "Failed to select image");
-            console.error("Image selection error:", error);
+            console.error('Error picking image:', error);
+            Alert.alert('Error', 'Failed to pick image');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -107,7 +120,7 @@ export default function EditPlayerScreen() {
             });
 
             if (Platform.OS !== "web") {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
 
             Alert.alert(
@@ -156,7 +169,7 @@ export default function EditPlayerScreen() {
                 <View style={styles.avatarContainer}>
                     <TouchableOpacity
                         style={styles.avatarButton}
-                        onPress={handleImagePick}
+                        onPress={handlePickImage}
                         disabled={isSubmitting || uploadingImage}
                     >
                         {selectedImageUri ? (
@@ -188,7 +201,7 @@ export default function EditPlayerScreen() {
                             value={avatarUrl}
                             onChangeText={(text) => {
                                 setAvatarUrl(text);
-                                if (text) setSelectedImageUri(null);
+                                if (text) setSelectedImageUri(undefined);
                             }}
                             autoCapitalize="none"
                             keyboardType="url"
