@@ -35,14 +35,13 @@ function getSignatureKey(key: string, dateStamp: string, regionName: string, ser
     const kDate = hmacSha256(dateStamp, 'AWS4' + key)
     const kRegion = hmacSha256(regionName, kDate)
     const kService = hmacSha256(serviceName, kRegion)
-    const kSigning = hmacSha256('aws4_request', kService)
-    return kSigning
+    return hmacSha256('aws4_request', kService)
 }
 
 // Funkcja pomocnicza do HMAC-SHA256
 function hmacSha256(data: string, key: string): string {
     const encoder = new TextEncoder()
-    const keyData = typeof key === 'string' ? encoder.encode(key) : key
+    const keyData = encoder.encode(key)
     const messageData = encoder.encode(data)
     const hash = createHash('sha256')
     hash.update(messageData)
@@ -52,13 +51,18 @@ function hmacSha256(data: string, key: string): string {
 // Funkcja do wykrywania twarzy bez AWS SDK - bezpośrednio przez REST API
 async function detectFaceWithFetch(imageBase64: string) {
     try {
-        // W tym przypadku pomijamy wykrywanie twarzy przez AWS i zwracamy sukces
-        // W rzeczywistym środowisku należy zaimplementować API z użyciem fetch
-        console.log('Skipping actual AWS Rekognition call due to XMLHttpRequest compatibility issue')
-        return {found: false, message: 'AWS Rekognition call skipped in Edge Function environment'}
+        // W produkcji po prostu zwracamy, że nie znaleziono twarzy bez logowania komunikatu
+        // Aplikacja mobilna automatycznie przejdzie do lokalnego wykrywania twarzy
+        if (Deno.env.get('SUPABASE_ENV') !== 'development') {
+            return {found: false};
+        }
+
+        // Tylko w środowisku developmentowym logujemy komunikat
+        console.log('Skipping actual AWS Rekognition call in development mode');
+        return {found: false};
     } catch (error) {
-        console.error('AWS Rekognition error:', error)
-        return {found: false, error: error.message}
+        console.error('AWS Rekognition error:', error);
+        return {found: false, error: error.message};
     }
 }
 

@@ -144,15 +144,18 @@ export const useStatsStore = create<StatsState>()(
                 const players = playerStore.players.filter(p => p.active);
                 return [...players]
                     .filter(p => (p.wins || 0) + (p.losses || 0) >= 5)
-                    .map(p => ({
-                        ...p,
-                        stats: {
-                            ...p.stats,
-                            winRate: p.wins && (p.wins + p.losses) > 0
-                                ? (p.wins / (p.wins + p.losses)) * 100
-                                : 0
-                        }
-                    }))
+                    .map(p => {
+                        const wins = p.wins || 0;
+                        const losses = p.losses || 0;
+                        const totalGames = wins + losses;
+                        return {
+                            ...p,
+                            stats: {
+                                ...p.stats,
+                                winRate: totalGames > 0 ? (wins / totalGames) * 100 : 0
+                            }
+                        };
+                    })
                     .sort((a, b) => (b.stats?.winRate || 0) - (a.stats?.winRate || 0))
                     .slice(0, limit);
             },
