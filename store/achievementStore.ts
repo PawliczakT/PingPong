@@ -1,11 +1,20 @@
 import {create} from "zustand";
-import {Achievement, AchievementProgress, AchievementType, Match, Set as MatchSet, DisplayAchievement, TournamentFormat, Player, Tournament} from "@/types";
+import {
+    Achievement,
+    AchievementProgress,
+    AchievementType,
+    DisplayAchievement,
+    Match,
+    Set as MatchSet,
+    Tournament,
+    TournamentFormat
+} from "@/types";
 import {usePlayerStore} from "./playerStore";
 import {useTournamentStore} from "./tournamentStore";
 import {achievements as allAchievementDefinitions} from "@/constants/achievements";
 import {supabase} from "@/lib/supabase";
 import {useEffect} from "react";
-import { useMatchStore } from "./matchStore";
+import {useMatchStore} from "./matchStore";
 
 interface AchievementState {
     playerAchievements: Record<string, AchievementProgress[]>;
@@ -46,10 +55,37 @@ export const useAchievementStore = create<AchievementState>()(
 
         updateAchievementProgress: (playerId, achievementType, progress) => {
             set((state) => {
+                // Jeśli brak osiągnięć dla gracza, inicjalizujemy je
                 if (!state.playerAchievements[playerId]) {
-                    get().initializePlayerAchievements(playerId);
+                    // Tworzymy nowe osiągnięcia zamiast wywołania initializePlayerAchievements
+                    // ponieważ to nie gwarantuje natychmiastowej aktualizacji stanu
+                    const initialAchievements = allAchievementDefinitions.map(achievement => ({
+                        type: achievement.type,
+                        progress: 0,
+                        unlocked: false,
+                        unlockedAt: null,
+                    }));
+
+                    // Aktualizujemy konkretne osiągnięcie
+                    const updatedInitialAchievements = initialAchievements.map(achievement => {
+                        if (achievement.type === achievementType && !achievement.unlocked) {
+                            return {
+                                ...achievement,
+                                progress: Math.max(achievement.progress, progress),
+                            };
+                        }
+                        return achievement;
+                    });
+
+                    return {
+                        playerAchievements: {
+                            ...state.playerAchievements,
+                            [playerId]: updatedInitialAchievements,
+                        },
+                    };
                 }
 
+                // Jeśli osiągnięcia istnieją, aktualizujemy je
                 const updatedAchievements = state.playerAchievements[playerId].map(achievement => {
                     if (achievement.type === achievementType && !achievement.unlocked) {
                         return {
@@ -110,9 +146,8 @@ export const useAchievementStore = create<AchievementState>()(
         },
 
         getPlayerAchievements: (playerId) => {
-            if (!get().playerAchievements[playerId]) {
-                get().initializePlayerAchievements(playerId);
-            }
+            // Zwracamy istniejące osiągnięcia bez automatycznej inicjalizacji
+            // Inicjalizacja powinna być wykonana w useEffect, a nie podczas renderowania
             return get().playerAchievements[playerId] || [];
         },
 
@@ -222,7 +257,7 @@ export const useAchievementStore = create<AchievementState>()(
                     const playerIsP1 = match.player1Id === playerId;
                     if (match.sets.length === 3 &&
                         ((playerIsP1 && match.player1Score === 3 && match.player2Score === 0) ||
-                         (!playerIsP1 && match.player2Score === 3 && match.player1Score === 0))) {
+                            (!playerIsP1 && match.player2Score === 3 && match.player1Score === 0))) {
                         cleanSweepsCount++;
                     }
 
@@ -244,12 +279,12 @@ export const useAchievementStore = create<AchievementState>()(
 
                             // Clutch Performer: Won the deciding set
                             // Best of 3: 2 sets to win, deciding is 3rd. Best of 5: 3 sets to win, deciding is 5th.
-                            const setsToWinMatch = (match.player1Score + match.player2Score) < 3 ? 2 : Math.ceil((match.player1Score + match.player2Score) / 2) + ( (match.player1Score+match.player2Score)%2 === 0 ? 1:0 ); // Simplified, assumes Bo3 or Bo5 based on total sets played
+                            const setsToWinMatch = (match.player1Score + match.player2Score) < 3 ? 2 : Math.ceil((match.player1Score + match.player2Score) / 2) + ((match.player1Score + match.player2Score) % 2 === 0 ? 1 : 0); // Simplified, assumes Bo3 or Bo5 based on total sets played
                             // A more robust way for deciding set: if player won, and total sets played is odd (e.g. 2-1 in Bo3, 3-2 in Bo5)
                             // And this is the last set of the match
-                            if ( (match.player1Score + match.player2Score) % 2 !== 0 && index === match.sets.length -1 ) {
-                                if( (playerIsP1 && match.player1Score > match.player2Score) || (!playerIsP1 && match.player2Score > match.player1Score ) ){
-                                   clutchPerformerCount++;
+                            if ((match.player1Score + match.player2Score) % 2 !== 0 && index === match.sets.length - 1) {
+                                if ((playerIsP1 && match.player1Score > match.player2Score) || (!playerIsP1 && match.player2Score > match.player1Score)) {
+                                    clutchPerformerCount++;
                                 }
                             }
                         }
@@ -277,8 +312,8 @@ export const useAchievementStore = create<AchievementState>()(
                         } else {
                             oSets++;
                         }
-                        if (i < match.sets.length -1) { // Don't check after the last set that player won
-                           if (oSets - pSets >= 2) wasTwoSetsDown = true;
+                        if (i < match.sets.length - 1) { // Don't check after the last set that player won
+                            if (oSets - pSets >= 2) wasTwoSetsDown = true;
                         }
                     }
                     if (wasTwoSetsDown && pSets > oSets) comebackWinsCount++;
@@ -335,7 +370,7 @@ export const useAchievementStore = create<AchievementState>()(
             // Bounce Back Wins (win after a loss - use sortedMatches)
             let bounceBackWinsCount = 0;
             for (let i = 1; i < sortedMatches.length; i++) {
-                if (sortedMatches[i-1].winner !== playerId && sortedMatches[i].winner === playerId) {
+                if (sortedMatches[i - 1].winner !== playerId && sortedMatches[i].winner === playerId) {
                     bounceBackWinsCount++;
                 }
             }
@@ -385,7 +420,7 @@ export const useAchievementStore = create<AchievementState>()(
                     // Finalist & Runner-up (for Knockout/Group)
                     if (tournament.format === TournamentFormat.KNOCKOUT || tournament.format === TournamentFormat.GROUP) {
                         let maxRound = Math.max(...tournament.matches.map(m => m.round));
-                        
+
                         // Check for finalist (final match)
                         const finalMatches = tournament.matches.filter(m => m.round === maxRound && m.status === 'completed');
                         const playerInFinal = finalMatches.some(m => m.player1Id === playerId || m.player2Id === playerId);
@@ -395,7 +430,7 @@ export const useAchievementStore = create<AchievementState>()(
                                 runnerUpFinishes++;
                             }
                         }
-                        
+
                         // Check for quarterfinalist (if tournament has enough rounds)
                         if (maxRound >= 3) { // Assuming round 1 = quarters, 2 = semis, 3 = final in a large tournament
                             const quarterFinalMatches = tournament.matches.filter(m => m.round === maxRound - 2 && m.status === 'completed');
@@ -409,7 +444,7 @@ export const useAchievementStore = create<AchievementState>()(
             });
 
             // --- Meta Achievements ---
-            const currentPlayerAchievements = get().playerAchievements[playerId] || []; 
+            const currentPlayerAchievements = get().playerAchievements[playerId] || [];
 
             const metaAchievementTypes = [
                 AchievementType.META_UNLOCK_5, AchievementType.META_UNLOCK_10, AchievementType.META_UNLOCK_15,
