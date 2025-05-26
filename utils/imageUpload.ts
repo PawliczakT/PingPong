@@ -170,6 +170,12 @@ export const processAvatarWithAWS = async (
         return {success: false, error: 'No image data provided'};
     }
 
+    // W aplikacji mobilnej używamy tylko lokalnego wykrywania twarzy
+    // i nie wywołujemy funkcji AWS Rekognition
+    if (Platform.OS !== 'web') {
+        return {success: false, error: 'AWS Rekognition not available on mobile'}; 
+    }
+
     try {
         console.log('Processing avatar with AWS Rekognition through Supabase Edge Function');
 
@@ -240,20 +246,23 @@ export const pickAndProcessAvatarWithAWS = async (): Promise<{
         // Wygeneruj tymczasowe ID gracza, jeśli nie mamy jeszcze prawdziwego ID
         const tempPlayerId = `temp_${Date.now()}`;
 
-        try {
-            // Spróbuj przetworzyć avatar przez AWS Rekognition
-            const processResult = await processAvatarWithAWS(originalBase64, fileName, tempPlayerId);
+        // W aplikacji mobilnej pomijamy próbę użycia AWS Rekognition
+        if (Platform.OS === 'web') {
+            try {
+                // Spróbuj przetworzyć avatar przez AWS Rekognition tylko w przeglądarce
+                const processResult = await processAvatarWithAWS(originalBase64, fileName, tempPlayerId);
 
-            if (processResult.success && processResult.url) {
-                return {
-                    uri: processResult.url,
-                    base64: originalBase64, // Zachowujemy oryginalny base64 do przesłania
-                    awsProcessed: true,
-                    canceled: false
-                };
+                if (processResult.success && processResult.url) {
+                    return {
+                        uri: processResult.url,
+                        base64: originalBase64, // Zachowujemy oryginalny base64 do przesłania
+                        awsProcessed: true,
+                        canceled: false
+                    };
+                }
+            } catch (error) {
+                console.log('AWS processing failed, falling back to local processing:', error);
             }
-        } catch (error) {
-            console.log('AWS processing failed, falling back to local processing:', error);
         }
 
         console.log('Using local face detection as fallback');
