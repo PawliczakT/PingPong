@@ -9,9 +9,18 @@ type PlayerAvatarProps = {
     avatarUrl?: string;
     size?: number;
     player?: Player;
+    borderColor?: string;
+    placeholder?: React.ReactNode;
 };
 
-export default function PlayerAvatar({name, avatarUrl, size = 40, player}: PlayerAvatarProps) {
+export default function PlayerAvatar({
+                                         name,
+                                         avatarUrl,
+                                         size = 40,
+                                         player,
+                                         borderColor,
+                                         placeholder,
+                                     }: PlayerAvatarProps) {
     const displayName = player ? player.name : name;
     const displayAvatarUrl = player ? player.avatarUrl : avatarUrl;
 
@@ -31,6 +40,8 @@ export default function PlayerAvatar({name, avatarUrl, size = 40, player}: Playe
             justifyContent: "center",
             alignItems: "center",
             overflow: "hidden",
+            borderWidth: borderColor ? 2 : 0,
+            borderColor: borderColor || "transparent",
         },
         image: {
             width: size,
@@ -51,7 +62,11 @@ export default function PlayerAvatar({name, avatarUrl, size = 40, player}: Playe
                     style={styles.image}
                     contentFit="cover"
                     transition={200}
+                    cachePolicy="memory-disk"
+                    recyclingKey={displayAvatarUrl}
                 />
+            ) : placeholder ? (
+                placeholder
             ) : (
                 <Text style={styles.initials}>{initials}</Text>
             )}
