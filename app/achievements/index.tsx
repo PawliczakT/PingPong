@@ -5,20 +5,36 @@ import {useAchievementStore} from '@/store/achievementStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useEffect, useRef, useState} from 'react';
 import {getAchievementIcon} from '@/constants/achievements';
+import {AchievementType} from '@/types';
 import {ChevronDown, LucideIcon, User} from 'lucide-react-native';
 
+type DisplayAchievement = {
+    type: AchievementType;
+    name: string;
+    description: string;
+    unlocked: boolean;
+    unlockedAt?: string;
+    progress?: number;
+    target?: number;
+};
+
 export default function AchievementsScreen() {
-    const {getDisplayAchievements, checkAndUpdateAchievements, isLoading} = useAchievementStore();
+    const {
+        getDisplayAchievements,
+        checkAndUpdateAchievements,
+        isLoading,
+        initializePlayerAchievements
+    } = useAchievementStore();
     const {getActivePlayersSortedByRating} = usePlayerStore();
 
     const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
     const [showPlayerSelector, setShowPlayerSelector] = useState(false);
+    const [achievementsToDisplay, setAchievementsToDisplay] = useState<DisplayAchievement[]>([]);
     const selectorRef = useRef<View>(null);
 
     const activePlayers = getActivePlayersSortedByRating();
 
     useEffect(() => {
-        // Set first player as default if there are players and none selected
         if (activePlayers.length > 0 && !selectedPlayerId) {
             setSelectedPlayerId(activePlayers[0].id);
         }
@@ -26,12 +42,13 @@ export default function AchievementsScreen() {
 
     useEffect(() => {
         if (selectedPlayerId) {
+            initializePlayerAchievements(selectedPlayerId);
             checkAndUpdateAchievements(selectedPlayerId);
+            setAchievementsToDisplay(getDisplayAchievements(selectedPlayerId));
         }
-    }, [selectedPlayerId, checkAndUpdateAchievements]);
+    }, [selectedPlayerId, initializePlayerAchievements, checkAndUpdateAchievements, getDisplayAchievements]);
 
     const selectedPlayer = activePlayers.find(p => p.id === selectedPlayerId);
-    const achievementsToDisplay = selectedPlayerId ? getDisplayAchievements(selectedPlayerId) : [];
 
     if (isLoading && achievementsToDisplay.length === 0) {
         return (
@@ -46,7 +63,6 @@ export default function AchievementsScreen() {
             <SafeAreaView style={{flex: 1, backgroundColor: '#f0f0f0'}}>
                 <Stack.Screen options={{title: 'Achievements'}}/>
 
-                {/* Player Selector */}
                 <View
                     ref={selectorRef}
                     style={{
@@ -134,8 +150,8 @@ export default function AchievementsScreen() {
                             {selectedPlayer?.name}'s Achievements
                         </Text>
                         {achievementsToDisplay.length > 0 ? (
-                            achievementsToDisplay.map((achievement) => {
-                                const IconComponent = getAchievementIcon(achievement.type) as LucideIcon | undefined;
+                            achievementsToDisplay.map((achievement: DisplayAchievement) => {
+                                const IconComponent = getAchievementIcon(achievement.type as AchievementType) as LucideIcon | undefined;
                                 return (
                                     <View
                                         key={achievement.type}

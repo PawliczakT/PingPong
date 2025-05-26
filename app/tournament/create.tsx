@@ -124,14 +124,6 @@ export default function CreateTournamentScreen() {
                         onPress={() => setFormat(TournamentFormat.ROUND_ROBIN)}
                         style={styles.formatButton}
                     />
-
-                    <Button
-                        title="Group"
-                        variant={format === TournamentFormat.GROUP ? "primary" : "outline"}
-                        size="small"
-                        onPress={() => setFormat(TournamentFormat.GROUP)}
-                        style={styles.formatButton}
-                    />
                 </View>
 
                 <View style={styles.participantsSection}>
