@@ -49,18 +49,22 @@ module.exports = {
     'ios.sim.debug': {
       device: 'simulator',
       app: 'ios.debug',
+      specs: 'e2e/**/*.e2e.js',
     },
     'ios.sim.release': {
       device: 'simulator',
       app: 'ios.release',
+      specs: 'e2e/**/*.e2e.js',
     },
     'android.emu.debug': {
       device: 'emulator',
       app: 'android.debug',
+      specs: 'e2e/**/*.e2e.js',
     },
     'android.emu.release': {
       device: 'emulator',
       app: 'android.release',
+      specs: 'e2e/**/*.e2e.js',
     },
   },
 };
