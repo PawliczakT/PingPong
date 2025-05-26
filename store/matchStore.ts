@@ -110,29 +110,66 @@ export const useMatchStore = create<MatchState>()(
 
                 const updatedPlayer1 = playerStore.getPlayerById(player1Id) || player1;
                 const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
-                await notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
 
-                if (Math.abs(player1NewRating - player1.eloRating) >= 15) {
-                    await notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
-                }
-                if (Math.abs(player2NewRating - player2.eloRating) >= 15) {
-                    await notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
+                try {
+                    await notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
+                } catch (error) {
+                    console.warn("Non-critical error in addMatch [sendMatchResultNotification]:", error);
                 }
 
-                const [player1Achievements, player2Achievements] = await Promise.all([
-                    achievementStore.checkAndUpdateAchievements(player1Id),
-                    achievementStore.checkAndUpdateAchievements(player2Id)
-                ]);
-
-                if (Array.isArray(player1Achievements)) {
-                    player1Achievements.forEach((achievement: Achievement) => {
-                        notificationStore.sendAchievementNotification(updatedPlayer1, achievement);
-                    });
+                try {
+                    if (Math.abs(player1NewRating - player1.eloRating) >= 15) {
+                        await notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
+                    }
+                } catch (error) {
+                    console.warn("Non-critical error in addMatch [sendRankingChangeNotification player1]:", error);
                 }
-                if (Array.isArray(player2Achievements)) {
-                    player2Achievements.forEach((achievement: Achievement) => {
-                        notificationStore.sendAchievementNotification(updatedPlayer2, achievement);
-                    });
+
+                try {
+                    if (Math.abs(player2NewRating - player2.eloRating) >= 15) {
+                        await notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
+                    }
+                } catch (error) {
+                    console.warn("Non-critical error in addMatch [sendRankingChangeNotification player2]:", error);
+                }
+
+                let player1Achievements: Achievement[] | undefined;
+                let player2Achievements: Achievement[] | undefined;
+
+                try {
+                    player1Achievements = await achievementStore.checkAndUpdateAchievements(player1Id);
+                } catch (error) {
+                    console.warn("Non-critical error in addMatch [checkAndUpdateAchievements player1]:", error);
+                }
+
+                try {
+                    player2Achievements = await achievementStore.checkAndUpdateAchievements(player2Id);
+                } catch (error) {
+                    console.warn("Non-critical error in addMatch [checkAndUpdateAchievements player2]:", error);
+                }
+
+                try {
+                    if (Array.isArray(player1Achievements)) {
+                        player1Achievements.forEach((achievement: Achievement) => {
+                            // Intentionally not awaiting if sendAchievementNotification is async
+                            // to prevent one failed notification from blocking others in the loop.
+                            // If it needs to be awaited and individually caught, this forEach should be a for...of loop.
+                            notificationStore.sendAchievementNotification(updatedPlayer1, achievement);
+                        });
+                    }
+                } catch (error) {
+                    console.warn("Non-critical error in addMatch [sendAchievementNotification loop player1]:", error);
+                }
+
+                try {
+                    if (Array.isArray(player2Achievements)) {
+                        player2Achievements.forEach((achievement: Achievement) => {
+                            // Same as above for player 1
+                            notificationStore.sendAchievementNotification(updatedPlayer2, achievement);
+                        });
+                    }
+                } catch (error) {
+                    console.warn("Non-critical error in addMatch [sendAchievementNotification loop player2]:", error);
                 }
 
                 set({isLoading: false});
@@ -231,8 +268,8 @@ export const useMatchesRealtime = () => {
             )
             .subscribe();
         return () => {
-            supabase.removeChannel(channel).then(r =>
-                console.error("Error removing matches channel:", r));
+            supabase.removeChannel(channel).catch(e =>
+                console.error("Error removing matches channel:", e));
         };
     }, []);
 };
