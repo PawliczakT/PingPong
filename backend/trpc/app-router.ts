@@ -2,6 +2,7 @@ import {initTRPC, TRPCError} from '@trpc/server';
 import superjson from 'superjson';
 import {Context} from './create-context';
 import {hiProcedure} from './routes/example/hi/route';
+import { playerRouter } from './routes/player'; // Import playerRouter
 
 const t = initTRPC.context<Context>().create({
     transformer: superjson,
@@ -29,6 +30,7 @@ export const appRouter = t.router({
     example: t.router({
         hi: hiProcedure,
     }),
+    player: playerRouter, // Add playerRouter here
 });
 
 export type AppRouter = typeof appRouter;

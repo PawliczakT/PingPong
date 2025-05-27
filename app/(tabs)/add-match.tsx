@@ -1,21 +1,23 @@
 import React, {useEffect, useState} from "react";
 import {Alert, Platform, ScrollView, StyleSheet, Text, View} from "react-native";
-import {useRouter} from "expo-router";
+import {useRouter, Link} from "expo-router"; // Added Link
 import {PlusCircle} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import {useMatchStore} from "@/store/matchStore";
-import {useNetworkStore} from "@/store/networkStore";
+import {useNetworkStore}from "@/store/networkStore";
 import {Player, Set} from "@/types";
 import PlayerSelector from "@/components/PlayerSelector";
 import SetScoreInput from "@/components/SetScoreInput";
 import Button from "@/components/Button";
 import NetworkStatusBar from "@/components/NetworkStatusBar";
 import * as Haptics from "expo-haptics";
+import { useAuthStore } from "@/store/authStore"; // Added useAuthStore
 
 export default function AddMatchScreen() {
     const router = useRouter();
+    const { user } = useAuthStore(); // Get user from auth store
     const {getActivePlayersSortedByRating} = usePlayerStore();
     const {addMatch} = useMatchStore();
     const {isOnline, addPendingMatch} = useNetworkStore();
@@ -30,6 +32,7 @@ export default function AddMatchScreen() {
     const activePlayers = getActivePlayersSortedByRating();
 
     useEffect(() => {
+        if (!user) return; // Don't run if not logged in
         // Check if we have at least 2 players
         if (activePlayers.length < 2) {
             Alert.alert(
@@ -41,7 +44,7 @@ export default function AddMatchScreen() {
                 ]
             );
         }
-    }, [activePlayers.length]);
+    }, [activePlayers.length, user]);
 
     const addSet = () => {
         if (Platform.OS !== "web") {
@@ -152,6 +155,22 @@ export default function AddMatchScreen() {
         }
     };
 
+    if (!user) {
+        return (
+            <SafeAreaView style={styles.container} edges={["bottom"]}>
+                <View style={[styles.content, styles.centeredContent]}>
+                    <Text style={styles.loginPromptText}>
+                        Please log in to record a match.
+                    </Text>
+                    <Link href="/auth/login" asChild>
+                        <Button title="Log In" style={styles.loginButton} />
+                    </Link>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    // Existing screen content for logged-in users
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
             <NetworkStatusBar/>
@@ -257,6 +276,20 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 16,
+    },
+    centeredContent: { // Added for login prompt
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loginPromptText: { // Added for login prompt
+        fontSize: 18,
+        color: colors.text,
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    loginButton: { // Added for login prompt
+        minWidth: 200,
     },
     title: {
         fontSize: 24,
