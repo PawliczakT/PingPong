@@ -79,7 +79,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         console.log(`AuthGuard: User logged in, current path "${currentPath}" is not in auth group.`);
       }
     }
-  }, [user, isInitialized, isLoading, segments, router]);
+  }, [user, isInitialized, isLoading, segments.join('/'), router]); // Changed 'segments' to 'segments.join('/')'
 
 
   if (!isInitialized || isLoading) {
