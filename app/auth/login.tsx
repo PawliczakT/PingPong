@@ -1,86 +1,104 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
+import {ActivityIndicator, SafeAreaView, StyleSheet, Text, View} from 'react-native';
 import Button from '../../components/Button'; // Adjusted path
-import { useAuthStore } from '../../store/authStore'; // Adjusted path
+import {useAuthStore} from '@/store/authStore'; // Adjusted path
 
 export default function LoginScreen() {
-  const { loginWithGoogle, isLoading, error, clearError } = useAuthStore(state => ({
-    loginWithGoogle: state.loginWithGoogle,
-    isLoading: state.isLoading,
-    error: state.error,
-    clearError: state.clearError, // For potentially clearing error on new attempt or dismiss
-  }));
+// Use individual selectors to prevent unnecessary re-renders
+    const loginWithGoogle = useAuthStore(state => state.loginWithGoogle);
+    const isLoading = useAuthStore(state => state.isLoading);
+    const error = useAuthStore(state => state.error);
+    const clearError = useAuthStore(state => state.clearError);
 
-  const handleLogin = () => {
-    if (error) {
-      clearError(); // Clear previous error on a new login attempt
-    }
-    loginWithGoogle();
-  };
+    const handleLogin = async () => {
+        if (error) {
+            clearError(); // Clear previous error on a new login attempt
+        }
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Welcome!</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+        console.log('[Login] Starting Google authentication flow');
+        try {
+            await loginWithGoogle();
+            console.log('[Login] Authentication flow completed successfully');
+        } catch (e) {
+            console.error('[Login] Authentication error caught in component:', e);
+            // Error will be set in the store by loginWithGoogle
+        }
+    };
 
-        {isLoading && (
-          <ActivityIndicator size="large" color="#007AFF" style={styles.activityIndicator} />
-        )}
+    return (
+        <SafeAreaView style={styles.safeArea}>
+            <View style={styles.container}>
+                <Text style={styles.title}>Welcome!</Text>
+                <Text style={styles.subtitle}>Sign in to continue</Text>
 
-        <Button
-          title="Sign in with Google"
-          onPress={handleLogin}
-          disabled={isLoading}
-        />
+                {isLoading ? (
+                    <ActivityIndicator size="large" color="#007AFF" style={styles.activityIndicator}/>
+                ) : (
+                    <Button
+                        title="Sign in with Google"
+                        onPress={handleLogin}
+                        disabled={isLoading}
+                    />
+                )}
 
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Login Failed: {error.message}</Text>
-            {/* Optionally, add a button to dismiss error or retry */}
-            {/* <Button title="Try Again" onPress={handleLogin} disabled={isLoading} /> */}
-          </View>
-        )}
-      </View>
-    </SafeAreaView>
-  );
+                {error && (
+                    <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>
+                            Login Failed: {error.message || 'Authentication error. Please try again.'}
+                        </Text>
+                        <Button
+                            title="Try Again"
+                            onPress={clearError}
+                            style={styles.tryAgainButton}
+                        />
+                    </View>
+                )}
+            </View>
+        </SafeAreaView>
+    );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f5f5f5', // Light background for the whole screen
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 40,
-  },
-  activityIndicator: {
-    marginBottom: 20,
-  },
-  errorContainer: {
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: '#FFD2D2', // Light red background for error
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  errorText: {
-    color: '#D8000C', // Dark red color for error text
-    fontSize: 16,
-    textAlign: 'center',
-  },
+    safeArea: {
+        flex: 1,
+        backgroundColor: '#f5f5f5', // Light background for the whole screen
+    },
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: '#333',
+    },
+    subtitle: {
+        fontSize: 18,
+        color: '#666',
+        marginBottom: 40,
+    },
+    activityIndicator: {
+        marginBottom: 20,
+    },
+    errorContainer: {
+        marginTop: 20,
+        padding: 15,
+        backgroundColor: '#FFD2D2', // Light red background for error
+        borderRadius: 8,
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: 300,
+    },
+    errorText: {
+        color: '#D8000C', // Dark red color for error text
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    tryAgainButton: {
+        marginTop: 10,
+    },
 });

@@ -8,6 +8,7 @@ import {ErrorBoundary} from "./error-boundary";
 import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {trpc, trpcClient} from "@/lib/trpc";
+import {supabase} from "@/lib/supabase";
 import AuthGuard from "@/components/AuthGuard";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";
 import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
@@ -18,7 +19,6 @@ import GlobalTabBar from "@/components/GlobalTabBar";
 import LogRocket from '@logrocket/react-native';
 import * as Updates from 'expo-updates';
 
-
 const queryClient = new QueryClient();
 
 SplashScreen.preventAutoHideAsync().catch((e) => {
@@ -27,17 +27,46 @@ SplashScreen.preventAutoHideAsync().catch((e) => {
 
 export default function RootLayout() {
     useEffect(() => {
+        const handleAuthCallback = async () => {
+            const hash = window.location.hash;
+            if (hash) {
+                const params = new URLSearchParams(hash.replace('#', ''));
+                const accessToken = params.get('access_token');
+                const refreshToken = params.get('refresh_token');
+
+                if (accessToken && refreshToken) {
+                    try {
+                        const {error} = await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken,
+                        });
+
+                        if (error) {
+                            console.error('[Auth] Error setting session:', error);
+                        } else {
+                            console.log('[Auth] Session set successfully');
+                        }
+                    } catch (e) {
+                        console.error('[Auth] Exception setting session:', e);
+                    }
+                }
+            }
+        };
+
+        handleAuthCallback();
+    }, []);
+
+    useEffect(() => {
         LogRocket.init('y1vslm/pingpong', {
             updateId: Updates.isEmbeddedLaunch ? null : Updates.updateId,
             expoChannel: Updates.channel,
         });
 
         LogRocket.identify('generic-user-id', {
-          name: 'Generic User',
-          email: 'generic.user@example.com',
+            name: 'Generic User',
+            email: 'generic.user@example.com',
         });
         console.log('LogRocket identified generic user');
-
     }, []);
 
     const [loaded, error] = useFonts({

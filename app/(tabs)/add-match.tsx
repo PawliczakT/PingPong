@@ -163,7 +163,11 @@ export default function AddMatchScreen() {
                         Please log in to record a match.
                     </Text>
                     <Link href="/auth/login" asChild>
-                        <Button title="Log In" style={styles.loginButton} />
+                        <Button
+                            title="Log In"
+                            style={styles.loginButton}
+                            onPress={() => {}}
+                        />
                     </Link>
                 </View>
             </SafeAreaView>
