@@ -2,9 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {createClient} from '@supabase/supabase-js';
 import {Platform} from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 import 'react-native-url-polyfill/auto';
-import Constants from 'expo-constants';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -45,83 +43,54 @@ export const signInWithGoogle = async () => {
         const {data, error} = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin,
+                redirectTo: 'https://msiemlfljcnhnwkwwpvhm.supabase.co/auth/v1/callback',
             },
         });
-        if (error) console.error('Web OAuth Error:', error);
         return {data, error};
     } else {
         try {
-            const configScheme = Constants.expoConfig?.scheme;
-            const scheme = typeof configScheme === 'string'
-                ? configScheme
-                : Array.isArray(configScheme) && configScheme.length > 0
-                    ? configScheme[0]
-                    : 'pingpongstatkeeper';
-
-            let redirectUrl: string | undefined = undefined;
-
-            if (Platform.OS === 'android') {
-                const result = AuthSession.makeRedirectUri({
-                    scheme: scheme,
-                    path: 'auth/callback',
-                });
-                const resolvedUrl = Array.isArray(result) ? result[0] : result;
-                if (typeof resolvedUrl === 'string' && resolvedUrl) {
-                    redirectUrl = resolvedUrl;
-                }
-            } else {
-                const result = AuthSession.makeRedirectUri({
-                    scheme: scheme,
-                    path: 'auth/callback',
-                });
-                const resolvedUrl = Array.isArray(result) ? result[0] : result;
-                if (typeof resolvedUrl === 'string' && resolvedUrl) {
-                    redirectUrl = resolvedUrl;
-                }
-            }
-
-            if (!redirectUrl) {
-                console.error('Failed to create redirect URL.');
-                return {data: null, error: new Error('Failed to create redirect URL.')};
-            }
-
-            const {data: oauthData, error: oauthError} = await supabase.auth.signInWithOAuth({
+            const {data, error} = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: redirectUrl,
                     skipBrowserRedirect: true,
                 },
             });
 
-            if (oauthError || !oauthData?.url) {
-                console.error('Error creating auth URL:', oauthError);
-                return {data: null, error: oauthError || new Error('Auth URL was not generated.')};
-            }
+            if (error) throw error;
+            if (!data?.url) throw new Error('No login URL returned from Supabase');
 
-            console.log('Auth URL created:', oauthData.url);
+            console.log(`[Auth] Opening browser for auth: ${data.url}`);
 
-            const authResponse = await WebBrowser.openAuthSessionAsync(
-                oauthData.url,
-                redirectUrl
+            const result = await WebBrowser.openAuthSessionAsync(
+                data.url,
+                'pingpongstatkeeper://'
             );
 
-            if (authResponse.type === 'success') {
-                const {url} = authResponse;
-                return {data: null, error: null};
-            } else if (authResponse.type === 'cancel' || authResponse.type === 'dismiss') {
-                console.log('Authentication cancelled or dismissed by user.');
-                return {data: null, error: new Error('Authentication cancelled or dismissed')};
-            } else {
-                console.error('Authentication failed with WebBrowser result:', authResponse);
-                return {data: null, error: new Error('Authentication failed or was cancelled')};
+            console.log(`[Auth] Auth result type: ${result.type}`);
+
+            if (result.type === 'success') {
+                const {data: sessionData, error: sessionError} = await supabase.auth.getSession();
+                if (sessionError) {
+                    console.error('[Auth] Error getting session after auth flow:', sessionError);
+                    return {data: null, error: sessionError};
+                }
+                if (!sessionData?.session) {
+                    console.log('[Auth] No session found after successful auth flow');
+                    return {data: null, error: new Error('Authentication completed but no session found')};
+                }
+                console.log('[Auth] Successfully authenticated with Google');
+                return {data: sessionData, error: null};
             }
 
-        } catch (error) {
-            console.error('Error during Google sign in:', error);
             return {
                 data: null,
-                error: error instanceof Error ? error : new Error('Unknown error during authentication')
+                error: new Error(`Authentication ${result.type === 'cancel' ? 'cancelled' : 'failed'}`),
+            };
+        } catch (error) {
+            console.error('[Auth] Error during Google login:', error);
+            return {
+                data: null,
+                error: error instanceof Error ? error : new Error('Failed to authenticate'),
             };
         }
     }

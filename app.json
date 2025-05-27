@@ -18,7 +18,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mosinacity.pingpongstatkeeper"
+      "bundleIdentifier": "com.mosinacity.pingpongstatkeeper",
+      "associatedDomains": ["applinks:msiemlfljcnhnwkwwpvhm.supabase.co"]
     },
     "android": {
       "adaptiveIcon": {
