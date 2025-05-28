@@ -1,7 +1,7 @@
 import React, {ReactNode, useEffect} from 'react';
 import {ActivityIndicator, StyleSheet, View} from 'react-native';
 import {useAuthStore} from '@/store/authStore';
-import {useRouter, useSegments, type Href} from 'expo-router';
+import {useRouter, useSegments} from 'expo-router';
 
 interface AuthGuardProps {
     children: ReactNode;
@@ -41,12 +41,12 @@ export default function AuthGuard({children}: AuthGuardProps) {
 
     const segments = useSegments() as string[];
     const router = useRouter();
-    
+
     // Check if we're at the root path
     const isRootPath = segments.length === 0 || (segments.length === 1 && segments[0] === '');
 
     // Memoize the segments join to prevent unnecessary re-renders
-    const currentPath = React.useMemo(() => segments.join('/'), [segments]);
+    const currentPath = React.useMemo(() => segments.join('/'), []);
 
     useEffect(() => {
         console.log('[AuthGuard] user:', !!user, 'isInitialized:', isInitialized, 'isLoading:', isLoading);
@@ -76,7 +76,7 @@ export default function AuthGuard({children}: AuthGuardProps) {
 
                 if (isInitialLogin) {
                     // On initial login, navigate to edit profile to set up the player
-                    router.replace('/player/edit-profile');
+                    router.replace('/(tabs)/profile');
                 } else {
                     // If coming from elsewhere in the auth group, go to tabs
                     router.replace('/(tabs)');

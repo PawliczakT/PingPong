@@ -3,7 +3,7 @@ import {useFonts} from "expo-font";
 import {Stack} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, {useEffect} from "react";
-import {ActivityIndicator, Linking, StyleSheet, View, Platform} from "react-native";
+import {ActivityIndicator, Linking, Platform, StyleSheet, View} from "react-native";
 import {ErrorBoundary} from "./error-boundary";
 import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
@@ -246,24 +246,24 @@ function RootLayoutNav() {
                 screenOptions={{
                     headerBackTitle: "Back",
                     headerShadowVisible: false,
-                    contentStyle: { paddingBottom: 0 },
+                    contentStyle: {paddingBottom: 0},
                 }}
             >
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal Screen" }} />
-                <Stack.Screen name="player/[id]" options={{ title: "Player Details" }} />
-                <Stack.Screen name="player/create" options={{ title: "Add Player" }} />
-                <Stack.Screen name="player/edit/[id]" options={{ title: "Edit Player" }} />
-                <Stack.Screen name="player/edit-profile" options={{ title: "Edit My Profile" }} />
-                <Stack.Screen name="match/[id]" options={{ title: "Match Details" }} />
-                <Stack.Screen name="matches/index" options={{ title: "All Matches" }} />
-                <Stack.Screen name="tournament/[id]" options={{ title: "Tournament Details" }} />
-                <Stack.Screen name="tournament/create" options={{ title: "Create Tournament" }} />
-                <Stack.Screen name="tournament/record-match" options={{ title: "Record Tournament Match" }} />
-                <Stack.Screen name="stats/head-to-head" options={{ title: "Head-to-Head" }} />
-                <Stack.Screen name="notifications/index" options={{ title: "Notifications" }} />
-                <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
-                <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
+                <Stack.Screen name="modal" options={{presentation: "modal", title: "Modal Screen"}}/>
+                <Stack.Screen name="player/[id]" options={{title: "Player Details"}}/>
+                <Stack.Screen name="player/create" options={{title: "Add Player"}}/>
+                <Stack.Screen name="player/edit/[id]" options={{title: "Edit Player"}}/>
+                <Stack.Screen name="player/edit-profile" options={{title: "Edit My Profile"}}/>
+                <Stack.Screen name="match/[id]" options={{title: "Match Details"}}/>
+                <Stack.Screen name="matches/index" options={{title: "All Matches"}}/>
+                <Stack.Screen name="tournament/[id]" options={{title: "Tournament Details"}}/>
+                <Stack.Screen name="tournament/create" options={{title: "Create Tournament"}}/>
+                <Stack.Screen name="tournament/record-match" options={{title: "Record Tournament Match"}}/>
+                <Stack.Screen name="stats/head-to-head" options={{title: "Head-to-Head"}}/>
+                <Stack.Screen name="notifications/index" options={{title: "Notifications"}}/>
+                <Stack.Screen name="settings/index" options={{title: "Settings"}}/>
+                <Stack.Screen name="auth/login" options={{headerShown: false}}/>
             </Stack>
         </View>
     );
