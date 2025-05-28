@@ -6,7 +6,8 @@ import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import Button from "@/components/Button";
 import * as Haptics from "expo-haptics";
-import {pickAndProcessAvatarWithAWS, uploadImageToSupabase} from "@/utils/imageUpload";
+import {uploadImageToSupabase} from "@/utils/imageUpload";
+import {pickAndProcessAvatarWithAWS} from "@/utils/pickAndProcessAvatarWithAWS";
 import {Image as ExpoImage} from "expo-image";
 
 export default function EditPlayerScreen() {
@@ -36,9 +37,11 @@ export default function EditPlayerScreen() {
     const handlePickImage = async () => {
         try {
             setIsSubmitting(true);
+            console.log('AWS recognition: selectedImageUri', selectedImageUri)
             const result = await pickAndProcessAvatarWithAWS();
 
             if (!result.canceled && result.uri) {
+                console.log('AWS recognition: result.uri', result.uri)
                 setSelectedImageUri(result.uri);
                 setSelectedImageBase64(result.base64);
                 // Set avatarUrl temporarily to show the image in the form
