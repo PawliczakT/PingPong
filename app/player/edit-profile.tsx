@@ -10,7 +10,17 @@ export default function EditProfileScreen() {
         isLoading: isLoadingProfile,
         error: profileError,
         refetch
-    } = trpc.player.getProfile.useQuery();
+    } = trpc.player.getProfile.useQuery(undefined, {
+        // Dodajemy opcje obsługi błędów dla braku profilu
+        retry: (failureCount, error) => {
+            // Jeśli błąd dotyczy braku profilu, nie próbujemy ponownie
+            if (error.message?.includes("PGRST116") || error.message?.includes("no rows")) {
+                return false;
+            }
+            return failureCount < 3; // w innych przypadkach spróbuj do 3 razy
+        },
+    });
+
     const {
         mutate: updateProfile,
         isPending: isUpdatingProfile,
@@ -33,18 +43,18 @@ export default function EditProfileScreen() {
     const handleUpdateProfile = async () => {
         setSuccessMessage(null);
 
-        // Basic validation
+        // Podstawowa walidacja
         if (!name.trim()) {
-            Alert.alert("Validation Error", "Name is required.");
+            Alert.alert("Błąd walidacji", "Imię jest wymagane.");
             return;
         }
 
-        // Validate avatar URL format if provided
+        // Walidacja URL avatara
         if (avatarUrl && avatarUrl.trim() !== '') {
             try {
                 new URL(avatarUrl);
             } catch (e) {
-                Alert.alert("Validation Error", "Please enter a valid URL for the avatar or leave it empty.");
+                Alert.alert("Błąd walidacji", "Wprowadź poprawny URL avatara lub pozostaw pole puste.");
                 return;
             }
         }
@@ -53,50 +63,32 @@ export default function EditProfileScreen() {
             name: name.trim(),
             nickname: nickname.trim() || null,
             avatarUrl: avatarUrl.trim() || null
-        } as const;
+        };
 
-        // If this is a new profile (no profile exists yet), we don't need to check for changes
+        // Sprawdzamy zmiany tylko dla istniejącego profilu
         if (profile && Object.keys(input).every(key => {
             const profileKey = key as keyof typeof profile;
             return input[key as keyof typeof input] === (profile[profileKey] || null);
         })) {
-            setSuccessMessage("No changes to save.");
+            setSuccessMessage("Brak zmian do zapisania.");
             return;
         }
-
-        // Validate name: ensure it's not empty if provided
-        if (input.name !== undefined && input.name.trim() === '') {
-            Alert.alert("Validation Error", "Name cannot be empty.");
-            return;
-        }
-
-        // Validate avatar_url: basic URL check if provided and not null
-        if (input.avatarUrl !== undefined && input.avatarUrl !== null && input.avatarUrl.trim() !== '') {
-            try {
-                new URL(input.avatarUrl);
-            } catch (_) {
-                Alert.alert("Validation Error", "Avatar URL is not valid. Please leave empty or provide a valid URL.");
-                return;
-            }
-        }
-
 
         updateProfile(input, {
             onSuccess: (updatedData) => {
-                setSuccessMessage('Profile updated successfully!');
-                refetch(); // Refetch the profile data to show updated values
-                // Potentially update local form state if backend returns the updated object
+                setSuccessMessage('Profil został zaktualizowany!');
+                refetch();
                 if (updatedData) {
                     setName(updatedData.name || '');
                     setNickname(updatedData.nickname || '');
                     setAvatarUrl(updatedData.avatarUrl || '');
                 }
-                setTimeout(() => setSuccessMessage(null), 3000); // Clear message after 3s
+                setTimeout(() => setSuccessMessage(null), 3000);
             },
             onError: (error) => {
-                // Error is already captured by `updateError` state, but specific actions can be taken here
-                console.error("Update profile error:", error);
-                Alert.alert("Update Failed", error.message || "Could not update profile.");
+                console.error("Błąd aktualizacji profilu:", error);
+                Alert.alert("Aktualizacja nie powiodła się",
+                    error.message || "Nie można zaktualizować profilu. Spróbuj ponownie później.");
             }
         });
     };
@@ -105,58 +97,65 @@ export default function EditProfileScreen() {
         return (
             <View style={styles.centered}>
                 <ActivityIndicator size="large"/>
-                <Text>Loading profile...</Text>
+                <Text>Ładowanie profilu...</Text>
             </View>
         );
     }
 
-    if (profileError) {
+    // Sprawdzamy czy błąd dotyczy braku profilu
+    const isProfileNotFoundError = profileError?.message?.includes("PGRST116") ||
+        profileError?.message?.includes("no rows") ||
+        profileError?.message?.includes("User not found");
+
+    // Jeśli to inny błąd niż brak profilu, pokazujemy komunikat
+    if (profileError && !isProfileNotFoundError) {
         return (
             <View style={styles.centered}>
-                <Text style={styles.errorText}>Error loading profile: {profileError.message}</Text>
-                <Button title="Retry" onPress={() => refetch()}/>
+                <Text style={styles.errorText}>Błąd wczytywania profilu: {profileError.message}</Text>
+                <Button title="Ponów" onPress={() => refetch()}/>
             </View>
         );
     }
 
-    if (!profile) {
+    // Jeśli profil nie istnieje lub mamy błąd braku profilu, pokazujemy formularz rejestracji
+    if (!profile || isProfileNotFoundError) {
         return (
             <ScrollView style={styles.scrollView} contentContainerStyle={[styles.container, styles.centered]}>
-                <Text style={styles.title}>Welcome to PingPong! 🏓</Text>
-                <Text style={styles.subtitle}>Let's set up your player profile</Text>
+                <Text style={styles.title}>Witaj w PingPong! 🏓</Text>
+                <Text style={styles.subtitle}>Utwórzmy Twój profil gracza</Text>
                 <Text style={styles.instructions}>
-                    Please enter your name and optionally a nickname and avatar URL to get started.
-                    You can update these details anytime from your profile.
+                    Wprowadź swoje imię i opcjonalnie pseudonim oraz URL avatara, aby rozpocząć.
+                    Możesz zaktualizować te dane w dowolnym momencie z poziomu swojego profilu.
                 </Text>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Name *</Text>
+                    <Text style={styles.label}>Imię *</Text>
                     <TextInput
                         style={styles.input}
                         value={name}
                         onChangeText={setName}
-                        placeholder="Your full name"
+                        placeholder="Twoje imię i nazwisko"
                         autoCapitalize="words"
                     />
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Nickname</Text>
+                    <Text style={styles.label}>Pseudonim</Text>
                     <TextInput
                         style={styles.input}
                         value={nickname}
                         onChangeText={setNickname}
-                        placeholder="Your nickname (optional)"
+                        placeholder="Twój pseudonim (opcjonalnie)"
                     />
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Avatar URL</Text>
+                    <Text style={styles.label}>URL Avatara</Text>
                     <TextInput
                         style={styles.input}
                         value={avatarUrl}
                         onChangeText={setAvatarUrl}
-                        placeholder="URL to your avatar image (optional)"
+                        placeholder="URL do obrazu avatara (opcjonalnie)"
                         keyboardType="url"
                         autoCapitalize="none"
                     />
@@ -165,16 +164,16 @@ export default function EditProfileScreen() {
                 {isUpdatingProfile && (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="small"/>
-                        <Text style={styles.loadingText}>Saving...</Text>
+                        <Text style={styles.loadingText}>Zapisywanie...</Text>
                     </View>
                 )}
 
                 {updateError && (
-                    <Text style={[styles.errorText, styles.messageText]}>Update Error: {updateError.message}</Text>
+                    <Text style={[styles.errorText, styles.messageText]}>Błąd aktualizacji: {updateError.message}</Text>
                 )}
 
                 <Button
-                    title="Save Profile"
+                    title="Zapisz profil"
                     onPress={handleUpdateProfile}
                     disabled={isUpdatingProfile || !name.trim()}
                 />
@@ -184,44 +183,44 @@ export default function EditProfileScreen() {
 
     return (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
-            <Text style={styles.title}>Edit Your Profile</Text>
+            <Text style={styles.title}>Edytuj swój profil</Text>
 
             <View style={styles.avatarContainer}>
                 <PlayerAvatar
-                    name={name || 'Player'}
+                    name={name || 'Gracz'}
                     avatarUrl={avatarUrl || undefined}
                     size={100}
                 />
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.label}>Name</Text>
+                <Text style={styles.label}>Imię</Text>
                 <TextInput
                     style={styles.input}
                     value={name}
                     onChangeText={setName}
-                    placeholder="Your full name"
+                    placeholder="Twoje imię i nazwisko"
                     autoCapitalize="words"
                 />
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nickname</Text>
+                <Text style={styles.label}>Pseudonim</Text>
                 <TextInput
                     style={styles.input}
                     value={nickname}
                     onChangeText={setNickname}
-                    placeholder="Your nickname (optional)"
+                    placeholder="Twój pseudonim (opcjonalnie)"
                 />
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.label}>Avatar URL</Text>
+                <Text style={styles.label}>URL Avatara</Text>
                 <TextInput
                     style={styles.input}
                     value={avatarUrl}
                     onChangeText={setAvatarUrl}
-                    placeholder="URL to your avatar image (optional)"
+                    placeholder="URL do obrazu avatara (opcjonalnie)"
                     keyboardType="url"
                     autoCapitalize="none"
                 />
@@ -230,19 +229,19 @@ export default function EditProfileScreen() {
             {isUpdatingProfile && (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="small"/>
-                    <Text style={styles.loadingText}>Saving...</Text>
+                    <Text style={styles.loadingText}>Zapisywanie...</Text>
                 </View>
             )}
 
             {updateError && (
-                <Text style={[styles.errorText, styles.messageText]}>Update Error: {updateError.message}</Text>
+                <Text style={[styles.errorText, styles.messageText]}>Błąd aktualizacji: {updateError.message}</Text>
             )}
             {successMessage && (
                 <Text style={[styles.successText, styles.messageText]}>{successMessage}</Text>
             )}
 
             <Button
-                title="Save Changes"
+                title="Zapisz zmiany"
                 onPress={handleUpdateProfile}
                 disabled={isUpdatingProfile || isLoadingProfile}
             />
@@ -282,7 +281,7 @@ const styles = StyleSheet.create({
     },
     container: {
         padding: 20,
-        alignItems: 'stretch', // Default, good for forms
+        alignItems: 'stretch',
     },
     avatarContainer: {
         alignItems: 'center',

@@ -1,15 +1,27 @@
 import React, {useEffect, useState} from 'react';
-import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import {Stack, useRouter} from 'expo-router';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAuthStore} from '@/store/authStore';
 import {supabase} from '@/lib/supabase';
 import Button from '@/components/Button';
 import {colors} from '@/constants/colors';
-import {Bell, LogOut, Pencil, User} from 'lucide-react-native';
+import {Bell, Camera, Image as ImageIcon, LogOut, Pencil, User} from 'lucide-react-native';
 import {usePlayerStore} from '@/store/playerStore';
 import {useNotificationStore} from '@/store/notificationStore';
 import {Player} from '@/types';
+import * as ImagePicker from 'expo-image-picker';
+import {decode} from "base64-arraybuffer";
 
 export default function ProfileScreen() {
     const router = useRouter();
@@ -22,6 +34,139 @@ export default function ProfileScreen() {
     const [nickname, setNickname] = useState('');
     const [loadingProfile, setLoadingProfile] = useState(true);
     const [isNewUser, setIsNewUser] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+
+    const pickImage = async () => {
+        try {
+            const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+            if (status !== 'granted') {
+                Alert.alert('Potrzebujemy dostępu do galerii, aby wybrać avatar');
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+                base64: true,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                await uploadAvatar(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error('Błąd podczas wybierania obrazu:', error);
+            Alert.alert('Błąd', 'Nie udało się wybrać obrazu. Spróbuj ponownie.');
+        }
+    };
+
+    const takePhoto = async () => {
+        try {
+            const {status} = await ImagePicker.requestCameraPermissionsAsync();
+
+            if (status !== 'granted') {
+                Alert.alert('Potrzebujemy dostępu do kamery, aby zrobić zdjęcie');
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                await uploadAvatar(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error('Błąd podczas robienia zdjęcia:', error);
+            Alert.alert('Błąd', 'Nie udało się zrobić zdjęcia. Spróbuj ponownie.');
+        }
+    };
+
+    const uploadAvatar = async (uri: string) => {
+        if (!currentPlayer?.id) {
+            Alert.alert('Error', 'User profile not found');
+            return;
+        }
+
+        if (!user?.id) {
+            Alert.alert('Error', 'You must be logged in to upload an avatar');
+            return;
+        }
+
+        try {
+            setUploadingImage(true);
+
+            // Convert image to base64
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            const base64Data = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64String = (reader.result as string).split(',')[1];
+                    resolve(base64String);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+
+            // Extract file extension from URI
+            const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+            const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+
+            // Upload to Supabase storage
+            const {data, error} = await supabase.storage
+                .from('avatars')
+                .upload(fileName, decode(base64Data), {
+                    contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+                    upsert: true,
+                });
+
+            if (error) {
+                console.error('Error uploading avatar:', error);
+                throw error;
+            }
+
+            // Get public URL
+            const {data: {publicUrl}} = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            // Update player record
+            const {data: updatedPlayerData, error: updateError} = await supabase
+                .from('players')
+                .update({
+                    avatar_url: publicUrl,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', currentPlayer.id)
+                .select()
+                .single();
+
+            if (updateError || !updatedPlayerData) {
+                console.error('Database update error:', updateError);
+                throw updateError || new Error('Failed to update player record');
+            }
+
+            // Update local state
+            const updatedPlayer = {
+                ...currentPlayer,
+                avatarUrl: publicUrl
+            };
+
+            await updatePlayer(updatedPlayer);
+            setCurrentPlayer(updatedPlayer);
+            Alert.alert('Success', 'Avatar has been updated');
+        } catch (error) {
+            console.error('Error uploading avatar:', error);
+            Alert.alert('Error', 'Failed to update avatar. Please try again.');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
 
 // Count unread notifications for this player
     const unreadCount = currentPlayer ? notificationHistory.filter(n =>
@@ -31,9 +176,7 @@ export default function ProfileScreen() {
     useEffect(() => {
         const loadPlayerProfile = async () => {
             if (!user) return;
-
             setLoadingProfile(true);
-            console.log('Current user ID:', user.id);
 
             try {
                 // First try to find in local store by user_id
@@ -45,7 +188,7 @@ export default function ProfileScreen() {
                         .from('players')
                         .select('*')
                         .eq('user_id', user.id)
-                        .single();
+                        .maybeSingle(); // Use maybeSingle instead of single to avoid errors
 
                     if (data && !error) {
                         foundPlayer = {
@@ -59,136 +202,122 @@ export default function ProfileScreen() {
                             losses: data.losses,
                             active: data.active,
                             createdAt: data.created_at,
-                            updatedAt: data.updated_at
+                            updatedAt: data.updated_at,
                         };
-                    } else {
-                        // No player found in database
+                    } else if (!data || error?.code === 'PGRST116') {
+                        // Player not found - new user
+                        console.log("No player profile found, creating new profile form");
                         setIsNewUser(true);
+                        const newPlayer = {
+                            id: '', // Let DB assign the ID
+                            user_id: user.id,
+                            name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Player',
+                            nickname: undefined,
+                            avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+                            eloRating: 1200,
+                            wins: 0,
+                            losses: 0,
+                            active: true,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                        };
+                        setCurrentPlayer(newPlayer);
+                        setName(newPlayer.name);
+                        setIsEditing(true);
+                        setLoadingProfile(false);
+                        return;
                     }
                 }
 
                 if (foundPlayer) {
-                    console.log('Found player profile:', foundPlayer);
                     setCurrentPlayer(foundPlayer);
                     setName(foundPlayer.name);
                     setNickname(foundPlayer.nickname || '');
-                    setIsNewUser(false);
                 } else {
-                    console.log('No player profile found for user ID:', user.id);
-                    // Create a default player profile if not found
-                    const defaultPlayer: Player = {
-                        id: '', // Will be set when saved to the database
+                    // Failsafe - if we somehow don't have a player by this point
+                    console.log("No player found after all checks, setting new user profile");
+                    setIsNewUser(true);
+                    const newPlayer = {
+                        id: '',
                         user_id: user.id,
-                        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Player',
-                        nickname: user.user_metadata?.name || undefined,
-                        avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture || undefined,
-                        eloRating: 1000,
+                        name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Player',
+                        nickname: undefined,
+                        avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+                        eloRating: 1200,
                         wins: 0,
                         losses: 0,
                         active: true,
                         createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
+                        updatedAt: new Date().toISOString(),
                     };
-                    setCurrentPlayer(defaultPlayer);
-                    setName(defaultPlayer.name);
-                    setNickname(defaultPlayer.nickname || '');
-
-                    // Auto-enable editing for new users
+                    setCurrentPlayer(newPlayer);
+                    setName(newPlayer.name);
                     setIsEditing(true);
                 }
             } catch (error) {
                 console.error('Error loading player profile:', error);
-                Alert.alert('Error', 'Failed to load profile data');
+                Alert.alert('Error', 'Failed to load profile. Please try again.');
             } finally {
                 setLoadingProfile(false);
             }
         };
 
-        loadPlayerProfile();
+        loadPlayerProfile().catch(err => err && console.error('Error loading player profile:', err));
     }, [user, players]);
 
     const handleSave = async () => {
-        if (!user) return;
+        if (!user || !currentPlayer) return;
 
         try {
-            if (!name.trim()) {
-                Alert.alert('Validation Error', 'Name is required');
-                return;
-            }
-
+            setLoadingProfile(true);
             const playerData = {
                 user_id: user.id,
-                name,
-                nickname: nickname || null,
-                avatar_url: currentPlayer?.avatarUrl || null,
-                elo_rating: currentPlayer?.eloRating || 1000,
-                wins: currentPlayer?.wins || 0,
-                losses: currentPlayer?.losses || 0,
+                name: name.trim(),
+                nickname: nickname.trim() || undefined,
+                avatar_url: currentPlayer.avatarUrl,
+                elo_rating: currentPlayer.eloRating,
+                wins: currentPlayer.wins,
+                losses: currentPlayer.losses,
                 active: true,
-                updated_at: new Date().toISOString()
-            } as const;
-
-            // Check if player exists
-            const {data: existingPlayer} = await supabase
-                .from('players')
-                .select('*')
-                .eq('user_id', user.id)
-                .single();
-
-            let updatedPlayer;
-
-            if (existingPlayer) {
-                // Update existing player
-                const {data, error} = await supabase
-                    .from('players')
-                    .update(playerData)
-                    .eq('id', existingPlayer.id)
-                    .select()
-                    .single();
-
-                if (error) throw error;
-                updatedPlayer = data;
-            } else {
-                // Create new player
-                const {data, error} = await supabase
-                    .from('players')
-                    .insert([{...playerData, created_at: new Date().toISOString()}])
-                    .select()
-                    .single();
-
-                if (error) throw error;
-                updatedPlayer = data;
-            }
-
-            // Update local state
-            const formattedPlayer = {
-                ...updatedPlayer,
-                id: updatedPlayer.id,
-                user_id: updatedPlayer.user_id,
-                name: updatedPlayer.name,
-                nickname: updatedPlayer.nickname,
-                avatarUrl: updatedPlayer.avatar_url,
-                eloRating: updatedPlayer.elo_rating,
-                wins: updatedPlayer.wins,
-                losses: updatedPlayer.losses,
-                active: updatedPlayer.active,
-                createdAt: updatedPlayer.created_at,
-                updatedAt: updatedPlayer.updated_at
+                updated_at: new Date().toISOString(),
             };
 
-            updatePlayer(formattedPlayer);
-            setCurrentPlayer(formattedPlayer);
+            const {data, error} = isNewUser
+                ? await supabase
+                    .from('players')
+                    .insert(playerData)
+                    .select()
+                    .single()
+                : await supabase
+                    .from('players')
+                    .update(playerData)
+                    .eq('id', currentPlayer.id)
+                    .select()
+                    .single();
+
+            if (error) throw error;
+
+            // Update local state
+            const updatedPlayer = {
+                ...currentPlayer,
+                ...data,
+                avatarUrl: data.avatar_url,
+                eloRating: data.elo_rating,
+            };
+
+            setCurrentPlayer(updatedPlayer);
             setIsEditing(false);
+            await updatePlayer(updatedPlayer);
 
             if (isNewUser) {
                 setIsNewUser(false);
-                Alert.alert('Profile Created', 'Your player profile has been created successfully!');
-            } else {
-                Alert.alert('Success', 'Profile updated successfully');
+                router.replace('/(tabs)');
             }
         } catch (error) {
-            console.error('Error updating profile:', error);
-            Alert.alert('Error', 'Failed to update profile');
+            console.error('Error saving profile:', error);
+            Alert.alert('Error', 'Failed to save profile. Please try again.');
+        } finally {
+            setLoadingProfile(false);
         }
     };
 
@@ -233,8 +362,42 @@ export default function ProfileScreen() {
                 )}
 
                 <View style={styles.header}>
-                    <View style={styles.avatar}>
-                        <User size={60} color={colors.text}/>
+                    <View style={styles.avatarContainer}>
+                        {uploadingImage ? (
+                            <View style={styles.avatar}>
+                                <ActivityIndicator size="large" color={colors.primary}/>
+                            </View>
+                        ) : (
+                            <View style={styles.avatar}>
+                                {currentPlayer?.avatarUrl ? (
+                                    <Image
+                                        source={{uri: currentPlayer.avatarUrl}}
+                                        style={styles.avatarImage}
+                                    />
+                                ) : (
+                                    <User size={60} color={colors.text}/>
+                                )}
+                            </View>
+                        )}
+
+                        {!isNewUser && (
+                            <View style={styles.avatarButtons}>
+                                <TouchableOpacity
+                                    style={styles.avatarButton}
+                                    onPress={pickImage}
+                                    disabled={uploadingImage}
+                                >
+                                    <ImageIcon size={18} color={colors.text}/>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.avatarButton}
+                                    onPress={takePhoto}
+                                    disabled={uploadingImage}
+                                >
+                                    <Camera size={18} color={colors.text}/>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                     <Text style={styles.name}>{currentPlayer?.name || 'Player'}</Text>
                     {currentPlayer?.nickname && (
@@ -316,7 +479,7 @@ export default function ProfileScreen() {
                         )}
                     </View>
                 ) : (
-                    <>
+                    <View style={styles.buttonGroup}>
                         <Button
                             title="Edit Profile"
                             onPress={() => setIsEditing(true)}
@@ -338,7 +501,7 @@ export default function ProfileScreen() {
                             style={[styles.button, styles.signOutButton]}
                             textStyle={{color: colors.error}}
                         />
-                    </>
+                    </View>
                 )}
             </ScrollView>
         </SafeAreaView>
@@ -358,6 +521,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 24,
     },
+    avatarContainer: {
+        alignItems: 'center',
+        marginBottom: 16,
+    },
     avatar: {
         width: 120,
         height: 120,
@@ -368,6 +535,24 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         borderWidth: 3,
         borderColor: colors.primary,
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+    },
+    avatarButtons: {
+        flexDirection: 'row',
+        marginTop: -25,
+        zIndex: 10,
+    },
+    avatarButton: {
+        backgroundColor: colors.card,
+        padding: 8,
+        borderRadius: 20,
+        marginHorizontal: 5,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     name: {
         fontSize: 24,

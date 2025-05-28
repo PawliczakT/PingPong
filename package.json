@@ -33,6 +33,7 @@
     "@logrocket/react-native": "^1.50.7",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/netinfo": "11.4.1",
+    "@react-native-ml-kit/face-detection": "^1.3.2",
     "@react-navigation/native": "^7.0.0",
     "@supabase/supabase-js": "^2.49.4",
     "@tanstack/react-query": "^5.74.4",
@@ -50,6 +51,7 @@
     "expo-font": "~13.0.4",
     "expo-haptics": "~14.0.1",
     "expo-image": "~2.0.6",
+    "expo-image-manipulator": "~13.0.6",
     "expo-image-picker": "~16.0.6",
     "expo-linear-gradient": "~14.0.2",
     "expo-linking": "~7.0.3",
@@ -74,12 +76,13 @@
     "react-native-screens": "~4.4.0",
     "react-native-svg": "15.8.0",
     "react-native-url-polyfill": "^2.0.0",
+    "react-native-vision-camera": "^4.6.4",
+    "react-native-vision-camera-face-detector": "^1.8.3",
     "react-native-web": "~0.19.13",
+    "react-native-worklets-core": "^1.5.0",
     "superjson": "^2.2.2",
     "zod": "^3.24.3",
-    "zustand": "^5.0.2",
-    "expo-face-detector": "~13.0.2",
-    "expo-image-manipulator": "~13.0.6"
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
