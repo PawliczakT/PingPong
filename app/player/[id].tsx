@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import {Stack, useLocalSearchParams, useRouter} from "expo-router";
-import {Award, Edit, Trash, User} from "lucide-react-native";
+import {Award, Edit, Trash, User, Medal, Zap} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {Image} from "expo-image";
 import {colors} from "@/constants/colors";
@@ -14,7 +14,9 @@ import MatchCard from "@/components/MatchCard";
 import Button from "@/components/Button";
 import StreakDisplay from "@/components/StreakDisplay";
 import AchievementBadge from "@/components/AchievementBadge";
+import RankBadge from "@/components/RankBadge";
 import * as Haptics from "expo-haptics";
+import {Rank} from "@/constants/ranks";
 
 export default function PlayerDetailScreen() {
     const {id} = useLocalSearchParams();
@@ -30,7 +32,7 @@ export default function PlayerDetailScreen() {
     const achievements = getUnlockedAchievements(id as string);
 
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
-    const [activeTab, setActiveTab] = useState<"matches" | "achievements">("matches");
+    const [activeTab, setActiveTab] = useState<"matches" | "achievements" | "ranks">("matches");
 
     useEffect(() => {
         if (player) {
@@ -105,7 +107,12 @@ export default function PlayerDetailScreen() {
                         )}
                     </View>
 
-                    <Text style={styles.name}>{player.name}</Text>
+                    <View style={styles.nameContainer}>
+                        <Text style={styles.name}>{player.name}</Text>
+                        {player.rank && (
+                            <RankBadge rank={player.rank} size="small"/>
+                        )}
+                    </View>
                     {player.nickname && (
                         <Text style={styles.nickname}>"{player.nickname}"</Text>
                     )}
@@ -148,25 +155,25 @@ export default function PlayerDetailScreen() {
                     </View>
 
                     <View style={styles.actions}>
-                        {/*<Button*/}
-                        {/*    title="Edit"*/}
-                        {/*    variant="outline"*/}
-                        {/*    icon={<Edit size={16} color={colors.primary}/>}*/}
-                        {/*    style={styles.actionButton}*/}
-                        {/*    onPress={() => router.push(`/player/edit/${player.id}`)}*/}
-                        {/*/>*/}
+                        <Button
+                            title="Edit"
+                            variant="outline"
+                            icon={<Edit size={16} color={colors.primary}/>}
+                            style={styles.actionButton}
+                            onPress={() => router.push(`/player/edit/${player.id}`)}
+                        />
 
-                        {/*<Button*/}
-                        {/*    title={showConfirmDelete ? "Confirm Delete" : "Delete"}*/}
-                        {/*    variant={showConfirmDelete ? "secondary" : "outline"}*/}
-                        {/*    icon={<Trash size={16} color={showConfirmDelete ? "#fff" : colors.error}/>}*/}
-                        {/*    style={[*/}
-                        {/*        styles.actionButton,*/}
-                        {/*        showConfirmDelete ? styles.deleteButton : styles.deleteOutlineButton*/}
-                        {/*    ]}*/}
-                        {/*    textStyle={showConfirmDelete ? styles.deleteButtonText : styles.deleteOutlineText}*/}
-                        {/*    onPress={handleDelete}*/}
-                        {/*/>*/}
+                        <Button
+                            title={showConfirmDelete ? "Confirm Delete" : "Delete"}
+                            variant={showConfirmDelete ? "secondary" : "outline"}
+                            icon={<Trash size={16} color={showConfirmDelete ? "#fff" : colors.error}/>}
+                            style={[
+                                styles.actionButton,
+                                showConfirmDelete ? styles.deleteButton : styles.deleteOutlineButton
+                            ]}
+                            textStyle={showConfirmDelete ? styles.deleteButtonText : styles.deleteOutlineText}
+                            onPress={handleDelete}
+                        />
                     </View>
                 </View>
 
@@ -178,14 +185,21 @@ export default function PlayerDetailScreen() {
                         ]}
                         onPress={() => setActiveTab("matches")}
                     >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                activeTab === "matches" && styles.activeTabText
-                            ]}
-                        >
-                            Match History
-                        </Text>
+                        <View style={styles.tabContent}>
+                            <Zap
+                                size={16}
+                                color={activeTab === "matches" ? colors.primary : colors.textLight}
+                                style={styles.tabIcon}
+                            />
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    activeTab === "matches" && styles.activeTabText
+                                ]}
+                            >
+                                Match History
+                            </Text>
+                        </View>
                     </Pressable>
 
                     <Pressable
@@ -195,14 +209,45 @@ export default function PlayerDetailScreen() {
                         ]}
                         onPress={() => setActiveTab("achievements")}
                     >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                activeTab === "achievements" && styles.activeTabText
-                            ]}
-                        >
-                            Achievements
-                        </Text>
+                        <View style={styles.tabContent}>
+                            <Award
+                                size={16}
+                                color={activeTab === "achievements" ? colors.primary : colors.textLight}
+                                style={styles.tabIcon}
+                            />
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    activeTab === "achievements" && styles.activeTabText
+                                ]}
+                            >
+                                Achievements
+                            </Text>
+                        </View>
+                    </Pressable>
+
+                    <Pressable
+                        style={[
+                            styles.tab,
+                            activeTab === "ranks" && styles.activeTab
+                        ]}
+                        onPress={() => setActiveTab("ranks")}
+                    >
+                        <View style={styles.tabContent}>
+                            <Medal
+                                size={16}
+                                color={activeTab === "ranks" ? colors.primary : colors.textLight}
+                                style={styles.tabIcon}
+                            />
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    activeTab === "ranks" && styles.activeTabText
+                                ]}
+                            >
+                                Ranks
+                            </Text>
+                        </View>
                     </Pressable>
                 </View>
 
@@ -218,7 +263,7 @@ export default function PlayerDetailScreen() {
                             </View>
                         )}
                     </View>
-                ) : (
+                ) : activeTab === "achievements" ? (
                     <View style={styles.section}>
                         {achievements.length > 0 ? (
                             <View style={styles.achievementsContainer}>
@@ -239,6 +284,32 @@ export default function PlayerDetailScreen() {
                                 </Text>
                             </View>
                         )}
+                    </View>
+                ) : activeTab === "ranks" ? (
+                    <View style={styles.section}>
+                        <View style={styles.rankLegendContainer}>
+                            <Text style={styles.rankLegendTitle}>Player Ranks</Text>
+                            <Text style={styles.rankLegendDescription}>
+                                Ranks are based on the number of wins. Win more matches to achieve higher ranks!
+                            </Text>
+
+                            {/* Import ranks from constants and map through them */}
+                            {require('@/constants/ranks').ranks.map((rank: Rank) => (
+                                <View key={rank.id} style={styles.rankItem}>
+                                    <RankBadge rank={rank} size="medium"/>
+                                    <View style={styles.rankInfo}>
+                                        <Text style={styles.rankName}>{rank.name}</Text>
+                                        <Text style={styles.rankRequirement}>
+                                            {rank.requiredWins} {rank.requiredWins === 1 ? 'win' : 'wins'} required
+                                        </Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.section}>
+                        <Text style={styles.emptyText}>Select a tab to view content</Text>
                     </View>
                 )}
             </ScrollView>
@@ -282,6 +353,11 @@ const styles = StyleSheet.create({
         backgroundColor: colors.border,
         justifyContent: "center",
         alignItems: "center",
+    },
+    nameContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
     },
     name: {
         fontSize: 24,
@@ -366,6 +442,14 @@ const styles = StyleSheet.create({
         color: colors.primary,
         fontWeight: "bold",
     },
+    tabContent: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    tabIcon: {
+        marginRight: 6,
+    },
     section: {
         padding: 16,
     },
@@ -421,6 +505,45 @@ const styles = StyleSheet.create({
         color: colors.textLight,
         marginTop: 8,
         textAlign: "center",
+    },
+    rankLegendContainer: {
+        backgroundColor: colors.card,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+    },
+    rankLegendTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: colors.text,
+        marginBottom: 8,
+        textAlign: "center",
+    },
+    rankLegendDescription: {
+        fontSize: 14,
+        color: colors.textLight,
+        marginBottom: 16,
+        textAlign: "center",
+    },
+    rankItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    rankInfo: {
+        marginLeft: 12,
+        flex: 1,
+    },
+    rankName: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: colors.text,
+    },
+    rankRequirement: {
+        fontSize: 14,
+        color: colors.textLight,
     },
     notFound: {
         flex: 1,

@@ -10,6 +10,13 @@ export interface Player {
     active: boolean;
     createdAt: string;
     updatedAt: string;
+    rank?: {
+        id: number;
+        name: string;
+        icon: string;
+        requiredWins: number;
+        color: string;
+    };
     stats?: {
         winRate?: number;
         longestWinStreak?: number;

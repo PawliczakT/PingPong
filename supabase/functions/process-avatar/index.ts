@@ -1,7 +1,4 @@
-// Ten plik jest uruchamiany w środowisku Deno przez Supabase Edge Functions.
-// Importy pochodzą z deno.land i esm.sh, które są dostępne w runtime Deno.
-// IDE może pokazywać ostrzeżenia, ale kod będzie działał poprawnie w środowisku Supabase.
-
+// Improved Edge Function with better error handling and debugging
 import {serve} from 'https://deno.land/std@0.168.0/http/server.ts'
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
@@ -27,6 +24,18 @@ const awsConfig = {
     region: Deno.env.get('AWS_REGION') || 'eu-central-1',
     accessKeyId: Deno.env.get('AWS_ACCESS_KEY_ID') || '',
     secretAccessKey: Deno.env.get('AWS_SECRET_ACCESS_KEY') || ''
+}
+
+// Funkcja do sprawdzania poprawności base64
+function isValidBase64(str: string): boolean {
+    try {
+        // Check if string is valid base64
+        const decoded = atob(str);
+        const reencoded = btoa(decoded);
+        return reencoded === str;
+    } catch {
+        return false;
+    }
 }
 
 // Funkcja do tworzenia podpisu AWS v4
@@ -122,10 +131,19 @@ async function hmacSHA256(message: string, key: string | ArrayBuffer): Promise<A
 // Funkcja do wykrywania twarzy za pomocą AWS Rekognition
 async function detectFaceWithAWS(imageBase64: string) {
     try {
+        console.log('Starting AWS face detection...');
+        console.log('Base64 length:', imageBase64.length);
+
         // Sprawdź czy mamy skonfigurowane klucze AWS
         if (!awsConfig.accessKeyId || !awsConfig.secretAccessKey) {
             console.log('AWS credentials not configured, skipping face detection');
             return {found: false, error: 'AWS credentials not configured'};
+        }
+
+        // Validate base64
+        if (!isValidBase64(imageBase64)) {
+            console.error('Invalid base64 data provided');
+            return {found: false, error: 'Invalid base64 data'};
         }
 
         const endpoint = `https://rekognition.${awsConfig.region}.amazonaws.com/`;
@@ -151,7 +169,7 @@ async function detectFaceWithAWS(imageBase64: string) {
         };
 
         // Utwórz podpis AWS
-        const authHeader = await createAWSSignature(
+        headers['Authorization'] = await createAWSSignature(
             'POST',
             endpoint,
             headers,
@@ -160,7 +178,7 @@ async function detectFaceWithAWS(imageBase64: string) {
             awsConfig.region
         );
 
-        headers['Authorization'] = authHeader;
+        console.log('Making request to AWS Rekognition...');
 
         // Wykonaj żądanie do AWS Rekognition
         const response = await fetch(endpoint, {
@@ -169,13 +187,16 @@ async function detectFaceWithAWS(imageBase64: string) {
             body: payload
         });
 
+        console.log('AWS Response status:', response.status);
+
         if (!response.ok) {
             const errorText = await response.text();
             console.error('AWS Rekognition error:', response.status, errorText);
-            return {found: false, error: `AWS error: ${response.status}`};
+            return {found: false, error: `AWS error: ${response.status} - ${errorText}`};
         }
 
         const result = await response.json();
+        console.log('AWS Rekognition result:', JSON.stringify(result, null, 2));
 
         // Sprawdź czy znaleziono twarze
         if (result.FaceDetails && result.FaceDetails.length > 0) {
@@ -202,6 +223,12 @@ async function detectFaceWithAWS(imageBase64: string) {
 
 // Funkcja do przetwarzania obrazu
 const processImage = async (imageBase64: string, fileName: string, playerId: string) => {
+    console.log('Processing image:', {
+        fileName,
+        playerId,
+        base64Length: imageBase64.length
+    });
+
     // Wykryj twarz za pomocą AWS Rekognition
     const faceDetection = await detectFaceWithAWS(imageBase64);
 
@@ -212,12 +239,17 @@ const processImage = async (imageBase64: string, fileName: string, playerId: str
     );
 
     try {
+        console.log('Converting base64 to binary data...');
+
         // Konwersja base64 na Uint8Array do przesłania do Supabase
         const binaryData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+        console.log('Binary data size:', binaryData.length);
 
         // Wygeneruj unikalną nazwę pliku
         const fileExt = fileName.split('.').pop() || 'jpg';
         const uniqueFileName = `${playerId}_${Date.now()}.${fileExt}`;
+
+        console.log('Uploading to Supabase Storage:', uniqueFileName);
 
         // Prześlij obraz do Supabase Storage
         const {data, error} = await supabaseClient.storage
@@ -227,12 +259,19 @@ const processImage = async (imageBase64: string, fileName: string, playerId: str
                 upsert: true
             });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase storage error:', error);
+            throw error;
+        }
+
+        console.log('Upload successful:', data);
 
         // Pobierz publiczny URL obrazu
         const {data: {publicUrl}} = supabaseClient.storage
             .from('avatars')
             .getPublicUrl(uniqueFileName);
+
+        console.log('Public URL:', publicUrl);
 
         return {
             success: true,
@@ -242,7 +281,8 @@ const processImage = async (imageBase64: string, fileName: string, playerId: str
             message: faceDetection.found ?
                 `Face detected with ${faceDetection.confidence?.toFixed(1)}% confidence` :
                 'No face detected, using original image',
-            fileName: uniqueFileName
+            fileName: uniqueFileName,
+            awsError: faceDetection.error || null
         };
     } catch (error) {
         console.error('Error processing image:', error);
@@ -254,6 +294,8 @@ const processImage = async (imageBase64: string, fileName: string, playerId: str
 };
 
 serve(async (req) => {
+    console.log('Received request:', req.method, req.url);
+
     // Zawsze dodaj nagłówki CORS
     if (req.method === 'OPTIONS') {
         return new Response(null, {
@@ -272,11 +314,22 @@ serve(async (req) => {
         }
 
         // Odczytaj dane z żądania
-        const {imageBase64, fileName, playerId} = await req.json();
+        const requestBody = await req.json();
+        console.log('Request body keys:', Object.keys(requestBody));
+
+        const {imageBase64, fileName, playerId} = requestBody;
 
         // Sprawdź czy wszystkie wymagane pola są dostępne
         if (!imageBase64 || !fileName || !playerId) {
-            return new Response(JSON.stringify({error: 'Missing required fields'}), {
+            console.error('Missing required fields:', {
+                imageBase64: !!imageBase64,
+                fileName: !!fileName,
+                playerId: !!playerId
+            });
+            return new Response(JSON.stringify({
+                error: 'Missing required fields',
+                required: ['imageBase64', 'fileName', 'playerId']
+            }), {
                 status: 400,
                 headers: corsHeaders
             });
@@ -285,13 +338,19 @@ serve(async (req) => {
         // Przetwórz obraz
         const result = await processImage(imageBase64, fileName, playerId);
 
+        console.log('Processing result:', result);
+
         // Zwróć wynik
         return new Response(JSON.stringify(result), {
             status: result.success ? 200 : 500,
             headers: corsHeaders
         });
     } catch (error) {
-        return new Response(JSON.stringify({error: error.message}), {
+        console.error('Unhandled error:', error);
+        return new Response(JSON.stringify({
+            error: error.message,
+            stack: error.stack
+        }), {
             status: 500,
             headers: corsHeaders
         });

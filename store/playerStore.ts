@@ -3,6 +3,7 @@ import {Player} from "@/types";
 import {getInitialEloRating} from "@/utils/elo";
 import {supabase} from "@/lib/supabase";
 import {useEffect} from "react";
+import {getRankByWins} from "@/constants/ranks";
 
 interface PlayerState {
     players: Player[];
@@ -59,6 +60,7 @@ export const usePlayerStore = create<PlayerState>()(
                     active: data.active,
                     createdAt: data.created_at,
                     updatedAt: data.updated_at,
+                    rank: getRankByWins(data.wins),
                 };
                 set((state) => ({
                     players: [...state.players, newPlayer],
@@ -173,6 +175,10 @@ export const usePlayerStore = create<PlayerState>()(
                 if (!player) throw new Error('Player not found');
                 const newWins = won ? player.wins + 1 : player.wins;
                 const newLosses = won ? player.losses : player.losses + 1;
+
+                // Calculate the player's rank based on their win count
+                const newRank = getRankByWins(newWins);
+
                 const {error} = await supabase.from('players').update({
                     wins: newWins,
                     losses: newLosses,
@@ -182,7 +188,13 @@ export const usePlayerStore = create<PlayerState>()(
                 set((state) => ({
                     players: state.players.map((p) =>
                         p.id === playerId
-                            ? {...p, wins: newWins, losses: newLosses, updatedAt: new Date().toISOString()}
+                            ? {
+                                ...p,
+                                wins: newWins,
+                                losses: newLosses,
+                                rank: newRank,
+                                updatedAt: new Date().toISOString()
+                              }
                             : p
                     ),
                     isLoading: false,
@@ -214,6 +226,7 @@ export const fetchPlayersFromSupabase = async () => {
             active: item.active,
             createdAt: item.created_at,
             updatedAt: item.updated_at,
+            rank: getRankByWins(item.wins),
         }));
         usePlayerStore.setState({players, isLoading: false});
     } catch (error) {
