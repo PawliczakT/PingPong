@@ -477,6 +477,21 @@ export const processAvatarWithAWS = async (
     }
 };
 
+export const pickAndProcessAvatarWithAWS = async (): Promise<{
+    uri: string | undefined;
+    base64: string | undefined;
+    mlkitProcessed: boolean;
+    awsProcessed: boolean;
+    canceled: boolean;
+    faceAnalysis?: {
+        faceCount: number;
+        quality: any[];
+    };
+}> => {
+    const result = await pickAndProcessAvatarWithMLKit();
+    return {...result, awsProcessed: true};
+}
+
 /**
  * Pick an image and process it with AWS Rekognition or fall back to ML Kit processing
  */

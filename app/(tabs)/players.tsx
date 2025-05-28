@@ -40,12 +40,14 @@ export default function PlayersScreen() {
                     )}
                 </View>
 
+                {/* Temporarily disabled adding new players except during login
                 <Button
                     title="Add Player"
                     onPress={() => router.push("/player/create")}
                     icon={<Plus size={18} color="#fff"/>}
                     size="small"
                 />
+                */}
             </View>
 
             {activePlayers.length > 0 ? (
@@ -65,10 +67,12 @@ export default function PlayersScreen() {
             ) : (
                 <EmptyState
                     title="No Players Yet"
-                    message="Add players to start tracking their stats"
+                    message="Players can only be added during login"
                     icon={<Users size={60} color={colors.textLight}/>}
+                    /* Temporarily disabled adding new players except during login
                     actionLabel="Add Player"
                     onAction={() => router.push("/player/create")}
+                    */
                 />
             )}
         </SafeAreaView>
