@@ -1,4 +1,27 @@
-import {Award, Crown, Flame, Gem, Medal, Shield, Star, Sword, Swords, Target, Trophy, Zap} from "lucide-react-native";
+import {
+    Award,
+    Crown,
+    Flame,
+    Gem,
+    Medal,
+    Shield,
+    Star,
+    Sword,
+    Swords,
+    Target,
+    Trophy,
+    Zap,
+    Sparkles,
+    Award as Award2,
+    Crosshair,
+    Heart,
+    Moon,
+    Sun,
+    Bolt,
+    Shield as Shield2,
+    Star as Star2,
+    Target as Target2
+} from "lucide-react-native";
 
 export interface Rank {
     id: number;
@@ -92,6 +115,90 @@ export const ranks: Rank[] = [
         icon: "crown",
         requiredWins: 200,
         color: "#B9F2FF" // Diamond
+    },
+    {
+        id: 13,
+        name: "Mythic",
+        icon: "sparkles",
+        requiredWins: 275,
+        color: "#9B59B6" // Purple
+    },
+    {
+        id: 14,
+        name: "Titan",
+        icon: "award2",
+        requiredWins: 375,
+        color: "#9B59B6" // Purple
+    },
+    {
+        id: 15,
+        name: "Immortal",
+        icon: "crosshair",
+        requiredWins: 500,
+        color: "#9B59B6" // Purple
+    },
+    {
+        id: 16,
+        name: "Celestial",
+        icon: "star2",
+        requiredWins: 650,
+        color: "#E74C3C" // Red
+    },
+    {
+        id: 17,
+        name: "Phoenix",
+        icon: "flame",
+        requiredWins: 850,
+        color: "#E74C3C" // Red
+    },
+    {
+        id: 18,
+        name: "Dragon",
+        icon: "sword",
+        requiredWins: 1100,
+        color: "#E74C3C" // Red
+    },
+    {
+        id: 19,
+        name: "Eternal",
+        icon: "heart",
+        requiredWins: 1400,
+        color: "#E91E63" // Pink
+    },
+    {
+        id: 20,
+        name: "Transcendent",
+        icon: "moon",
+        requiredWins: 1800,
+        color: "#E91E63" // Pink
+    },
+    {
+        id: 21,
+        name: "Divine",
+        icon: "sun",
+        requiredWins: 2300,
+        color: "#E91E63" // Pink
+    },
+    {
+        id: 22,
+        name: "Supreme",
+        icon: "lightning",
+        requiredWins: 3000,
+        color: "#2ECC71" // Green
+    },
+    {
+        id: 23,
+        name: "Cosmic",
+        icon: "shield2",
+        requiredWins: 4000,
+        color: "#2ECC71" // Green
+    },
+    {
+        id: 24,
+        name: "Ultimate",
+        icon: "target2",
+        requiredWins: 5000,
+        color: "#2ECC71" // Green
     }
 ];
 
@@ -132,6 +239,26 @@ export const getRankIcon = (iconName: string) => {
             return Gem;
         case "crown":
             return Crown;
+        case "sparkles":
+            return Sparkles;
+        case "award2":
+            return Award2;
+        case "crosshair":
+            return Crosshair;
+        case "heart":
+            return Heart;
+        case "moon":
+            return Moon;
+        case "sun":
+            return Sun;
+        case "lightning":
+            return Bolt;
+        case "shield2":
+            return Shield2;
+        case "star2":
+            return Star2;
+        case "target2":
+            return Target2;
         default:
             return Award;
     }
