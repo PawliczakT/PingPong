@@ -155,25 +155,25 @@ export default function PlayerDetailScreen() {
                     </View>
 
                     <View style={styles.actions}>
-                        <Button
-                            title="Edit"
-                            variant="outline"
-                            icon={<Edit size={16} color={colors.primary}/>}
-                            style={styles.actionButton}
-                            onPress={() => router.push(`/player/edit/${player.id}`)}
-                        />
+                        {/*<Button*/}
+                        {/*    title="Edit"*/}
+                        {/*    variant="outline"*/}
+                        {/*    icon={<Edit size={16} color={colors.primary}/>}*/}
+                        {/*    style={styles.actionButton}*/}
+                        {/*    onPress={() => router.push(`/player/edit/${player.id}`)}*/}
+                        {/*/>*/}
 
-                        <Button
-                            title={showConfirmDelete ? "Confirm Delete" : "Delete"}
-                            variant={showConfirmDelete ? "secondary" : "outline"}
-                            icon={<Trash size={16} color={showConfirmDelete ? "#fff" : colors.error}/>}
-                            style={[
-                                styles.actionButton,
-                                showConfirmDelete ? styles.deleteButton : styles.deleteOutlineButton
-                            ]}
-                            textStyle={showConfirmDelete ? styles.deleteButtonText : styles.deleteOutlineText}
-                            onPress={handleDelete}
-                        />
+                        {/*<Button*/}
+                        {/*    title={showConfirmDelete ? "Confirm Delete" : "Delete"}*/}
+                        {/*    variant={showConfirmDelete ? "secondary" : "outline"}*/}
+                        {/*    icon={<Trash size={16} color={showConfirmDelete ? "#fff" : colors.error}/>}*/}
+                        {/*    style={[*/}
+                        {/*        styles.actionButton,*/}
+                        {/*        showConfirmDelete ? styles.deleteButton : styles.deleteOutlineButton*/}
+                        {/*    ]}*/}
+                        {/*    textStyle={showConfirmDelete ? styles.deleteButtonText : styles.deleteOutlineText}*/}
+                        {/*    onPress={handleDelete}*/}
+                        {/*/>*/}
                     </View>
                 </View>
 
