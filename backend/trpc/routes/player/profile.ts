@@ -9,7 +9,7 @@ interface Player {
   user_id: string;
   name: string;
   nickname?: string | null;
-  avatar_url?: string | null;
+  avatarUrl?: string | null;
   elo_rating: number;
   wins: number;
   losses: number;
@@ -46,12 +46,12 @@ export const ensurePlayerProfileProcedure = protectedProcedure
 
     // 2. If no player exists, create one
     const userName = user.user_metadata?.full_name || user.user_metadata?.name || 'Anonymous Player';
-    const avatarUrl = user.user_metadata?.avatar_url || null;
+    const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.avatarUrl || null;
 
     const newPlayerData = {
       user_id: userId,
       name: userName,
-      avatar_url: avatarUrl,
+      avatarUrl: avatarUrl,
       elo_rating: 1000,
       wins: 0,
       losses: 0,
@@ -98,7 +98,7 @@ export const ensurePlayerProfileProcedure = protectedProcedure
 export const UpdateProfileInput = z.object({
   name: z.string().min(1, "Name cannot be empty if provided.").optional(),
   nickname: z.string().nullable().optional(),
-  avatar_url: z.string().url("Avatar URL must be a valid URL.").nullable().optional(),
+  avatarUrl: z.string().url("Avatar URL must be a valid URL.").nullable().optional(),
 });
 
 export const updateMyProfileProcedure = protectedProcedure
@@ -111,7 +111,7 @@ export const updateMyProfileProcedure = protectedProcedure
     const updateData: {
       name?: string;
       nickname?: string | null;
-      avatar_url?: string | null;
+      avatarUrl?: string | null;
       updated_at?: string; // Keep updated_at for Supabase auto-update or manual set
     } = {};
 
@@ -121,8 +121,8 @@ export const updateMyProfileProcedure = protectedProcedure
     if (input.nickname !== undefined) {
       updateData.nickname = input.nickname;
     }
-    if (input.avatar_url !== undefined) {
-      updateData.avatar_url = input.avatar_url;
+    if (input.avatarUrl !== undefined) {
+      updateData.avatarUrl = input.avatarUrl;
     }
 
     // If no fields are provided for update, we could return the existing profile or throw an error.
@@ -177,25 +177,23 @@ export const updateMyProfileProcedure = protectedProcedure
     return updatedPlayer as Player;
   });
 
+// Get the current user's profile
 export const getMyProfileProcedure = protectedProcedure
-  .output(z.custom<Player>(data => typeof data === 'object' && data !== null && 'user_id' in data)) // Reuse existing output validation
+  .output(z.custom<Player>(data => typeof data === 'object' && data !== null && 'user_id' in data)) // Basic validation
   .query(async ({ ctx }) => {
     const { user, supabase } = ctx;
     const userId = user.id;
 
+    // Query for existing player
     const { data: playerProfile, error: fetchError } = await supabase
       .from('players')
       .select('*')
       .eq('user_id', userId)
-      .single(); // Use .single() as user_id should be unique
+      .single();
 
     if (fetchError) {
-      // Log the error for server-side inspection
-      console.error(`Error fetching profile for user ${userId}:`, fetchError);
-
-      // If the error indicates that no rows were found (e.g., PostgREST PGRST116)
-      // This is a situation that ideally shouldn't happen if ensurePlayerProfile works correctly.
-      if (fetchError.code === 'PGRST116' || !playerProfile) {
+      if (fetchError.code === 'PGRST116') {
+        // No rows found
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: `Player profile not found for user ${userId}. It should have been created automatically.`,
@@ -211,11 +209,10 @@ export const getMyProfileProcedure = protectedProcedure
     }
 
     if (!playerProfile) {
-      // This is a fallback, .single() should throw if no record and exactly one was expected.
-      // However, if it somehow returns null without an error that fetchError.code caught.
+      // This is a fallback
       throw new TRPCError({
         code: 'NOT_FOUND',
-        message: `Player profile not found for user ${userId}, and no specific database error was caught.`,
+        message: `Player profile not found for user ${userId}.`,
       });
     }
 

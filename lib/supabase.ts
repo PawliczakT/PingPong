@@ -49,10 +49,16 @@ export const signInWithGoogle = async () => {
         return {data, error};
     } else {
         try {
+            // For mobile, we need to specify the correct redirect URL
+            const redirectUrl = 'pingpongstatkeeper://auth/callback';
+
+            console.log(`[Auth] Starting Google OAuth with redirect: ${redirectUrl}`);
+
             const {data, error} = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    skipBrowserRedirect: true,
+                    redirectTo: redirectUrl,
+                    skipBrowserRedirect: false,
                 },
             });
 
@@ -61,25 +67,42 @@ export const signInWithGoogle = async () => {
 
             console.log(`[Auth] Opening browser for auth: ${data.url}`);
 
+            // Open the auth URL in the browser
             const result = await WebBrowser.openAuthSessionAsync(
                 data.url,
-                'pingpongstatkeeper://'
+                redirectUrl
             );
 
             console.log(`[Auth] Auth result type: ${result.type}`);
 
+            // Close the browser after auth
+            if (result.type !== 'dismiss') {
+                WebBrowser.dismissBrowser();
+            }
+
             if (result.type === 'success') {
-                const {data: sessionData, error: sessionError} = await supabase.auth.getSession();
+                // Extract the URL from the result
+                const url = new URL(result.url);
+                const params = new URLSearchParams(url.hash.substring(1));
+
+                // Set the session manually from the URL parameters
+                const { data: { session }, error: sessionError } = await supabase.auth.setSession({
+                    access_token: params.get('access_token') || '',
+                    refresh_token: params.get('refresh_token') || '',
+                });
+
                 if (sessionError) {
-                    console.error('[Auth] Error getting session after auth flow:', sessionError);
-                    return {data: null, error: sessionError};
+                    console.error('[Auth] Error setting session after auth flow:', sessionError);
+                    return { data: null, error: sessionError };
                 }
-                if (!sessionData?.session) {
+
+                if (!session) {
                     console.log('[Auth] No session found after successful auth flow');
-                    return {data: null, error: new Error('Authentication completed but no session found')};
+                    return { data: null, error: new Error('Authentication completed but no session found') };
                 }
+
                 console.log('[Auth] Successfully authenticated with Google');
-                return {data: sessionData, error: null};
+                return { data: { session, user: session.user }, error: null };
             }
 
             return {

@@ -1,23 +1,22 @@
 import React, {ReactNode, useEffect} from 'react';
 import {ActivityIndicator, StyleSheet, View} from 'react-native';
-import {useAuthStore} from '@/store/authStore'; // Assuming @ refers to root
-import {useRouter, useSegments} from 'expo-router';
+import {useAuthStore} from '@/store/authStore';
+import {useRouter, useSegments, type Href} from 'expo-router';
 
 interface AuthGuardProps {
     children: ReactNode;
 }
 
-// Define public routes based on the requirements
-// auth group is public.
-// 'stats' and 'achievements' can be top-level or under a group like '(tabs)'.
+// Define public routes that don't require authentication
 const publicPathsConfig = {
     groups: ['auth'],
     routes: ['stats', 'achievements'],
 };
 
 function isCurrentRoutePublic(segments: string[]): boolean {
-    if (segments.length === 0) {
-        return false; // Or true if the root is considered public by default when unauthenticated
+    const isRootPath = segments.length === 0 || (segments.length === 1 && segments[0] === '');
+    if (isRootPath) {
+        return false; // Root requires authentication
     }
 
     // Check if the first segment is a public group
@@ -32,8 +31,6 @@ function isCurrentRoutePublic(segments: string[]): boolean {
 
     // Check for public routes nested under a group (e.g., (tabs)/stats)
     return segments.length > 1 && publicPathsConfig.routes.includes(segments[1]);
-
-
 }
 
 export default function AuthGuard({children}: AuthGuardProps) {
@@ -42,14 +39,18 @@ export default function AuthGuard({children}: AuthGuardProps) {
     const isInitialized = useAuthStore(state => state.isInitialized);
     const isLoading = useAuthStore(state => state.isLoading);
 
-    const segments = useSegments();
+    const segments = useSegments() as string[];
     const router = useRouter();
+    
+    // Check if we're at the root path
+    const isRootPath = segments.length === 0 || (segments.length === 1 && segments[0] === '');
 
     // Memoize the segments join to prevent unnecessary re-renders
     const currentPath = React.useMemo(() => segments.join('/'), [segments]);
 
     useEffect(() => {
-        console.log('[AuthGuard] user:', user, 'isInitialized:', isInitialized, 'isLoading:', isLoading);
+        console.log('[AuthGuard] user:', !!user, 'isInitialized:', isInitialized, 'isLoading:', isLoading);
+
         if (!isInitialized || isLoading) {
             // Still loading, wait for initialization or loading to complete
             return;
@@ -66,11 +67,26 @@ export default function AuthGuard({children}: AuthGuardProps) {
         } else {
             // User is logged in
             const isInAuthGroup = segments[0] === 'auth';
+
             if (isInAuthGroup) {
-                console.log(`AuthGuard: User logged in, current path "${currentPath}" is in auth group. Redirecting to /.`);
-                router.replace('/'); // Redirect from auth pages like login/register to home
+                console.log(`AuthGuard: User logged in, current path "${currentPath}" is in auth group. Redirecting to profile.`);
+
+                // Check if we're coming from a deep link or first login
+                const isInitialLogin = currentPath === 'auth/login';
+
+                if (isInitialLogin) {
+                    // On initial login, navigate to edit profile to set up the player
+                    router.replace('/player/edit-profile');
+                } else {
+                    // If coming from elsewhere in the auth group, go to tabs
+                    router.replace('/(tabs)');
+                }
+            } else if (isRootPath) {
+                // If at root path, redirect to main content
+                console.log(`AuthGuard: User logged in at root path. Redirecting to main content.`);
+                router.replace('/(tabs)');
             } else {
-                console.log(`AuthGuard: User logged in, current path "${currentPath}" is not in auth group.`);
+                console.log(`AuthGuard: User logged in, current path "${currentPath}" is allowed.`);
             }
         }
     }, [user, isInitialized, isLoading, segments, currentPath, router]);
@@ -83,10 +99,8 @@ export default function AuthGuard({children}: AuthGuardProps) {
         );
     }
 
-    // If user is not authenticated and on a public route, or authenticated and not on an auth route
-    // and no redirection is happening based on useEffect logic yet, render children.
-    // The useEffect handles the redirection logic. If we reach here and conditions are met,
-    // it implies the user is allowed to see the content.
+    // The useEffect above handles all the redirection logic
+    // If we reach here, it means the user can view the current route
     return <>{children}</>;
 }
 
