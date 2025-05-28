@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
-import {Alert, Platform} from 'react-native';
-import {supabase} from '@/lib/supabase';
+import { Alert, Platform } from 'react-native';
+import { supabase } from '@/lib/supabase'; // Adjust import path as needed
 
 interface ProcessAvatarResult {
     canceled: boolean;
@@ -14,13 +14,13 @@ export async function pickAndProcessAvatarWithAWS(): Promise<ProcessAvatarResult
     try {
         // Request permission to access media library
         if (Platform.OS !== 'web') {
-            const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
                 Alert.alert(
                     'Permission Required',
                     'We need access to your photo library to select an avatar image.'
                 );
-                return {canceled: true};
+                return { canceled: true };
             }
         }
 
@@ -34,7 +34,7 @@ export async function pickAndProcessAvatarWithAWS(): Promise<ProcessAvatarResult
         });
 
         if (result.canceled || !result.assets || result.assets.length === 0) {
-            return {canceled: true};
+            return { canceled: true };
         }
 
         const asset = result.assets[0];
@@ -52,8 +52,11 @@ export async function pickAndProcessAvatarWithAWS(): Promise<ProcessAvatarResult
         const fileName = `avatar_${Date.now()}.${asset.uri.split('.').pop() || 'jpg'}`;
 
         try {
+            console.log('AWS recognition: selectedImageUri', asset.uri);
+            console.log('AWS recognition: base64 length', asset.base64?.length);
+
             // Call Supabase Edge Function to process the image with AWS
-            const {data: functionData, error: functionError} = await supabase.functions.invoke(
+            const { data: functionData, error: functionError } = await supabase.functions.invoke(
                 'process-avatar',
                 {
                     body: {
@@ -64,6 +67,8 @@ export async function pickAndProcessAvatarWithAWS(): Promise<ProcessAvatarResult
                 }
             );
 
+            console.log('Supabase function response:', functionData);
+
             if (functionError) {
                 console.error('Supabase function error:', functionError);
                 throw new Error(`Function error: ${functionError.message}`);
@@ -71,6 +76,7 @@ export async function pickAndProcessAvatarWithAWS(): Promise<ProcessAvatarResult
 
             // Check if AWS processing was successful
             if (functionData?.success && functionData?.faceDetected) {
+                console.log('AWS processing successful:', functionData.message);
                 return {
                     canceled: false,
                     uri: functionData.url, // Use the processed image URL from Supabase Storage
@@ -83,7 +89,7 @@ export async function pickAndProcessAvatarWithAWS(): Promise<ProcessAvatarResult
                 console.log('AWS processing result:', functionData?.message || 'No face detected');
                 return {
                     canceled: false,
-                    uri: asset.uri,
+                    uri: asset.uri, // Use original asset URI
                     base64: asset.base64,
                     awsProcessed: false,
                     fileName: fileName
@@ -95,7 +101,7 @@ export async function pickAndProcessAvatarWithAWS(): Promise<ProcessAvatarResult
             // Fallback to original image if AWS processing fails
             return {
                 canceled: false,
-                uri: asset.uri,
+                uri: asset.uri, // Use original asset URI
                 base64: asset.base64,
                 awsProcessed: false,
                 fileName: fileName
