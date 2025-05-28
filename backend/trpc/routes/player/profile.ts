@@ -52,7 +52,7 @@ export const ensurePlayerProfileProcedure = protectedProcedure
       user_id: userId,
       name: userName,
       avatarUrl: avatarUrl,
-      elo_rating: 1000,
+      elo_rating: 1200,
       wins: 0,
       losses: 0,
       active: true,
@@ -91,7 +91,7 @@ export const ensurePlayerProfileProcedure = protectedProcedure
             message: 'Failed to retrieve new player profile after creation.',
         });
     }
-    
+
     return newPlayer as Player;
   });
 
@@ -145,7 +145,7 @@ export const updateMyProfileProcedure = protectedProcedure
       }
       return existingPlayer as Player;
     }
-    
+
     // Add updated_at to ensure it's refreshed
     updateData.updated_at = new Date().toISOString();
 

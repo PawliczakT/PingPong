@@ -5,62 +5,59 @@ import {signInWithGoogle, signOut as supabaseSignOut, supabase} from '../lib/sup
 // Direct player profile service without using tRPC
 const ensurePlayerProfile = async (userId: string) => {
     try {
-        // 1. Query for existing player
-        const {data: existingPlayer, error: fetchError} = await supabase
+        // First check if player exists
+        const { data: existingPlayer, error: fetchError } = await supabase
             .from('players')
             .select('*')
             .eq('user_id', userId)
             .maybeSingle();
 
-        if (fetchError) {
-            console.error('Error fetching player profile:', fetchError);
-            return {success: false, error: fetchError};
+        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found
+            console.error('Error checking player profile:', fetchError);
+            return { success: false, error: fetchError };
         }
 
         if (existingPlayer) {
             console.log('Player profile already exists');
-            return {success: true, player: existingPlayer};
+            return { success: true, isNew: false, player: existingPlayer };
         }
 
-        // 2. If no player exists, create one
-        // Get user metadata for name and avatar
-        const {data: userData} = await supabase.auth.getUser(userId);
-        const user = userData?.user;
-
+        // If we get here, we need to create a new player
+        const user = (await supabase.auth.getUser()).data.user;
         if (!user) {
+            const error = new Error('User not found');
             console.error('User data not found for profile creation');
-            return {success: false, error: new Error('User not found')};
+            return { success: false, error };
         }
 
-        const userName = user.user_metadata?.full_name || user.user_metadata?.name || 'Anonymous Player';
-        const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
-
-        const newPlayerData = {
-            user_id: userId,
-            name: userName,
-            avatar_url: avatarUrl,
-            elo_rating: 1000,
+        const newPlayer = {
+            user_id: user.id,
+            name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Player',
+            nickname: undefined,
+            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || undefined,
+            elo_rating: 1200,
             wins: 0,
             losses: 0,
             active: true,
         };
 
-        const {data: newPlayer, error: insertError} = await supabase
+        const { data: createdPlayer, error: createError } = await supabase
             .from('players')
-            .insert(newPlayerData)
+            .insert(newPlayer)
             .select()
             .single();
 
-        if (insertError) {
-            console.error('Error creating player profile:', insertError);
-            return {success: false, error: insertError};
+        if (createError) {
+            console.error('Error creating player profile:', createError);
+            return { success: false, error: createError };
         }
 
         console.log('Successfully created new player profile');
-        return {success: true, player: newPlayer};
+        return { success: true, isNew: true, player: createdPlayer };
+
     } catch (error) {
         console.error('Exception during player profile creation:', error);
-        return {success: false, error};
+        return { success: false, error };
     }
 };
 
@@ -134,16 +131,8 @@ const initializeAuth = async () => {
         } else if (session) {
             useAuthStore.setState({session, user: session.user, isLoading: false, isInitialized: true});
 
-            // Ensure player profile on initial session without using tRPC hooks
-            const userId = session.user.id;
-            ensurePlayerProfile(userId)
-                .then(result => {
-                    if (result.success) {
-                        console.log('Player profile ensured for initial session.');
-                    } else {
-                        console.error('Failed to ensure player profile for initial session:', result.error);
-                    }
-                });
+            // Don't create profile automatically, just set the state
+            console.log('Session initialized, profile will be created on first navigation');
         } else {
             useAuthStore.setState({isLoading: false, isInitialized: true});
         }
@@ -232,4 +221,6 @@ const initializeAuth = async () => {
 };
 
 // Call initializeAuth when the store is imported/loaded.
-initializeAuth();
+initializeAuth().catch(error =>
+    error && console.error('Error initializing auth:', error)
+);

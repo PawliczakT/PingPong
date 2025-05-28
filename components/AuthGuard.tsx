@@ -2,6 +2,7 @@ import React, {ReactNode, useEffect} from 'react';
 import {ActivityIndicator, StyleSheet, View} from 'react-native';
 import {useAuthStore} from '@/store/authStore';
 import {useRouter, useSegments} from 'expo-router';
+import {supabase} from "@/lib/supabase";
 
 interface AuthGuardProps {
     children: ReactNode;
@@ -38,6 +39,8 @@ export default function AuthGuard({children}: AuthGuardProps) {
     const user = useAuthStore(state => state.user);
     const isInitialized = useAuthStore(state => state.isInitialized);
     const isLoading = useAuthStore(state => state.isLoading);
+    const [isCheckingProfile, setIsCheckingProfile] = React.useState(true);
+    const [needsProfileSetup, setNeedsProfileSetup] = React.useState(false);
 
     const segments = useSegments() as string[];
     const router = useRouter();
@@ -48,6 +51,31 @@ export default function AuthGuard({children}: AuthGuardProps) {
     // Memoize the segments join to prevent unnecessary re-renders
     const currentPath = React.useMemo(() => segments.join('/'), []);
 
+    // Check if current route is profile-related
+    const isProfileRoute = segments.includes('profile') || segments.includes('edit-profile');
+
+    // Function to check if user has a profile
+    const checkProfile = React.useCallback(async () => {
+        if (!user) return { hasProfile: false, error: null };
+
+        try {
+            const { data: existingPlayer, error } = await supabase
+                .from('players')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle(); // Use maybeSingle instead of single to handle no rows
+
+            return {
+                hasProfile: !!existingPlayer && !error,
+                error: error
+            };
+        } catch (error) {
+            console.error('Error checking profile:', error);
+            return { hasProfile: false, error };
+        }
+    }, [user]);
+
+
     useEffect(() => {
         console.log('[AuthGuard] user:', !!user, 'isInitialized:', isInitialized, 'isLoading:', isLoading);
 
@@ -56,42 +84,67 @@ export default function AuthGuard({children}: AuthGuardProps) {
             return;
         }
 
-        if (!user) {
-            // User is not logged in
-            if (!isCurrentRoutePublic(segments)) {
-                console.log(`AuthGuard: User not logged in, current path "${currentPath}" is not public. Redirecting to /auth/login.`);
-                router.replace('/auth/login');
-            } else {
-                console.log(`AuthGuard: User not logged in, current path "${currentPath}" is public.`);
-            }
-        } else {
-            // User is logged in
-            const isInAuthGroup = segments[0] === 'auth';
 
-            if (isInAuthGroup) {
-                console.log(`AuthGuard: User logged in, current path "${currentPath}" is in auth group. Redirecting to profile.`);
-
-                // Check if we're coming from a deep link or first login
-                const isInitialLogin = currentPath === 'auth/login';
-
-                if (isInitialLogin) {
-                    // On initial login, navigate to edit profile to set up the player
-                    router.replace('/(tabs)/profile');
+        const handleAuthFlow = async () => {
+            if (!user) {
+                // User is not logged in
+                if (!isCurrentRoutePublic(segments)) {
+                    console.log(`AuthGuard: User not logged in, current path "${currentPath}" is not public. Redirecting to /auth/login.`);
+                    router.replace('/auth/login');
                 } else {
-                    // If coming from elsewhere in the auth group, go to tabs
-                    router.replace('/(tabs)');
+                    console.log(`AuthGuard: User not logged in, current path "${currentPath}" is public.`);
                 }
-            } else if (isRootPath) {
-                // If at root path, redirect to main content
-                console.log(`AuthGuard: User logged in at root path. Redirecting to main content.`);
-                router.replace('/(tabs)');
+                setIsCheckingProfile(false);
             } else {
-                console.log(`AuthGuard: User logged in, current path "${currentPath}" is allowed.`);
-            }
-        }
-    }, [user, isInitialized, isLoading, segments, currentPath, router]);
+                // User is logged in, check if they have a profile
+                const { hasProfile, error } = await checkProfile();
+                setIsCheckingProfile(false);
 
-    if (!isInitialized || isLoading) {
+                if (error) {
+                    console.error('Error checking user profile:', error);
+                    return;
+                }
+
+                if (!hasProfile) {
+                    console.log('User needs to set up profile');
+                    setNeedsProfileSetup(true);
+                    if (!isProfileRoute) {
+                        console.log('Redirecting to profile setup screen');
+                        router.replace('/(tabs)/profile');
+                    }
+                    return;
+                }
+
+
+                // User has a profile, handle normal auth flow
+                const isInAuthGroup = segments[0] === 'auth';
+
+                if (isInAuthGroup) {
+                    console.log(`AuthGuard: User logged in, current path "${currentPath}" is in auth group. Redirecting to tabs.`);
+                    router.replace('/(tabs)');
+                } else if (isRootPath) {
+                    // If at root path, redirect to main content
+                    console.log(`AuthGuard: User logged in at root path. Redirecting to main content.`);
+                    router.replace('/(tabs)');
+                } else {
+                    console.log(`AuthGuard: User logged in, current path "${currentPath}" is allowed.`);
+                }
+            }
+        };
+
+        handleAuthFlow();
+    }, [user, isInitialized, isLoading, segments, currentPath, router, checkProfile, isProfileRoute, isRootPath]);
+
+    if (!isInitialized || isLoading || isCheckingProfile) {
+        return (
+            <View style={styles.loadingContainer} testID="loading-indicator">
+                <ActivityIndicator size="large" color="#007AFF"/>
+            </View>
+        );
+    }
+
+    // If user needs to set up profile but is not on a profile route
+    if (needsProfileSetup && !isProfileRoute) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#007AFF"/>

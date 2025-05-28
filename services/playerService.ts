@@ -36,7 +36,7 @@ export const ensurePlayerProfile = async (userId: string) => {
             user_id: userId,
             name: userName,
             avatar_url: avatarUrl,
-            elo_rating: 1000,
+            elo_rating: 1200,
             wins: 0,
             losses: 0,
             active: true,
