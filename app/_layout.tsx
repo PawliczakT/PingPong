@@ -3,7 +3,7 @@ import {useFonts} from "expo-font";
 import {Stack} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, {useEffect} from "react";
-import {ActivityIndicator, StyleSheet, View} from "react-native";
+import {ActivityIndicator, Linking, StyleSheet, View, Platform} from "react-native";
 import {ErrorBoundary} from "./error-boundary";
 import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
@@ -15,7 +15,6 @@ import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
 import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
 import {fetchNotificationsFromSupabase, useNotificationsRealtime} from "@/store/notificationStore";
-import GlobalTabBar from "@/components/GlobalTabBar";
 import LogRocket from '@logrocket/react-native';
 import * as Updates from 'expo-updates';
 
@@ -28,32 +27,95 @@ SplashScreen.preventAutoHideAsync().catch((e) => {
 export default function RootLayout() {
     useEffect(() => {
         const handleAuthCallback = async () => {
-            const hash = window.location.hash;
-            if (hash) {
-                const params = new URLSearchParams(hash.replace('#', ''));
-                const accessToken = params.get('access_token');
-                const refreshToken = params.get('refresh_token');
+            // Handle web redirect with hash
+            if (typeof window !== 'undefined') {
+                const hash = window.location.hash;
+                if (hash) {
+                    const params = new URLSearchParams(hash.replace('#', ''));
+                    const accessToken = params.get('access_token');
+                    const refreshToken = params.get('refresh_token');
 
-                if (accessToken && refreshToken) {
-                    try {
-                        const {error} = await supabase.auth.setSession({
-                            access_token: accessToken,
-                            refresh_token: refreshToken,
-                        });
+                    if (accessToken && refreshToken) {
+                        try {
+                            const {error} = await supabase.auth.setSession({
+                                access_token: accessToken,
+                                refresh_token: refreshToken,
+                            });
 
-                        if (error) {
-                            console.error('[Auth] Error setting session:', error);
-                        } else {
-                            console.log('[Auth] Session set successfully');
+                            if (error) {
+                                console.error('[Auth] Error setting session:', error);
+                            } else {
+                                console.log('[Auth] Session set successfully from web redirect');
+                                // Clear the URL hash after successful auth
+                                window.history.replaceState({}, document.title, window.location.pathname);
+                            }
+                        } catch (e) {
+                            console.error('[Auth] Exception setting session:', e);
                         }
-                    } catch (e) {
-                        console.error('[Auth] Exception setting session:', e);
                     }
                 }
             }
         };
 
         handleAuthCallback();
+
+        // Handle deep linking for mobile
+        const handleDeepLink = (event: { url: string }) => {
+            console.log('[Auth] Deep link received:', event.url);
+            console.log(`[Auth] Platform type: ${Platform.OS}`);
+
+            // Handle any URL that contains our app scheme
+            if (event.url.startsWith('pingpongstatkeeper://')) {
+                console.log('[Auth] Processing pingpongstatkeeper:// URL');
+                const url = new URL(event.url);
+                const fragment = url.hash.substring(1); // Remove the # character
+
+                console.log('[Auth] URL fragment:', fragment);
+
+                if (fragment) {
+                    const params = new URLSearchParams(fragment);
+                    const accessToken = params.get('access_token');
+                    const refreshToken = params.get('refresh_token');
+
+                    console.log('[Auth] Found tokens in URL:', !!accessToken, !!refreshToken);
+
+                    if (accessToken && refreshToken) {
+                        supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken,
+                        }).then(({error}) => {
+                            if (error) {
+                                console.error('[Auth] Error setting session from deep link:', error);
+                            } else {
+                                console.log('[Auth] Session set successfully from deep link');
+                            }
+                        });
+                    }
+                }
+            }
+        };
+
+        // Add deep link listener
+        const subscription = Linking.addEventListener('url', handleDeepLink);
+
+        // Check initial URL in case the app was opened from a deep link
+        Linking.getInitialURL().then((url) => {
+            if (url) {
+                console.log('[Auth] Initial URL:', url);
+                handleDeepLink({url});
+            }
+        }).catch(console.error);
+
+        return () => {
+            // @ts-ignore - removeEventListener is not in the type definition
+            if (subscription?.remove) {
+                // @ts-ignore
+                subscription.remove();
+            } else {
+                // Fallback for older versions of React Native
+                Linking.removeAllListeners('url');
+            }
+        };
     }, []);
 
     useEffect(() => {
@@ -184,25 +246,25 @@ function RootLayoutNav() {
                 screenOptions={{
                     headerBackTitle: "Back",
                     headerShadowVisible: false,
-                    contentStyle: {paddingBottom: 60},
+                    contentStyle: { paddingBottom: 0 },
                 }}
             >
-                <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
-                <Stack.Screen name="modal" options={{presentation: "modal", title: "Modal Screen"}}/>
-                <Stack.Screen name="player/[id]" options={{title: "Player Details"}}/>
-                <Stack.Screen name="player/create" options={{title: "Add Player"}}/>
-                <Stack.Screen name="player/edit/[id]" options={{title: "Edit Player"}}/>
-                <Stack.Screen name="match/[id]" options={{title: "Match Details"}}/>
-                <Stack.Screen name="matches/index" options={{title: "All Matches"}}/>
-                <Stack.Screen name="tournament/[id]" options={{title: "Tournament Details"}}/>
-                <Stack.Screen name="tournament/create" options={{title: "Create Tournament"}}/>
-                <Stack.Screen name="tournament/record-match" options={{title: "Record Tournament Match"}}/>
-                <Stack.Screen name="stats/head-to-head" options={{title: "Head-to-Head"}}/>
-                <Stack.Screen name="notifications/index" options={{title: "Notifications"}}/>
-                <Stack.Screen name="settings/index" options={{title: "Settings"}}/>
-                <Stack.Screen name="auth/login" options={{headerShown: false}}/>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal Screen" }} />
+                <Stack.Screen name="player/[id]" options={{ title: "Player Details" }} />
+                <Stack.Screen name="player/create" options={{ title: "Add Player" }} />
+                <Stack.Screen name="player/edit/[id]" options={{ title: "Edit Player" }} />
+                <Stack.Screen name="player/edit-profile" options={{ title: "Edit My Profile" }} />
+                <Stack.Screen name="match/[id]" options={{ title: "Match Details" }} />
+                <Stack.Screen name="matches/index" options={{ title: "All Matches" }} />
+                <Stack.Screen name="tournament/[id]" options={{ title: "Tournament Details" }} />
+                <Stack.Screen name="tournament/create" options={{ title: "Create Tournament" }} />
+                <Stack.Screen name="tournament/record-match" options={{ title: "Record Tournament Match" }} />
+                <Stack.Screen name="stats/head-to-head" options={{ title: "Head-to-Head" }} />
+                <Stack.Screen name="notifications/index" options={{ title: "Notifications" }} />
+                <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
+                <Stack.Screen name="auth/login" options={{ headerShown: false }} />
             </Stack>
-            <GlobalTabBar/>
         </View>
     );
 }

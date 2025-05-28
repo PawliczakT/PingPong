@@ -82,9 +82,9 @@ export default function PlayerCard({
                     </View>
                 )}
 
-                {statValue && statLabel && (
+                {statLabel && (
                     <View style={styles.customStatContainer}>
-                        <Text style={styles.customStatValue}>{statValue}</Text>
+                        <Text style={styles.customStatValue}>{statValue || ''}</Text>
                         <Text style={styles.customStatLabel}>{statLabel}</Text>
                     </View>
                 )}

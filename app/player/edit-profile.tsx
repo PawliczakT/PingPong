@@ -26,28 +26,40 @@ export default function EditProfileScreen() {
         if (profile) {
             setName(profile.name || '');
             setNickname(profile.nickname || '');
-            setAvatarUrl(profile.avatar_url || '');
+            setAvatarUrl(profile.avatarUrl || '');
         }
     }, [profile]);
 
-    const handleUpdateProfile = () => {
+    const handleUpdateProfile = async () => {
         setSuccessMessage(null);
 
-        const input: { name?: string; nickname?: string | null; avatar_url?: string | null } = {};
-        if (name !== profile?.name) {
-            input.name = name;
-        }
-        // Send nickname if it changed or if it was initially null and now has a value
-        if (nickname !== (profile?.nickname || '')) {
-            input.nickname = nickname === '' ? null : nickname;
-        }
-        // Send avatarUrl if it changed or if it was initially null and now has a value
-        if (avatarUrl !== (profile?.avatar_url || '')) {
-            input.avatar_url = avatarUrl === '' ? null : avatarUrl;
+        // Basic validation
+        if (!name.trim()) {
+            Alert.alert("Validation Error", "Name is required.");
+            return;
         }
 
-        // Only call mutation if there's something to update
-        if (Object.keys(input).length === 0) {
+        // Validate avatar URL format if provided
+        if (avatarUrl && avatarUrl.trim() !== '') {
+            try {
+                new URL(avatarUrl);
+            } catch (e) {
+                Alert.alert("Validation Error", "Please enter a valid URL for the avatar or leave it empty.");
+                return;
+            }
+        }
+
+        const input = {
+            name: name.trim(),
+            nickname: nickname.trim() || null,
+            avatarUrl: avatarUrl.trim() || null
+        } as const;
+
+        // If this is a new profile (no profile exists yet), we don't need to check for changes
+        if (profile && Object.keys(input).every(key => {
+            const profileKey = key as keyof typeof profile;
+            return input[key as keyof typeof input] === (profile[profileKey] || null);
+        })) {
             setSuccessMessage("No changes to save.");
             return;
         }
@@ -59,9 +71,9 @@ export default function EditProfileScreen() {
         }
 
         // Validate avatar_url: basic URL check if provided and not null
-        if (input.avatar_url !== undefined && input.avatar_url !== null && input.avatar_url.trim() !== '') {
+        if (input.avatarUrl !== undefined && input.avatarUrl !== null && input.avatarUrl.trim() !== '') {
             try {
-                new URL(input.avatar_url);
+                new URL(input.avatarUrl);
             } catch (_) {
                 Alert.alert("Validation Error", "Avatar URL is not valid. Please leave empty or provide a valid URL.");
                 return;
@@ -77,7 +89,7 @@ export default function EditProfileScreen() {
                 if (updatedData) {
                     setName(updatedData.name || '');
                     setNickname(updatedData.nickname || '');
-                    setAvatarUrl(updatedData.avatar_url || '');
+                    setAvatarUrl(updatedData.avatarUrl || '');
                 }
                 setTimeout(() => setSuccessMessage(null), 3000); // Clear message after 3s
             },
@@ -109,10 +121,64 @@ export default function EditProfileScreen() {
 
     if (!profile) {
         return (
-            <View style={styles.centered}>
-                <Text>No profile data found.</Text>
-                <Button title="Retry" onPress={() => refetch()}/>
-            </View>
+            <ScrollView style={styles.scrollView} contentContainerStyle={[styles.container, styles.centered]}>
+                <Text style={styles.title}>Welcome to PingPong! 🏓</Text>
+                <Text style={styles.subtitle}>Let's set up your player profile</Text>
+                <Text style={styles.instructions}>
+                    Please enter your name and optionally a nickname and avatar URL to get started.
+                    You can update these details anytime from your profile.
+                </Text>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Name *</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="Your full name"
+                        autoCapitalize="words"
+                    />
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Nickname</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={nickname}
+                        onChangeText={setNickname}
+                        placeholder="Your nickname (optional)"
+                    />
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Avatar URL</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={avatarUrl}
+                        onChangeText={setAvatarUrl}
+                        placeholder="URL to your avatar image (optional)"
+                        keyboardType="url"
+                        autoCapitalize="none"
+                    />
+                </View>
+
+                {isUpdatingProfile && (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small"/>
+                        <Text style={styles.loadingText}>Saving...</Text>
+                    </View>
+                )}
+
+                {updateError && (
+                    <Text style={[styles.errorText, styles.messageText]}>Update Error: {updateError.message}</Text>
+                )}
+
+                <Button
+                    title="Save Profile"
+                    onPress={handleUpdateProfile}
+                    disabled={isUpdatingProfile || !name.trim()}
+                />
+            </ScrollView>
         );
     }
 
@@ -185,14 +251,6 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-    scrollView: {
-        flex: 1,
-        backgroundColor: '#f7f7f7',
-    },
-    container: {
-        padding: 20,
-        alignItems: 'stretch', // Default, good for forms
-    },
     centered: {
         flex: 1,
         justifyContent: 'center',
@@ -202,9 +260,29 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    subtitle: {
+        fontSize: 18,
         marginBottom: 20,
         textAlign: 'center',
-        color: '#333',
+        color: '#555',
+    },
+    instructions: {
+        fontSize: 16,
+        textAlign: 'center',
+        color: '#666',
+        marginBottom: 30,
+        lineHeight: 24,
+    },
+    scrollView: {
+        flex: 1,
+        backgroundColor: '#f7f7f7',
+    },
+    container: {
+        padding: 20,
+        alignItems: 'stretch', // Default, good for forms
     },
     avatarContainer: {
         alignItems: 'center',
