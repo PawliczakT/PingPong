@@ -12,7 +12,7 @@ export default function LoginScreen() {
 
     const handleLogin = async () => {
         if (error) {
-            clearError(); // Clear previous error on a new login attempt
+            clearError();
         }
 
         console.log('[Login] Starting Google authentication flow');

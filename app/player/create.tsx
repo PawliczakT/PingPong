@@ -1,13 +1,13 @@
 import React, {useState} from "react";
-import {Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from "react-native";
+import {Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from "react-native";
 import {Stack, useRouter} from "expo-router";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import Button from "@/components/Button";
-import * as Haptics from "expo-haptics";
-import {pickAndProcessAvatarWithAWS, uploadImageToSupabase} from "@/utils/imageUpload";
+import {pickAndProcessAvatarWithAWS} from "@/utils/imageUpload";
 import {Image as ExpoImage} from "expo-image";
+import {supabase} from "@/lib/supabase";
 
 export default function CreatePlayerScreen() {
     const router = useRouter();
@@ -51,7 +51,7 @@ export default function CreatePlayerScreen() {
     };
 
     const handleSubmit = async () => {
-        if (!name.trim()) {
+        if (!name?.trim()) {
             Alert.alert("Error", "Player name is required");
             return;
         }
@@ -59,47 +59,50 @@ export default function CreatePlayerScreen() {
         setIsSubmitting(true);
 
         try {
-            let finalAvatarUrl = avatarUrl;
+            // Pobierz aktualnego użytkownika
+            const {data: {user}} = await supabase.auth.getUser();
 
-            // If a local image was selected, use it directly or attempt to upload
-            if (selectedImageUri) {
-                setUploadingImage(true);
-                // Generate a temporary ID for the file name
-                const tempId = `temp_${Date.now()}`;
-
-                // Use the selected image URI directly or try to upload
-                const {url, error} = await uploadImageToSupabase(
-                    selectedImageUri,
-                    selectedImageBase64,
-                    tempId
-                );
-
-                if (error) {
-                    Alert.alert("Avatar Error", error);
-                    setUploadingImage(false);
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                if (url) {
-                    finalAvatarUrl = url;
-                }
-                setUploadingImage(false);
+            if (!user) {
+                Alert.alert("Error", "User not authenticated");
+                setIsSubmitting(false);
+                return;
             }
 
-            await addPlayer(name.trim(), nickname.trim() || undefined, finalAvatarUrl || undefined);
+            // BŁĄD: Tutaj tworzony jest obiekt player z nazwą i innymi polami
+            const player = {
+                user_id: user.id,
+                name: name.trim(),
+                nickname: nickname?.trim() || null,
+                avatarUrl: user.user_metadata.avatar_url || null,
+                eloRating: 1200,
+                wins: 0,
+                losses: 0,
+                active: true,
+            };
 
-            if (Platform.OS !== "web") {
-                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            // Utworzenie profilu gracza
+            const {data: createdPlayer, error} = await supabase
+                .from('players')
+                .insert(player)
+                .select()
+                .single();
+
+            if (error) {
+                console.error("Error creating player:", error);
+                Alert.alert("Error", error.message);
+                setIsSubmitting(false);
+                return;
             }
 
-            Alert.alert(
-                "Success",
-                "Player added successfully",
-                [{text: "OK", onPress: () => router.replace("/(tabs)")}]
-            );
+            // Ustaw profil w store
+            addPlayer(createdPlayer);
+
+            // Przekieruj na stronę główną
+            router.replace("/(tabs)");
+
         } catch (error) {
-            Alert.alert("Error", "Failed to add player");
+            console.error("Unexpected error:", error);
+            Alert.alert("Error", "An unexpected error occurred");
         } finally {
             setIsSubmitting(false);
         }
@@ -182,7 +185,7 @@ export default function CreatePlayerScreen() {
                     title={uploadingImage ? "Uploading Image..." : "Add Player"}
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={!name.trim() || uploadingImage}
+                    disabled={!name?.trim() || uploadingImage}
                     style={styles.button}
                 />
             </ScrollView>

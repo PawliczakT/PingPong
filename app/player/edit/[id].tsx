@@ -81,7 +81,7 @@ export default function EditPlayerScreen() {
     }
 
     const handleSubmit = async () => {
-        if (!name.trim()) {
+        if (!name?.trim()) {
             Alert.alert("Error", "Player name is required");
             return;
         }
@@ -117,8 +117,8 @@ export default function EditPlayerScreen() {
 
             await updatePlayer({
                 ...player,
-                name: name.trim(),
-                nickname: nickname.trim() || undefined,
+                name: name?.trim(),
+                nickname: nickname?.trim() || undefined,
                 avatarUrl: finalAvatarUrl || undefined,
             });
 
@@ -222,7 +222,7 @@ export default function EditPlayerScreen() {
                     title={uploadingImage ? "Uploading Image..." : "Save Changes"}
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={!name.trim() || uploadingImage}
+                    disabled={!name?.trim() || uploadingImage}
                     style={styles.button}
                 />
             </ScrollView>

@@ -27,7 +27,7 @@ export default function ProfileScreen() {
     const router = useRouter();
     const {user, logout, isLoading: authLoading} = useAuthStore();
     const {notificationHistory} = useNotificationStore();
-    const {players, updatePlayer} = usePlayerStore();
+    const {players, updatePlayer, addPlayer} = usePlayerStore();
     const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState('');
@@ -50,7 +50,6 @@ export default function ProfileScreen() {
                 allowsEditing: true,
                 aspect: [1, 1],
                 quality: 0.8,
-                base64: true,
             });
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -100,7 +99,6 @@ export default function ProfileScreen() {
         try {
             setUploadingImage(true);
 
-            // Convert image to base64
             const response = await fetch(uri);
             const blob = await response.blob();
             const base64Data = await new Promise<string>((resolve, reject) => {
@@ -113,11 +111,9 @@ export default function ProfileScreen() {
                 reader.readAsDataURL(blob);
             });
 
-            // Extract file extension from URI
             const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
             const fileName = `${user.id}_${Date.now()}.${fileExt}`;
 
-            // Upload to Supabase storage
             const {data, error} = await supabase.storage
                 .from('avatars')
                 .upload(fileName, decode(base64Data), {
@@ -130,12 +126,10 @@ export default function ProfileScreen() {
                 throw error;
             }
 
-            // Get public URL
             const {data: {publicUrl}} = supabase.storage
                 .from('avatars')
                 .getPublicUrl(fileName);
 
-            // Update player record
             const {data: updatedPlayerData, error: updateError} = await supabase
                 .from('players')
                 .update({
@@ -151,7 +145,6 @@ export default function ProfileScreen() {
                 throw updateError || new Error('Failed to update player record');
             }
 
-            // Update local state
             const updatedPlayer = {
                 ...currentPlayer,
                 avatarUrl: publicUrl
@@ -168,27 +161,30 @@ export default function ProfileScreen() {
         }
     };
 
-// Count unread notifications for this player
     const unreadCount = currentPlayer ? notificationHistory.filter(n =>
         !n.read && (!n.data?.player?.id || n.data?.player?.id === currentPlayer.id)
     ).length : 0;
 
     useEffect(() => {
         const loadPlayerProfile = async () => {
-            if (!user) return;
+            if (!user) {
+                setLoadingProfile(false);
+                return;
+            }
+
             setLoadingProfile(true);
 
             try {
-                // First try to find in local store by user_id
+                // Sprawdź w lokalnym store
                 let foundPlayer = players.find(p => p.user_id === user.id);
 
-                // If not found locally, fetch directly from Supabase
+                // Jeśli nie ma w store, sprawdź w bazie
                 if (!foundPlayer) {
                     const {data, error} = await supabase
                         .from('players')
                         .select('*')
                         .eq('user_id', user.id)
-                        .maybeSingle(); // Use maybeSingle instead of single to avoid errors
+                        .maybeSingle();
 
                     if (data && !error) {
                         foundPlayer = {
@@ -205,13 +201,19 @@ export default function ProfileScreen() {
                             updatedAt: data.updated_at,
                         };
                     } else if (!data || error?.code === 'PGRST116') {
-                        // Player not found - new user
                         console.log("No player profile found, creating new profile form");
                         setIsNewUser(true);
+
+                        // Bezpieczne wyciągnięcie nazwy z metadanych
+                        const defaultName = user.user_metadata?.full_name ||
+                            user.user_metadata?.name ||
+                            user.email?.split('@')[0] ||
+                            'New Player';
+
                         const newPlayer = {
-                            id: '', // Let DB assign the ID
+                            id: '',
                             user_id: user.id,
-                            name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Player',
+                            name: defaultName,
                             nickname: undefined,
                             avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
                             eloRating: 1200,
@@ -221,8 +223,10 @@ export default function ProfileScreen() {
                             createdAt: new Date().toISOString(),
                             updatedAt: new Date().toISOString(),
                         };
+
                         setCurrentPlayer(newPlayer);
-                        setName(newPlayer.name);
+                        setName(defaultName); // Upewnij się że name nie jest undefined
+                        setNickname(''); // Inicjalizuj jako pusty string
                         setIsEditing(true);
                         setLoadingProfile(false);
                         return;
@@ -231,28 +235,8 @@ export default function ProfileScreen() {
 
                 if (foundPlayer) {
                     setCurrentPlayer(foundPlayer);
-                    setName(foundPlayer.name);
-                    setNickname(foundPlayer.nickname || '');
-                } else {
-                    // Failsafe - if we somehow don't have a player by this point
-                    console.log("No player found after all checks, setting new user profile");
-                    setIsNewUser(true);
-                    const newPlayer = {
-                        id: '',
-                        user_id: user.id,
-                        name: user.user_metadata?.full_name || user.user_metadata?.name || 'New Player',
-                        nickname: undefined,
-                        avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-                        eloRating: 1200,
-                        wins: 0,
-                        losses: 0,
-                        active: true,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                    };
-                    setCurrentPlayer(newPlayer);
-                    setName(newPlayer.name);
-                    setIsEditing(true);
+                    setName(foundPlayer.name || ''); // Bezpieczne ustawienie
+                    setNickname(foundPlayer.nickname || ''); // Bezpieczne ustawienie
                 }
             } catch (error) {
                 console.error('Error loading player profile:', error);
@@ -262,18 +246,43 @@ export default function ProfileScreen() {
             }
         };
 
-        loadPlayerProfile().catch(err => err && console.error('Error loading player profile:', err));
+        loadPlayerProfile();
     }, [user, players]);
 
     const handleSave = async () => {
         if (!user || !currentPlayer) return;
 
+        // Sprawdź czy name istnieje i nie jest pusty po trim
+        if (!name || typeof name !== 'string' || !name?.trim()) {
+            Alert.alert('Error', 'Name is required');
+            return;
+        }
+
         try {
             setLoadingProfile(true);
+
+            // Sprawdź czy profil już istnieje przed utworzeniem (zabezpieczenie przed duplikatami)
+            if (isNewUser) {
+                const {data: existingCheck} = await supabase
+                    .from('players')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                if (existingCheck) {
+                    console.log('Profile already exists, not creating duplicate');
+                    Alert.alert('Info', 'Profile already exists. Refreshing...');
+                    setIsNewUser(false);
+                    // Przekieruj do głównej aplikacji
+                    router.replace('/(tabs)');
+                    return;
+                }
+            }
+
             const playerData = {
                 user_id: user.id,
-                name: name.trim(),
-                nickname: nickname.trim() || undefined,
+                name: name.trim(), // Bezpieczne użycie trim
+                nickname: (nickname && typeof nickname === 'string' && nickname?.trim()) ? nickname.trim() : null,
                 avatar_url: currentPlayer.avatarUrl,
                 elo_rating: currentPlayer.eloRating,
                 wins: currentPlayer.wins,
@@ -281,6 +290,8 @@ export default function ProfileScreen() {
                 active: true,
                 updated_at: new Date().toISOString(),
             };
+
+            console.log('Saving player data:', playerData);
 
             const {data, error} = isNewUser
                 ? await supabase
@@ -295,40 +306,80 @@ export default function ProfileScreen() {
                     .select()
                     .single();
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase error:', error);
+                throw error;
+            }
 
-            // Update local state
+            if (!data) {
+                throw new Error('No data returned from database');
+            }
+
             const updatedPlayer = {
                 ...currentPlayer,
-                ...data,
+                id: data.id,
+                name: data.name,
+                nickname: data.nickname,
                 avatarUrl: data.avatar_url,
                 eloRating: data.elo_rating,
+                wins: data.wins,
+                losses: data.losses,
+                active: data.active,
+                createdAt: data.created_at,
+                updatedAt: data.updated_at,
             };
 
             setCurrentPlayer(updatedPlayer);
             setIsEditing(false);
-            await updatePlayer(updatedPlayer);
 
             if (isNewUser) {
+                // Dodaj do store
+                // await addPlayer(updatedPlayer.name);
                 setIsNewUser(false);
-                router.replace('/(tabs)');
+                console.log('Successfully created new player profile');
+
+                Alert.alert('Success', 'Profile created successfully!', [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            // Przekieruj do głównej aplikacji
+                            router.replace('/');
+                        }
+                    }
+                ]);
+            } else {
+                await updatePlayer(updatedPlayer);
+                Alert.alert('Success', 'Profile saved successfully!');
             }
         } catch (error) {
             console.error('Error saving profile:', error);
-            Alert.alert('Error', 'Failed to save profile. Please try again.');
+            Alert.alert('Error', `Failed to save profile: ${error.message || 'Please try again.'}`);
         } finally {
             setLoadingProfile(false);
         }
     };
 
     const handleSignOut = async () => {
-        try {
-            await logout();
-            router.replace('/auth/login');
-        } catch (error) {
-            console.error('Error signing out:', error);
-            Alert.alert('Error', 'Failed to sign out');
-        }
+        Alert.alert(
+            'Sign Out',
+            'Are you sure you want to sign out?',
+            [
+                {text: 'Cancel', style: 'cancel'},
+                {
+                    text: 'Sign Out',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await logout();
+                            router.replace('/auth/login');
+                        } catch (error) {
+                            console.error('Error signing out:', error);
+                            Alert.alert('Error', 'Failed to sign out');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     if (authLoading || loadingProfile) {
@@ -342,11 +393,22 @@ export default function ProfileScreen() {
         );
     }
 
+    if (!user) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <Text style={styles.errorText}>Please log in to view your profile</Text>
+                    <Button title="Go to Login" onPress={() => router.push('/auth/login')}/>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <Stack.Screen
                 options={{
-                    title: isNewUser ? "Create Player Profile" : "My Profile",
+                    title: isNewUser ? "Create Profile" : "My Profile",
                     headerShadowVisible: false,
                 }}
             />
@@ -380,7 +442,7 @@ export default function ProfileScreen() {
                             </View>
                         )}
 
-                        {!isNewUser && (
+                        {!isNewUser && !isEditing && (
                             <View style={styles.avatarButtons}>
                                 <TouchableOpacity
                                     style={styles.avatarButton}
@@ -409,7 +471,7 @@ export default function ProfileScreen() {
                     <Text style={styles.sectionTitle}>Player Information</Text>
 
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Name</Text>
+                        <Text style={styles.label}>Name *</Text>
                         {isEditing ? (
                             <TextInput
                                 style={styles.input}
@@ -447,8 +509,7 @@ export default function ProfileScreen() {
                     <Text style={styles.sectionTitle}>Stats</Text>
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
-                            <Text
-                                style={styles.statValue}>{currentPlayer?.eloRating || currentPlayer?.eloRating || 1000}</Text>
+                            <Text style={styles.statValue}>{currentPlayer?.eloRating || 1200}</Text>
                             <Text style={styles.statLabel}>ELO</Text>
                         </View>
                         <View style={styles.statItem}>
@@ -467,12 +528,17 @@ export default function ProfileScreen() {
                         <Button
                             title={isNewUser ? "Create Profile" : "Save Changes"}
                             onPress={handleSave}
+                            disabled={loadingProfile || !name || !name?.trim()}
                             style={styles.button}
                         />
                         {!isNewUser && (
                             <Button
                                 title="Cancel"
-                                onPress={() => setIsEditing(false)}
+                                onPress={() => {
+                                    setIsEditing(false);
+                                    setName(currentPlayer?.name || '');
+                                    setNickname(currentPlayer?.nickname || '');
+                                }}
                                 variant="outline"
                                 style={styles.button}
                             />
@@ -505,7 +571,7 @@ export default function ProfileScreen() {
                 )}
             </ScrollView>
         </SafeAreaView>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
@@ -637,6 +703,12 @@ const styles = StyleSheet.create({
         marginTop: 12,
         fontSize: 16,
         color: colors.textLight,
+    },
+    errorText: {
+        fontSize: 16,
+        color: colors.error,
+        textAlign: 'center',
+        marginBottom: 20,
     },
     welcomeContainer: {
         backgroundColor: colors.primary + '15',
