@@ -60,3 +60,35 @@ export const ensurePlayerProfile = async (userId: string) => {
         return { success: false, error };
     }
 };
+
+export class PlayerService {
+    constructor(private supabase: any) {}
+
+    async createPlayer(playerData) {
+        try {
+            // Upewnij się, że przekazujemy tylko potrzebne pola
+            const player = {
+                user_id: playerData.user_id,
+                name: playerData.name, // Upewnij się, że name jest stringiem, a nie obiektem
+                nickname: playerData.nickname || null,
+                avatarUrl: playerData.avatarUrl || null,
+                eloRating: playerData.eloRating || 1200,
+                wins: playerData.wins || 0,
+                losses: playerData.losses || 0,
+                active: true,
+            };
+
+            const { data, error } = await this.supabase
+                .from('players')
+                .insert(player)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error("Error in createPlayer:", error);
+            throw error;
+        }
+    }
+}

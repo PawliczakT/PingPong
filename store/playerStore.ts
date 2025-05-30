@@ -29,8 +29,8 @@ export const usePlayerStore = create<PlayerState>()(
             set({isLoading: true, error: null});
             try {
                 const existing = get().players.find(
-                    p => p.name.trim().toLowerCase() === name.trim().toLowerCase() ||
-                        (!!nickname && !!p.nickname && p.nickname.trim().toLowerCase() === nickname.trim().toLowerCase())
+                    p => p.name?.trim().toLowerCase() === name?.trim().toLowerCase() ||
+                        (!!nickname && !!p.nickname && p.nickname?.trim().toLowerCase() === nickname.trim().toLowerCase())
                 );
                 if (existing) {
                     const errMsg = 'Użytkownik o takiej nazwie lub nicku już istnieje.';
