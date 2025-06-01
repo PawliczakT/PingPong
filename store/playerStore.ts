@@ -194,7 +194,7 @@ export const usePlayerStore = create<PlayerState>()(
                                 losses: newLosses,
                                 rank: newRank,
                                 updatedAt: new Date().toISOString()
-                              }
+                            }
                             : p
                     ),
                     isLoading: false,
