@@ -1,9 +1,10 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {useFonts} from "expo-font";
-import {Stack} from "expo-router";
+import {Stack, useRouter} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, {useEffect, useState} from "react";
-import {ActivityIndicator, Linking, StyleSheet, View} from "react-native";
+import {ActivityIndicator, Linking, StyleSheet, Text, View} from "react-native";
+import {Button} from 'react-native-paper';
 import {ErrorBoundary} from "./error-boundary";
 import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
@@ -63,7 +64,14 @@ export default function RootLayout() {
                 .eq('user_id', user.id)
                 .maybeSingle();
 
-            const profileExists = !!existingPlayer && !error;
+            if (error) {
+                console.error('Error checking profile:', error);
+                setHasProfile(false);
+                setIsCheckingProfile(false);
+                return;
+            }
+
+            const profileExists = !!existingPlayer;
             console.log('Profile check result:', profileExists);
             setHasProfile(profileExists);
             setIsCheckingProfile(false);
@@ -79,7 +87,7 @@ export default function RootLayout() {
         refreshProfileState = () => {
             setHasProfile(null);
             setIsCheckingProfile(true);
-            checkProfile();
+            checkProfile().then(r => console.error("Error checking profile:", r));
         };
 
         return () => {
@@ -118,7 +126,7 @@ export default function RootLayout() {
             }
         };
 
-        handleAuthCallback();
+        handleAuthCallback().then(r => console.error("Error handling auth callback:", r));
 
         const handleDeepLink = (event: { url: string }) => {
             console.log('[Auth] Deep link received:', event.url);
@@ -219,7 +227,7 @@ export default function RootLayout() {
             }
         };
 
-        initializeNetwork();
+        initializeNetwork().then(r => console.error("Error initializing network:", r));
 
         const interval = setInterval(async () => {
             try {
@@ -266,7 +274,7 @@ export default function RootLayout() {
     // Check profile when user changes
     useEffect(() => {
         if (isInitialized && !isLoading) {
-            checkProfile();
+            checkProfile().then(r => console.error("Error checking profile:", r));
         }
     }, [user, isInitialized, isLoading, checkProfile]);
 
@@ -307,14 +315,88 @@ function AuthStack() {
 
 // Stack dla użytkowników bez profilu
 function ProfileSetupStack() {
+    const router = useRouter();
+    const {user} = useAuthStore();
+    const [isChecking, setIsChecking] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Check if user has a profile
+    useEffect(() => {
+        let isMounted = true;
+
+        const checkProfile = async () => {
+            if (!user) {
+                router.replace('/auth/login');
+                return;
+            }
+
+            try {
+                const {data: existingPlayer, error: queryError} = await supabase
+                    .from('players')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                if (queryError) throw queryError;
+
+                if (existingPlayer) {
+                    // User already has a profile, redirect to app
+                    router.replace('/(tabs)');
+                } else if (isMounted) {
+                    // No profile found, show setup
+                    setIsChecking(false);
+                }
+            } catch (error) {
+                console.error('Error checking profile:', error);
+                if (isMounted) {
+                    setError('Wystąpił błąd podczas wczytywania profilu. Spróbuj ponownie.');
+                    setIsChecking(false);
+                }
+            }
+        };
+
+
+        checkProfile();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [user, router]);
+
+    if (isChecking) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#007AFF"/>
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={styles.loadingContainer}>
+                <Text style={{color: 'red', marginBottom: 20}}>{error}</Text>
+                <Button mode="contained" onPress={() => router.replace('/auth/login')} style={{marginTop: 10}}>
+                    Wróć do logowania
+                </Button>
+            </View>
+        );
+    }
+
     return (
         <Stack
             screenOptions={{
                 headerBackTitle: "Back",
                 headerShadowVisible: false,
+                headerShown: false,
             }}
         >
-            <Stack.Screen name="player/[id]" options={{title: "Setup Profile"}}/>
+            <Stack.Screen
+                name="player/setup"
+                options={{
+                    title: "Setup Profile",
+                    headerShown: false
+                }}
+            />
         </Stack>
     );
 }

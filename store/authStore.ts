@@ -23,13 +23,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     loginWithGoogle: async () => {
         set({isLoading: true, error: null});
         try {
-            const {error, data} = await signInWithGoogle();
+            const {error} = await signInWithGoogle();
             if (error) {
                 console.error('Error during Google login:', error);
                 set({error, isLoading: false});
                 return;
             }
             console.log('[Auth] Successfully authenticated with Google');
+            // The auth state change listener will handle the rest of the flow
         } catch (e) {
             console.error('Exception during Google login:', e);
             set({error: e instanceof Error ? e : new Error('Login failed'), isLoading: false});
