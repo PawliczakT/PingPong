@@ -58,7 +58,7 @@ const SetupProfileScreen = () => {
         try {
             const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Brak uprawnień', 'Potrzebujemy dostępu do galerii, aby wybrać zdjęcie.');
+                Alert.alert('No permissions', 'We need media library access to pick an image.');
                 return;
             }
 
@@ -79,7 +79,7 @@ const SetupProfileScreen = () => {
             }
         } catch (error) {
             console.error('Error picking image:', error);
-            Alert.alert('Błąd', 'Nie udało się wybrać zdjęcia. Spróbuj ponownie.');
+            Alert.alert('Error', 'Failed to pick image. Please try again.');
         }
     };
 
@@ -87,7 +87,7 @@ const SetupProfileScreen = () => {
         try {
             const {status} = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Brak uprawnień', 'Potrzebujemy dostępu do aparatu, aby zrobić zdjęcie.');
+                Alert.alert('No permissions', 'We need camera access to take a photo.');
                 return;
             }
 
@@ -107,18 +107,18 @@ const SetupProfileScreen = () => {
             }
         } catch (error) {
             console.error('Error taking photo:', error);
-            Alert.alert('Błąd', 'Nie udało się zrobić zdjęcia. Spróbuj ponownie.');
+            Alert.alert('Error', 'Failed to take photo. Please try again.');
         }
     };
 
     const handleSubmit = async () => {
         if (!name.trim()) {
-            Alert.alert('Błąd', 'Proszę podać imię i nazwisko');
+            Alert.alert('Error', 'Provide your full name');
             return;
         }
 
         if (!user) {
-            Alert.alert('Błąd', 'Nie znaleziono użytkownika. Zaloguj się ponownie.');
+            Alert.alert('Error', 'User not found');
             router.replace('/auth/login');
             return;
         }
@@ -163,11 +163,11 @@ const SetupProfileScreen = () => {
                 });
             } catch (error) {
                 console.error('Error creating player:', error);
-                Alert.alert('Błąd', 'Nie udało się utworzyć profilu. Spróbuj ponownie.');
+                Alert.alert('Error', 'Filed to create player.');
             }
         } catch (error) {
             console.error('Error creating profile:', error);
-            Alert.alert('Błąd', 'Nie udało się utworzyć profilu. Spróbuj ponownie.');
+            Alert.alert('Error', 'Failed to create profile.');
         } finally {
             setIsLoading(false);
             setIsSubmitting(false);
@@ -191,14 +191,14 @@ const SetupProfileScreen = () => {
 
                 {/* Header z avatarem */}
                 <View style={styles.header}>
-                    <Text style={styles.title}>Stwórz swój profil</Text>
+                    <Text style={styles.title}>Create your profile</Text>
 
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatar}>
                             {image ? (
                                 <Image source={{uri: image}} style={styles.avatarImage}/>
                             ) : (
-                                <Text style={styles.avatarText}>ZDJĘCIE</Text>
+                                <Text style={styles.avatarText}>PHOTO</Text>
                             )}
                         </View>
 
@@ -215,26 +215,26 @@ const SetupProfileScreen = () => {
 
                 {/* Sekcja z informacjami */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Informacje o graczu</Text>
+                    <Text style={styles.sectionTitle}>Personal Information</Text>
 
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Imię i nazwisko *</Text>
+                        <Text style={styles.label}>Full Name *</Text>
                         <TextInput
                             style={styles.input}
                             value={name}
                             onChangeText={setName}
-                            placeholder="Wprowadź imię i nazwisko"
+                            placeholder="Provide full name"
                             placeholderTextColor={colors.textLight}
                         />
                     </View>
 
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Pseudonim (opcjonalnie)</Text>
+                        <Text style={styles.label}>Nick Name (optional)</Text>
                         <TextInput
                             style={styles.input}
                             value={nickname}
                             onChangeText={setNickname}
-                            placeholder="Wprowadź pseudonim"
+                            placeholder="Provide nick name"
                             placeholderTextColor={colors.textLight}
                         />
                     </View>
@@ -242,7 +242,7 @@ const SetupProfileScreen = () => {
 
                 {/* Przycisk */}
                 <Button
-                    title="Zapisz profil"
+                    title="Save Profile"
                     onPress={handleSubmit}
                     loading={isSubmitting}
                     style={styles.button}

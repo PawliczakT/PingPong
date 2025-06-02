@@ -246,14 +246,14 @@ export default function ProfileScreen() {
             }
         };
 
-        loadPlayerProfile();
+        loadPlayerProfile().then(r => console.error("Error loading player profile:", r));
     }, [user, players]);
 
     const handleSave = async () => {
         if (!user || !currentPlayer) return;
 
         // Sprawdź czy name istnieje i nie jest pusty po trim
-        if (!name || typeof name !== 'string' || !name?.trim()) {
+        if (!name || !name?.trim()) {
             Alert.alert('Error', 'Name is required');
             return;
         }
@@ -282,7 +282,7 @@ export default function ProfileScreen() {
             const playerData = {
                 user_id: user.id,
                 name: name.trim(), // Bezpieczne użycie trim
-                nickname: (nickname && typeof nickname === 'string' && nickname?.trim()) ? nickname.trim() : null,
+                nickname: (nickname && true && nickname?.trim()) ? nickname.trim() : null,
                 avatar_url: currentPlayer.avatarUrl,
                 elo_rating: currentPlayer.eloRating,
                 wins: currentPlayer.wins,
