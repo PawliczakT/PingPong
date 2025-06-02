@@ -45,7 +45,7 @@ export default function EditProfileScreen() {
 
         // Podstawowa walidacja
         if (!name.trim()) {
-            Alert.alert("Błąd walidacji", "Imię jest wymagane.");
+            Alert.alert("Validation error", "Name is required.");
             return;
         }
 
@@ -54,7 +54,7 @@ export default function EditProfileScreen() {
             try {
                 new URL(avatarUrl);
             } catch (e) {
-                Alert.alert("Błąd walidacji", "Wprowadź poprawny URL avatara lub pozostaw pole puste.");
+                Alert.alert("Validation error", "Invalid avatar URL.");
                 return;
             }
         }
@@ -70,13 +70,13 @@ export default function EditProfileScreen() {
             const profileKey = key as keyof typeof profile;
             return input[key as keyof typeof input] === (profile[profileKey] || null);
         })) {
-            setSuccessMessage("Brak zmian do zapisania.");
+            setSuccessMessage("No changes detected.");
             return;
         }
 
         updateProfile(input, {
             onSuccess: (updatedData) => {
-                setSuccessMessage('Profil został zaktualizowany!');
+                setSuccessMessage('Profile updated successfully!');
                 refetch();
                 if (updatedData) {
                     setName(updatedData.name || '');
@@ -86,9 +86,9 @@ export default function EditProfileScreen() {
                 setTimeout(() => setSuccessMessage(null), 3000);
             },
             onError: (error) => {
-                console.error("Błąd aktualizacji profilu:", error);
-                Alert.alert("Aktualizacja nie powiodła się",
-                    error.message || "Nie można zaktualizować profilu. Spróbuj ponownie później.");
+                console.error("Error updating profile:", error);
+                Alert.alert("Error updating profile",
+                    error.message || "An unexpected error occurred while updating your profile.");
             }
         });
     };
@@ -112,7 +112,7 @@ export default function EditProfileScreen() {
         return (
             <View style={styles.centered}>
                 <Text style={styles.errorText}>Błąd wczytywania profilu: {profileError.message}</Text>
-                <Button title="Ponów" onPress={() => refetch()}/>
+                <Button title="Try again" onPress={() => refetch()}/>
             </View>
         );
     }
@@ -121,41 +121,41 @@ export default function EditProfileScreen() {
     if (!profile || isProfileNotFoundError) {
         return (
             <ScrollView style={styles.scrollView} contentContainerStyle={[styles.container, styles.centered]}>
-                <Text style={styles.title}>Witaj w PingPong! 🏓</Text>
-                <Text style={styles.subtitle}>Utwórzmy Twój profil gracza</Text>
+                <Text style={styles.title}>Hello Player 🏓</Text>
+                <Text style={styles.subtitle}>Let's create your profile</Text>
                 <Text style={styles.instructions}>
-                    Wprowadź swoje imię i opcjonalnie pseudonim oraz URL avatara, aby rozpocząć.
-                    Możesz zaktualizować te dane w dowolnym momencie z poziomu swojego profilu.
+                    Provide your name and optionally a nickname and avatar URL to get started.
+                    You can update this information at any time from your profile.
                 </Text>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Imię *</Text>
+                    <Text style={styles.label}>Name *</Text>
                     <TextInput
                         style={styles.input}
                         value={name}
                         onChangeText={setName}
-                        placeholder="Twoje imię i nazwisko"
+                        placeholder="Your full name"
                         autoCapitalize="words"
                     />
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Pseudonim</Text>
+                    <Text style={styles.label}>Nickname</Text>
                     <TextInput
                         style={styles.input}
                         value={nickname}
                         onChangeText={setNickname}
-                        placeholder="Twój pseudonim (opcjonalnie)"
+                        placeholder="Your nickname (optional)"
                     />
                 </View>
 
                 <View style={styles.inputGroup}>
-                    <Text style={styles.label}>URL Avatara</Text>
+                    <Text style={styles.label}>Avatar URL</Text>
                     <TextInput
                         style={styles.input}
                         value={avatarUrl}
                         onChangeText={setAvatarUrl}
-                        placeholder="URL do obrazu avatara (opcjonalnie)"
+                        placeholder="URL to your avatar image (optional)"
                         keyboardType="url"
                         autoCapitalize="none"
                     />
@@ -164,16 +164,16 @@ export default function EditProfileScreen() {
                 {isUpdatingProfile && (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="small"/>
-                        <Text style={styles.loadingText}>Zapisywanie...</Text>
+                        <Text style={styles.loadingText}>Saving...</Text>
                     </View>
                 )}
 
                 {updateError && (
-                    <Text style={[styles.errorText, styles.messageText]}>Błąd aktualizacji: {updateError.message}</Text>
+                    <Text style={[styles.errorText, styles.messageText]}>Update error: {updateError.message}</Text>
                 )}
 
                 <Button
-                    title="Zapisz profil"
+                    title="Save Profile"
                     onPress={handleUpdateProfile}
                     disabled={isUpdatingProfile || !name.trim()}
                 />
@@ -183,44 +183,44 @@ export default function EditProfileScreen() {
 
     return (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
-            <Text style={styles.title}>Edytuj swój profil</Text>
+            <Text style={styles.title}>Edit your profile</Text>
 
             <View style={styles.avatarContainer}>
                 <PlayerAvatar
-                    name={name || 'Gracz'}
+                    name={name || 'Player'}
                     avatarUrl={avatarUrl || undefined}
                     size={100}
                 />
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.label}>Imię</Text>
+                <Text style={styles.label}>Name</Text>
                 <TextInput
                     style={styles.input}
                     value={name}
                     onChangeText={setName}
-                    placeholder="Twoje imię i nazwisko"
+                    placeholder="Your full name"
                     autoCapitalize="words"
                 />
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.label}>Pseudonim</Text>
+                <Text style={styles.label}>Nickname</Text>
                 <TextInput
                     style={styles.input}
                     value={nickname}
                     onChangeText={setNickname}
-                    placeholder="Twój pseudonim (opcjonalnie)"
+                    placeholder="Your nickname (optional)"
                 />
             </View>
 
             <View style={styles.inputGroup}>
-                <Text style={styles.label}>URL Avatara</Text>
+                <Text style={styles.label}>Avatar URL</Text>
                 <TextInput
                     style={styles.input}
                     value={avatarUrl}
                     onChangeText={setAvatarUrl}
-                    placeholder="URL do obrazu avatara (opcjonalnie)"
+                    placeholder="URL to your avatar image (optional)"
                     keyboardType="url"
                     autoCapitalize="none"
                 />
@@ -229,19 +229,19 @@ export default function EditProfileScreen() {
             {isUpdatingProfile && (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="small"/>
-                    <Text style={styles.loadingText}>Zapisywanie...</Text>
+                    <Text style={styles.loadingText}>Saving...</Text>
                 </View>
             )}
 
             {updateError && (
-                <Text style={[styles.errorText, styles.messageText]}>Błąd aktualizacji: {updateError.message}</Text>
+                <Text style={[styles.errorText, styles.messageText]}>Update error: {updateError.message}</Text>
             )}
             {successMessage && (
                 <Text style={[styles.successText, styles.messageText]}>{successMessage}</Text>
             )}
 
             <Button
-                title="Zapisz zmiany"
+                title="Save Changes"
                 onPress={handleUpdateProfile}
                 disabled={isUpdatingProfile || isLoadingProfile}
             />
