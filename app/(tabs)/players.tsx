@@ -1,13 +1,12 @@
 import React, {useState} from "react";
 import {FlatList, Pressable, StyleSheet, Text, TextInput, View} from "react-native";
 import {useRouter} from "expo-router";
-import {Plus, Search, Users, X} from "lucide-react-native";
+import {Search, Users, X} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import PlayerCard from "@/components/PlayerCard";
 import EmptyState from "@/components/EmptyState";
-import Button from "@/components/Button";
 
 export default function PlayersScreen() {
     const router = useRouter();

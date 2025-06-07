@@ -1,39 +1,24 @@
 import React from "react";
-import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
-import { Stack, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { colors } from "@/constants/colors";
-import { useNotificationStore } from "@/store/notificationStore";
-import { useAuthStore } from "@/store/authStore";
-import { usePlayerStore } from "@/store/playerStore";
+import {ActivityIndicator, StyleSheet, Text, View} from "react-native";
+import {Stack, useRouter} from "expo-router";
+import {SafeAreaView} from "react-native-safe-area-context";
+import {colors} from "@/constants/colors";
+import {useNotificationStore} from "@/store/notificationStore";
 import NotificationsList from "@/components/NotificationsList";
-import { Notification } from "@/types";
+import {Notification} from "@/types";
 
 export default function NotificationsScreen() {
     const router = useRouter();
-    const { notificationHistory, clearNotificationHistory, isLoading } = useNotificationStore();
-    const { user } = useAuthStore();
-    const { players } = usePlayerStore();
-
-// Get the current user's player
-    const currentPlayer = players.find(p => p.user_id === user?.id);
-
-// Filter notifications for this player
-    const filteredNotifications: Notification[] = notificationHistory
-        .filter(notification => {
-            // Include general notifications and notifications for this player
-            return !notification.data?.player?.id ||
-                notification.data.player.id === currentPlayer?.id;
-        })
-        .map(notification => ({
-            ...notification,
-            message: notification.body,
-            createdAt: notification.timestamp || new Date().toISOString(),
-        }));
+    const isLoading = useNotificationStore(state => state.isLoading);
+    const notificationHistory = useNotificationStore(state => state.notificationHistory);
+    const clearHistory = useNotificationStore(state => state.clearHistory);
+    const notificationsToDisplay: Notification[] = notificationHistory.map(notification => ({
+        ...notification,
+        message: notification.body,
+        createdAt: notification.timestamp || new Date().toISOString(),
+    }));
 
     const handleNotificationPress = (notification: Notification) => {
-        // Mark as read functionality could be added here
-
         switch (notification.type) {
             case "match":
                 if (notification.data?.match?.id) {
@@ -58,11 +43,11 @@ export default function NotificationsScreen() {
         }
     };
 
-    if (isLoading) {
+    if (isLoading && notificationHistory.length === 0) {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
+                    <ActivityIndicator size="large" color={colors.primary}/>
                     <Text>Loading notifications...</Text>
                 </View>
             </SafeAreaView>
@@ -82,9 +67,9 @@ export default function NotificationsScreen() {
             />
 
             <NotificationsList
-                notifications={filteredNotifications}
+                notifications={notificationsToDisplay}
                 onPress={handleNotificationPress}
-                onClear={clearNotificationHistory}
+                onClear={clearHistory}
             />
         </SafeAreaView>
     );
