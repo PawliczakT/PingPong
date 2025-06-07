@@ -22,7 +22,6 @@
       "associatedDomains": ["applinks:msiemlfljcnhnwkwwpvhm.supabase.co"]
     },
     "android": {
-      "googleServicesFile": "google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
