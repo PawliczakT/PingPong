@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import {Stack, useLocalSearchParams, useRouter} from "expo-router";
-import {Award, Edit, Trash, User, Medal, Zap} from "lucide-react-native";
+import {Award, Medal, User, Zap} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {Image} from "expo-image";
 import {colors} from "@/constants/colors";

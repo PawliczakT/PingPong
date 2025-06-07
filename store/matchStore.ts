@@ -1,7 +1,11 @@
 import {create} from "zustand";
 import {Achievement, HeadToHead, Match, Set} from "@/types";
 import {usePlayerStore} from "./playerStore";
-import {useNotificationStore} from "./notificationStore";
+import {
+    sendAchievementNotification,
+    sendMatchResultNotification,
+    sendRankingChangeNotification
+} from "./notificationStore";
 import {calculateEloRating} from "@/utils/elo";
 import {supabase} from "@/lib/supabase";
 import {useEffect} from "react";
@@ -39,7 +43,6 @@ export const useMatchStore = create<MatchState>()(
                 const winner = player1Score > player2Score ? player1Id : player2Id;
                 const playerStore = usePlayerStore.getState();
                 const statsStore = require("./statsStore").useStatsStore.getState();
-                const notificationStore = useNotificationStore.getState();
                 const achievementStore = require("./achievementStore").useAchievementStore.getState();
 
                 const player1 = playerStore.getPlayerById(player1Id);
@@ -112,14 +115,14 @@ export const useMatchStore = create<MatchState>()(
                 const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
 
                 try {
-                    await notificationStore.sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
+                    await sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
                 } catch (error) {
                     console.warn("Non-critical error in addMatch [sendMatchResultNotification]:", error);
                 }
 
                 try {
                     if (Math.abs(player1NewRating - player1.eloRating) >= 15) {
-                        await notificationStore.sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
+                        await sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
                     }
                 } catch (error) {
                     console.warn("Non-critical error in addMatch [sendRankingChangeNotification player1]:", error);
@@ -127,7 +130,7 @@ export const useMatchStore = create<MatchState>()(
 
                 try {
                     if (Math.abs(player2NewRating - player2.eloRating) >= 15) {
-                        await notificationStore.sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
+                        await sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
                     }
                 } catch (error) {
                     console.warn("Non-critical error in addMatch [sendRankingChangeNotification player2]:", error);
@@ -139,37 +142,33 @@ export const useMatchStore = create<MatchState>()(
                 try {
                     player1Achievements = await achievementStore.checkAndUpdateAchievements(player1Id);
                 } catch (error) {
-                    console.warn("Non-critical error in addMatch [checkAndUpdateAchievements player1]:", error);
+                    console.warn(/*...*/);
                 }
 
                 try {
                     player2Achievements = await achievementStore.checkAndUpdateAchievements(player2Id);
                 } catch (error) {
-                    console.warn("Non-critical error in addMatch [checkAndUpdateAchievements player2]:", error);
+                    console.warn(/*...*/);
                 }
 
                 try {
                     if (Array.isArray(player1Achievements)) {
                         player1Achievements.forEach((achievement: Achievement) => {
-                            // Intentionally not awaiting if sendAchievementNotification is async
-                            // to prevent one failed notification from blocking others in the loop.
-                            // If it needs to be awaited and individually caught, this forEach should be a for...of loop.
-                            notificationStore.sendAchievementNotification(updatedPlayer1, achievement);
+                            sendAchievementNotification(updatedPlayer1, achievement);
                         });
                     }
                 } catch (error) {
-                    console.warn("Non-critical error in addMatch [sendAchievementNotification loop player1]:", error);
+                    console.warn(/*...*/);
                 }
 
                 try {
                     if (Array.isArray(player2Achievements)) {
                         player2Achievements.forEach((achievement: Achievement) => {
-                            // Same as above for player 1
-                            notificationStore.sendAchievementNotification(updatedPlayer2, achievement);
+                            sendAchievementNotification(updatedPlayer2, achievement);
                         });
                     }
                 } catch (error) {
-                    console.warn("Non-critical error in addMatch [sendAchievementNotification loop player2]:", error);
+                    console.warn(/*...*/);
                 }
 
                 set({isLoading: false});

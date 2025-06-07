@@ -1,9 +1,9 @@
-import { supabase } from '@/lib/supabase';
+import {supabase} from '@/lib/supabase';
 
 export const ensurePlayerProfile = async (userId: string) => {
     try {
         // Check if player exists
-        const { data: existingPlayer, error: fetchError } = await supabase
+        const {data: existingPlayer, error: fetchError} = await supabase
             .from('players')
             .select('*')
             .eq('user_id', userId)
@@ -11,21 +11,20 @@ export const ensurePlayerProfile = async (userId: string) => {
 
         if (fetchError) {
             console.error('Error checking player profile:', fetchError);
-            return { success: false, error: fetchError };
+            return {success: false, error: fetchError};
         }
 
         if (existingPlayer) {
             console.log('Player profile already exists');
-            return { success: true, player: existingPlayer };
+            return {success: true, player: existingPlayer};
         }
 
-        // Get user data for profile creation
-        const { data: userData } = await supabase.auth.getUser(userId);
+        const {data: userData} = await supabase.auth.getUser();
         const user = userData?.user;
 
-        if (!user) {
-            console.error('User not found');
-            return { success: false, error: new Error('User not found') };
+        if (!user || user.id !== userId) {
+            console.error('User not found or mismatch');
+            return {success: false, error: new Error('User not found or mismatch')};
         }
 
         // Create new player profile
@@ -42,7 +41,7 @@ export const ensurePlayerProfile = async (userId: string) => {
             active: true,
         };
 
-        const { data: newPlayer, error: insertError } = await supabase
+        const {data: newPlayer, error: insertError} = await supabase
             .from('players')
             .insert(newPlayerData)
             .select()
@@ -50,35 +49,45 @@ export const ensurePlayerProfile = async (userId: string) => {
 
         if (insertError) {
             console.error('Error creating player profile:', insertError);
-            return { success: false, error: insertError };
+            return {success: false, error: insertError};
         }
 
         console.log('Created new player profile');
-        return { success: true, player: newPlayer };
+        return {success: true, player: newPlayer};
     } catch (error) {
         console.error('Exception during player profile creation:', error);
-        return { success: false, error };
+        return {success: false, error};
     }
 };
 
-export class PlayerService {
-    constructor(private supabase: any) {}
+interface PlayerCreationData {
+    user_id: string;
+    name: string;
+    nickname?: string | null;
+    avatarUrl?: string | null;
+    eloRating?: number;
+    wins?: number;
+    losses?: number;
+}
 
-    async createPlayer(playerData) {
+export class PlayerService {
+    constructor(private supabase: any) {
+    }
+
+    async createPlayer(playerData: PlayerCreationData) {
         try {
-            // Upewnij się, że przekazujemy tylko potrzebne pola
             const player = {
                 user_id: playerData.user_id,
-                name: playerData.name, // Upewnij się, że name jest stringiem, a nie obiektem
+                name: playerData.name,
                 nickname: playerData.nickname || null,
-                avatarUrl: playerData.avatarUrl || null,
-                eloRating: playerData.eloRating || 1200,
+                avatar_url: playerData.avatarUrl || null,
+                elo_rating: playerData.eloRating || 1200,
                 wins: playerData.wins || 0,
                 losses: playerData.losses || 0,
                 active: true,
             };
 
-            const { data, error } = await this.supabase
+            const {data, error} = await this.supabase
                 .from('players')
                 .insert(player)
                 .select()

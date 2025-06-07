@@ -18,12 +18,19 @@ import NetworkStatusBar from "@/components/NetworkStatusBar";
 
 export default function HomeScreen() {
     const router = useRouter();
-    const {getActivePlayersSortedByRating} = usePlayerStore();
-    const {getRecentMatches} = useMatchStore();
-    const {getUpcomingTournaments, getActiveTournaments} = useTournamentStore();
-    const {checkNetworkStatus, syncPendingMatches} = useNetworkStore();
-    const {registerForPushNotifications, notificationHistory} = useNotificationStore();
 
+    // --- POPRAWIONY SPOSÓB POBIERANIA DANYCH I AKCJI ZE STORE'ÓW ---
+    // Używamy selektorów dla każdej potrzebnej funkcji i wartości.
+    const getActivePlayersSortedByRating = usePlayerStore(state => state.getActivePlayersSortedByRating);
+    const getRecentMatches = useMatchStore(state => state.getRecentMatches);
+    const getUpcomingTournaments = useTournamentStore(state => state.getUpcomingTournaments);
+    const getActiveTournaments = useTournamentStore(state => state.getActiveTournaments);
+    const checkNetworkStatus = useNetworkStore(state => state.checkNetworkStatus);
+    const syncPendingMatches = useNetworkStore(state => state.syncPendingMatches);
+    const registerForPushNotifications = useNotificationStore(state => state.registerForPushNotifications);
+    const notificationHistory = useNotificationStore(state => state.notificationHistory);
+
+    // Wywołania funkcji pozostają bez zmian, ale teraz pochodzą z bezpiecznie pobranych referencji
     const topPlayers = getActivePlayersSortedByRating().slice(0, 3);
     const recentMatches = getRecentMatches(3);
     const upcomingTournaments = [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2);
@@ -35,10 +42,13 @@ export default function HomeScreen() {
                 syncPendingMatches();
             }
         });
-        registerForPushNotifications().catch((e) => {
-            console.error("Error registering for push notifications:", e);
-        })
-    }, []);
+
+        if (registerForPushNotifications) {
+            registerForPushNotifications().catch((e) => {
+                console.error("Error registering for push notifications:", e);
+            });
+        }
+    }, [checkNetworkStatus, syncPendingMatches, registerForPushNotifications]);
 
     const navigateToSection = (section: string) => {
         switch (section) {
@@ -66,12 +76,12 @@ export default function HomeScreen() {
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
             <NetworkStatusBar/>
-
             <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
-                        <Text style={styles.title}>Grey Zone PingPong StatKeeper</Text>
+                        <Text style={styles.title}>PingPong StatKeeper</Text>
                         <Pressable
+                            testID="notification-bell-button" // Dodaj testID dla stabilniejszych testów
                             style={styles.notificationButton}
                             onPress={() => navigateToSection("notifications")}
                         >
@@ -87,7 +97,6 @@ export default function HomeScreen() {
                     </View>
                     <Text style={styles.subtitle}>Track your matches and rankings</Text>
                 </View>
-
                 <View style={styles.quickActions}>
                     <Pressable
                         style={styles.quickAction}
@@ -134,8 +143,6 @@ export default function HomeScreen() {
                             title="No Players Yet"
                             message="Add players to start tracking their stats"
                             icon={<Users size={40} color={colors.textLight}/>}
-                            actionLabel="Add Player"
-                            onAction={() => router.push("/player/create")}
                         />
                     )}
                 </View>
@@ -214,9 +221,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     title: {
-        fontSize: 28,
+        fontSize: 22,
         fontWeight: "bold",
         color: colors.text,
+        flexShrink: 1,
     },
     subtitle: {
         fontSize: 16,

@@ -11,26 +11,39 @@ interface AuthState {
     loginWithGoogle: () => Promise<void>;
     logout: () => Promise<void>;
     clearError: () => void;
+    initialize: () => () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
     user: null,
     session: null,
-    isLoading: false,
+    isLoading: true,
     isInitialized: false,
     error: null,
+
+    initialize: () => {
+        const {data: {subscription}} = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                console.log(`Auth event: ${event}`);
+                set({
+                    user: session?.user ?? null,
+                    session,
+                    isLoading: false,
+                    isInitialized: true
+                });
+            }
+        );
+
+        return () => {
+            subscription.unsubscribe();
+        };
+    },
 
     loginWithGoogle: async () => {
         set({isLoading: true, error: null});
         try {
             const {error} = await signInWithGoogle();
-            if (error) {
-                console.error('Error during Google login:', error);
-                set({error, isLoading: false});
-                return;
-            }
-            console.log('[Auth] Successfully authenticated with Google');
-            // The auth state change listener will handle the rest of the flow
+            if (error) throw error;
         } catch (e) {
             console.error('Exception during Google login:', e);
             set({error: e instanceof Error ? e : new Error('Login failed'), isLoading: false});
@@ -41,12 +54,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({isLoading: true, error: null});
         try {
             const {error} = await supabaseSignOut();
-            if (error) {
-                console.error('Error during logout:', error);
-                set({error, isLoading: false});
-            } else {
-                console.log('[Logout] User logged out successfully');
-            }
+            if (error) throw error;
         } catch (e) {
             console.error('Exception during logout:', e);
             set({error: e instanceof Error ? e : new Error('Logout failed'), isLoading: false});
@@ -58,79 +66,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 }));
 
-// UPROSZCZONA inicjalizacja BEZ tworzenia profili
-const initializeAuth = async () => {
-    useAuthStore.setState({isLoading: true});
-    try {
-        const {data: {session}, error} = await supabase.auth.getSession();
-        if (error) {
-            console.error('Error getting initial session:', error);
-            useAuthStore.setState({error, isLoading: false, isInitialized: true});
-        } else if (session) {
-            useAuthStore.setState({session, user: session.user, isLoading: false, isInitialized: true});
-            console.log('Session initialized');
-        } else {
-            useAuthStore.setState({isLoading: false, isInitialized: true});
-        }
-    } catch (e) {
-        console.error('Exception during initial session check:', e);
-        useAuthStore.setState({
-            error: e instanceof Error ? e : new Error('Initialization failed'),
-            isLoading: false,
-            isInitialized: true
-        });
-    }
-
-    // UPROSZCZONY listener BEZ automatycznego tworzenia profili
-    supabase.auth.onAuthStateChange((event, session) => {
-        console.log('Auth event:', event);
-
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-            if (session) {
-                useAuthStore.setState({
-                    session,
-                    user: session.user,
-                    error: null,
-                    isLoading: false,
-                    isInitialized: true
-                });
-            } else {
-                useAuthStore.setState({
-                    session: null,
-                    user: null,
-                    error: null,
-                    isLoading: false,
-                    isInitialized: true
-                });
-            }
-        } else if (event === 'SIGNED_OUT') {
-            useAuthStore.setState({
-                session: null,
-                user: null,
-                error: null,
-                isLoading: false,
-                isInitialized: true
-            });
-        } else if (event === 'USER_UPDATED') {
-            if (session) {
-                useAuthStore.setState({
-                    session,
-                    user: session.user,
-                    error: null,
-                    isLoading: false,
-                    isInitialized: true
-                });
-            }
-        } else {
-            if (session) {
-                useAuthStore.setState({session, user: session.user, isLoading: false, isInitialized: true});
-            } else {
-                useAuthStore.setState({isLoading: false, isInitialized: true});
-            }
-        }
-    });
-};
-
-initializeAuth().catch(error =>
-    error && console.error('Error initializing auth:', error)
-);
+useAuthStore.getState().initialize();

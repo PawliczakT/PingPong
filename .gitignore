@@ -22,6 +22,8 @@ expo-env.d.ts
 credentials.json
 .idea
 .vscode
+pingpong-d4f52-firebase-adminsdk-fbsvc-380b824200.json
+google-services.json
 
 # Metro
 .metro-health-check*

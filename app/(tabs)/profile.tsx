@@ -161,9 +161,7 @@ export default function ProfileScreen() {
         }
     };
 
-    const unreadCount = currentPlayer ? notificationHistory.filter(n =>
-        !n.read && (!n.data?.player?.id || n.data?.player?.id === currentPlayer.id)
-    ).length : 0;
+    const unreadCount = notificationHistory.filter(n => !n.read).length;
 
     useEffect(() => {
         const loadPlayerProfile = async () => {
@@ -353,6 +351,7 @@ export default function ProfileScreen() {
             }
         } catch (error) {
             console.error('Error saving profile:', error);
+            // @ts-ignore
             Alert.alert('Error', `Failed to save profile: ${error.message || 'Please try again.'}`);
         } finally {
             setLoadingProfile(false);

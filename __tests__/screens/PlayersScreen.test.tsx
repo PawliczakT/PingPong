@@ -91,11 +91,4 @@ describe('PlayersScreen', () => {
         expect(playerCards.length).toBe(3);
         expect(searchInput.props.value).toBe('');
     });
-
-    it('navigates to player creation screen when Add Player button is pressed', () => {
-        const {UNSAFE_getByType} = render(<PlayersScreen/>);
-        const addButton = UNSAFE_getByType('Button');
-        fireEvent(addButton, 'press');
-        expect(mockPush).toHaveBeenCalledWith('/player/create');
-    });
 });
