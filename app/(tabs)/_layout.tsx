@@ -1,7 +1,7 @@
 import React from 'react';
 import {Tabs} from 'expo-router';
 import {useColorScheme} from 'react-native';
-import { User, Home, Users, PlusCircle, Trophy, BarChart } from 'lucide-react-native';
+import { User, Home, Users, PlusCircle, Trophy, BarChart, MessageCircle } from 'lucide-react-native'; // Added MessageCircle
 import { colors } from '@/constants/colors';
 
 export default function TabLayout() {
@@ -69,6 +69,13 @@ export default function TabLayout() {
                 options={{
                     title: 'Profile',
                     tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="chat"
+                options={{
+                    title: 'Chat',
+                    tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
                 }}
             />
         </Tabs>

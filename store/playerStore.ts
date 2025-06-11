@@ -3,7 +3,8 @@ import {Player} from "@/types";
 import {getInitialEloRating} from "@/utils/elo";
 import {supabase} from "@/lib/supabase";
 import {useEffect} from "react";
-import {getRankByWins} from "@/constants/ranks";
+import {getRankByWins, Rank} from "@/constants/ranks"; // Import Rank type
+import { dispatchSystemNotification } from '@/backend/services/notificationService'; // Using path alias
 
 interface PlayerState {
     players: Player[];
@@ -67,6 +68,20 @@ export const usePlayerStore = create<PlayerState>()(
                     isLoading: false,
                 }));
                 await fetchPlayersFromSupabase();
+
+                // Dispatch "new_player" notification
+                try {
+                  if (newPlayer) {
+                    await dispatchSystemNotification('new_player', {
+                      notification_type: 'new_player',
+                      newPlayerNickname: newPlayer.nickname || newPlayer.name || 'Nowy gracz',
+                      playerId: newPlayer.id,
+                    });
+                  }
+                } catch (e) {
+                  console.warn("Failed to dispatch new_player system notification", e);
+                }
+
                 return newPlayer;
             } catch (error) {
                 set({
@@ -173,11 +188,25 @@ export const usePlayerStore = create<PlayerState>()(
             try {
                 const player = get().players.find((p) => p.id === playerId);
                 if (!player) throw new Error('Player not found');
+                const oldRank = player.rank; // Store old rank
                 const newWins = won ? player.wins + 1 : player.wins;
                 const newLosses = won ? player.losses : player.losses + 1;
 
                 // Calculate the player's rank based on their win count
-                const newRank = getRankByWins(newWins);
+                const newRank: Rank = getRankByWins(newWins);
+
+                if (oldRank && newRank.name !== oldRank.name) {
+                  // Rank has changed, dispatch notification
+                  try {
+                    await dispatchSystemNotification('rank_up', {
+                      notification_type: 'rank_up',
+                      playerNickname: player.nickname || player.name || 'Gracz',
+                      rankName: newRank.name,
+                    });
+                  } catch (e) {
+                    console.warn("Failed to dispatch rank_up system notification", e);
+                  }
+                }
 
                 const {error} = await supabase.from('players').update({
                     wins: newWins,

@@ -1,6 +1,7 @@
 import {create} from "zustand";
 import {Achievement, HeadToHead, Match, Set} from "@/types";
 import {usePlayerStore} from "./playerStore";
+import { dispatchSystemNotification } from '@/backend/services/notificationService'; // Using path alias
 import {
     sendAchievementNotification,
     sendMatchResultNotification,
@@ -114,6 +115,22 @@ export const useMatchStore = create<MatchState>()(
                 const updatedPlayer1 = playerStore.getPlayerById(player1Id) || player1;
                 const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
 
+                // Dispatch system notification for chat
+                try {
+                  if (newMatch && updatedPlayer1 && updatedPlayer2) {
+                    const winnerNickname = newMatch.winnerId === updatedPlayer1.id ? updatedPlayer1.nickname : updatedPlayer2.nickname;
+                    const opponentNickname = newMatch.winnerId === updatedPlayer1.id ? updatedPlayer2.nickname : updatedPlayer1.nickname;
+                    await dispatchSystemNotification('match_won', {
+                      notification_type: 'match_won',
+                      winnerNickname,
+                      opponentNickname,
+                      matchId: newMatch.id,
+                    });
+                  }
+                } catch (error) {
+                  console.warn("Non-critical error in addMatch [dispatchSystemNotification]:", error);
+                }
+
                 try {
                     await sendMatchResultNotification(newMatch, updatedPlayer1, updatedPlayer2);
                 } catch (error) {
@@ -155,20 +172,34 @@ export const useMatchStore = create<MatchState>()(
                     if (Array.isArray(player1Achievements)) {
                         player1Achievements.forEach((achievement: Achievement) => {
                             sendAchievementNotification(updatedPlayer1, achievement);
+                            // Dispatch system notification for chat
+                            dispatchSystemNotification('achievement_unlocked', {
+                                notification_type: 'achievement_unlocked',
+                                achieverNickname: updatedPlayer1.nickname,
+                                achievementName: achievement.name,
+                                achievementId: achievement.id,
+                            }).catch(e => console.warn("Failed to dispatch achievement notification for player 1", e));
                         });
                     }
                 } catch (error) {
-                    console.warn(/*...*/);
+                    console.warn("Error processing player 1 achievements notifications:", error);
                 }
 
                 try {
                     if (Array.isArray(player2Achievements)) {
                         player2Achievements.forEach((achievement: Achievement) => {
                             sendAchievementNotification(updatedPlayer2, achievement);
+                            // Dispatch system notification for chat
+                            dispatchSystemNotification('achievement_unlocked', {
+                                notification_type: 'achievement_unlocked',
+                                achieverNickname: updatedPlayer2.nickname,
+                                achievementName: achievement.name,
+                                achievementId: achievement.id,
+                            }).catch(e => console.warn("Failed to dispatch achievement notification for player 2", e));
                         });
                     }
                 } catch (error) {
-                    console.warn(/*...*/);
+                    console.warn("Error processing player 2 achievements notifications:", error);
                 }
 
                 set({isLoading: false});

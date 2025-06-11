@@ -58,3 +58,14 @@ export function formatRatingChange(change: number): string {
     if (change > 0) return `+${change}`;
     return `${change}`;
 }
+
+/**
+ * Format a timestamp for chat messages (e.g., "14:32")
+ * @param dateString ISO date string
+ * @returns Formatted time string
+ */
+export function formatChatMessageTime(dateString: string): string {
+  const date = new Date(dateString);
+  // Basic time format, can be expanded to "time ago" logic later
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
