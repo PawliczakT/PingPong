@@ -4,6 +4,8 @@ import {v4 as uuidv4} from 'uuid';
 import type {Set as MatchSet} from '@/types';
 import {Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/types';
 import {useEffect} from "react";
+import { dispatchSystemNotification } from '@/backend/services/notificationService'; // Using path alias
+import { usePlayerStore } from './playerStore'; // To get player nickname
 
 type TournamentStore = {
     generateTournamentMatches: (tournamentId: string) => Promise<void>;
@@ -1126,6 +1128,23 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             }).eq('id', tournamentId);
 
             if (error) throw error;
+
+            // Dispatch system notification for tournament won
+            try {
+                const tournament = get().getTournamentById(tournamentId);
+                const playerStore = usePlayerStore.getState();
+                const winner = playerStore.getPlayerById(winnerId);
+                if (tournament && winner) {
+                    await dispatchSystemNotification('tournament_won', {
+                        notification_type: 'tournament_won',
+                        winnerNickname: winner.nickname,
+                        tournamentName: tournament.name,
+                        tournamentId: tournament.id,
+                    });
+                }
+            } catch (e) {
+                console.warn("Failed to dispatch tournament_won system notification", e);
+            }
 
             // Refresh tournament data to ensure everything is up-to-date
             await get().fetchTournaments();
