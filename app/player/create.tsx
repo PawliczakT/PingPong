@@ -128,6 +128,7 @@ export default function CreatePlayerScreen() {
                     value={name}
                     onChangeText={setName}
                     autoCapitalize="words"
+                    testID="player-name-input"
                 />
 
                 <Text style={styles.label}>Nickname (optional)</Text>
@@ -136,6 +137,7 @@ export default function CreatePlayerScreen() {
                     placeholder="Enter nickname"
                     value={nickname}
                     onChangeText={setNickname}
+                    testID="player-nickname-input"
                 />
 
                 <Text style={styles.label}>Avatar</Text>
@@ -187,6 +189,7 @@ export default function CreatePlayerScreen() {
                     loading={isSubmitting}
                     disabled={!name?.trim() || uploadingImage}
                     style={styles.button}
+                    testID="save-player-button"
                 />
             </ScrollView>
         </SafeAreaView>

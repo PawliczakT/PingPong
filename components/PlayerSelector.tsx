@@ -11,6 +11,7 @@ interface PlayerSelectorProps {
     players: Player[];
     onChange: (player: Player) => void;
     excludePlayerId?: string;
+    testID?: string;
 }
 
 export default function PlayerSelector({
@@ -19,6 +20,7 @@ export default function PlayerSelector({
                                            players,
                                            onChange,
                                            excludePlayerId,
+                                           testID,
                                        }: PlayerSelectorProps) {
     const [isModalVisible, setIsModalVisible] = React.useState(false);
 
@@ -33,6 +35,7 @@ export default function PlayerSelector({
             <TouchableOpacity
                 style={styles.selector}
                 onPress={() => setIsModalVisible(true)}
+                testID={testID}
             >
                 {value ? (
                     <View style={styles.selectedPlayer}>

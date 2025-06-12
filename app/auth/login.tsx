@@ -1,10 +1,9 @@
 import React from 'react';
 import {ActivityIndicator, SafeAreaView, StyleSheet, Text, View} from 'react-native';
-import Button from '../../components/Button'; // Adjusted path
-import {useAuthStore} from '@/store/authStore'; // Adjusted path
+import Button from '../../components/Button';
+import {useAuthStore} from '@/store/authStore';
 
 export default function LoginScreen() {
-// Use individual selectors to prevent unnecessary re-renders
     const loginWithGoogle = useAuthStore(state => state.loginWithGoogle);
     const isLoading = useAuthStore(state => state.isLoading);
     const error = useAuthStore(state => state.error);
@@ -21,13 +20,12 @@ export default function LoginScreen() {
             console.log('[Login] Authentication flow completed successfully');
         } catch (e) {
             console.error('[Login] Authentication error caught in component:', e);
-            // Error will be set in the store by loginWithGoogle
         }
     };
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
+            <View style={styles.container} testID="login-screen">
                 <Text style={styles.title}>Welcome!</Text>
                 <Text style={styles.subtitle}>Sign in to continue</Text>
 
@@ -38,6 +36,7 @@ export default function LoginScreen() {
                         title="Sign in with Google"
                         onPress={handleLogin}
                         disabled={isLoading}
+                        testID="login-google-button"
                     />
                 )}
 
@@ -61,7 +60,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#f5f5f5', // Light background for the whole screen
+        backgroundColor: '#f5f5f5',
     },
     container: {
         flex: 1,
@@ -86,14 +85,14 @@ const styles = StyleSheet.create({
     errorContainer: {
         marginTop: 20,
         padding: 15,
-        backgroundColor: '#FFD2D2', // Light red background for error
+        backgroundColor: '#FFD2D2',
         borderRadius: 8,
         alignItems: 'center',
         width: '100%',
         maxWidth: 300,
     },
     errorText: {
-        color: '#D8000C', // Dark red color for error text
+        color: '#D8000C',
         fontSize: 16,
         textAlign: 'center',
         marginBottom: 10,

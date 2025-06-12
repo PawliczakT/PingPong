@@ -52,7 +52,7 @@ export default function CreateTournamentScreen() {
 
         try {
             await createTournament(
-                name.trim(), // Może być puste - nazwa zostanie wygenerowana w store
+                name.trim(),
                 new Date(date).toISOString(),
                 format,
                 selectedPlayerIds
@@ -93,6 +93,7 @@ export default function CreateTournamentScreen() {
                     placeholder="Enter tournament name (or leave empty for auto-generated name)"
                     value={name}
                     onChangeText={setName}
+                    testID="tournament-name-input"
                 />
 
                 <Text style={styles.label}>Date *</Text>
@@ -182,6 +183,7 @@ export default function CreateTournamentScreen() {
                     loading={isSubmitting}
                     disabled={selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
                     style={styles.submitButton}
+                    testID="submit-tournament-button"
                 />
             </ScrollView>
         </SafeAreaView>

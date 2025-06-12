@@ -41,7 +41,7 @@ export default function ProfileScreen() {
             const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
             if (status !== 'granted') {
-                Alert.alert('Potrzebujemy dostępu do galerii, aby wybrać avatar');
+                Alert.alert('Need permission to access the photo library');
                 return;
             }
 
@@ -57,7 +57,7 @@ export default function ProfileScreen() {
             }
         } catch (error) {
             console.error('Błąd podczas wybierania obrazu:', error);
-            Alert.alert('Błąd', 'Nie udało się wybrać obrazu. Spróbuj ponownie.');
+            Alert.alert('Error', 'Failed to pick image. Please try again.');
         }
     };
 
@@ -66,7 +66,7 @@ export default function ProfileScreen() {
             const {status} = await ImagePicker.requestCameraPermissionsAsync();
 
             if (status !== 'granted') {
-                Alert.alert('Potrzebujemy dostępu do kamery, aby zrobić zdjęcie');
+                Alert.alert('Need permission to access the camera');
                 return;
             }
 
@@ -81,7 +81,7 @@ export default function ProfileScreen() {
             }
         } catch (error) {
             console.error('Błąd podczas robienia zdjęcia:', error);
-            Alert.alert('Błąd', 'Nie udało się zrobić zdjęcia. Spróbuj ponownie.');
+            Alert.alert('Error', 'Failed to take photo. Please try again.');
         }
     };
 
@@ -202,7 +202,6 @@ export default function ProfileScreen() {
                         console.log("No player profile found, creating new profile form");
                         setIsNewUser(true);
 
-                        // Bezpieczne wyciągnięcie nazwy z metadanych
                         const defaultName = user.user_metadata?.full_name ||
                             user.user_metadata?.name ||
                             user.email?.split('@')[0] ||
@@ -223,8 +222,8 @@ export default function ProfileScreen() {
                         };
 
                         setCurrentPlayer(newPlayer);
-                        setName(defaultName); // Upewnij się że name nie jest undefined
-                        setNickname(''); // Inicjalizuj jako pusty string
+                        setName(defaultName);
+                        setNickname('');
                         setIsEditing(true);
                         setLoadingProfile(false);
                         return;
@@ -233,8 +232,8 @@ export default function ProfileScreen() {
 
                 if (foundPlayer) {
                     setCurrentPlayer(foundPlayer);
-                    setName(foundPlayer.name || ''); // Bezpieczne ustawienie
-                    setNickname(foundPlayer.nickname || ''); // Bezpieczne ustawienie
+                    setName(foundPlayer.name || '');
+                    setNickname(foundPlayer.nickname || '');
                 }
             } catch (error) {
                 console.error('Error loading player profile:', error);
@@ -250,7 +249,6 @@ export default function ProfileScreen() {
     const handleSave = async () => {
         if (!user || !currentPlayer) return;
 
-        // Sprawdź czy name istnieje i nie jest pusty po trim
         if (!name || !name?.trim()) {
             Alert.alert('Error', 'Name is required');
             return;
@@ -259,7 +257,6 @@ export default function ProfileScreen() {
         try {
             setLoadingProfile(true);
 
-            // Sprawdź czy profil już istnieje przed utworzeniem (zabezpieczenie przed duplikatami)
             if (isNewUser) {
                 const {data: existingCheck} = await supabase
                     .from('players')
@@ -271,7 +268,6 @@ export default function ProfileScreen() {
                     console.log('Profile already exists, not creating duplicate');
                     Alert.alert('Info', 'Profile already exists. Refreshing...');
                     setIsNewUser(false);
-                    // Przekieruj do głównej aplikacji
                     router.replace('/(tabs)');
                     return;
                 }
@@ -279,7 +275,7 @@ export default function ProfileScreen() {
 
             const playerData = {
                 user_id: user.id,
-                name: name.trim(), // Bezpieczne użycie trim
+                name: name.trim(),
                 nickname: (nickname && true && nickname?.trim()) ? nickname.trim() : null,
                 avatar_url: currentPlayer.avatarUrl,
                 elo_rating: currentPlayer.eloRating,
@@ -331,8 +327,6 @@ export default function ProfileScreen() {
             setIsEditing(false);
 
             if (isNewUser) {
-                // Dodaj do store
-                // await addPlayer(updatedPlayer.name);
                 setIsNewUser(false);
                 console.log('Successfully created new player profile');
 
@@ -340,7 +334,6 @@ export default function ProfileScreen() {
                     {
                         text: 'OK',
                         onPress: () => {
-                            // Przekieruj do głównej aplikacji
                             router.replace('/');
                         }
                     }
@@ -565,6 +558,7 @@ export default function ProfileScreen() {
                             icon={<LogOut size={18} color={colors.error}/>}
                             style={[styles.button, styles.signOutButton]}
                             textStyle={{color: colors.error}}
+                            testID="sign-out-button"
                         />
                     </View>
                 )}
