@@ -1,29 +1,28 @@
+//lib/trpc.ts
 import {createTRPCReact} from '@trpc/react-query';
 import {createTRPCClient, httpBatchLink} from '@trpc/client';
-import superjson from 'superjson';
 import Constants from 'expo-constants';
-import {AppRouter} from '@/backend/trpc/app-router';
-import { supabase } from './supabase';
+import {supabase} from './supabase';
+import type {AppRouter} from '../backend/server/trpc';
 
 export const trpc = createTRPCReact<AppRouter>();
 
-// Non-hook based function to get auth headers
 const getAuthHeaders = async () => {
-    const { data } = await supabase.auth.getSession();
-    const token = data?.session?.access_token;
-    return {
-        Authorization: token ? `Bearer ${token}` : '',
-    };
+    try {
+        const {data} = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        return token ? {Authorization: `Bearer ${token}`} : {};
+    } catch (error) {
+        console.error('Error getting auth headers:', error);
+        return {};
+    }
 };
 
 export const trpcClient = createTRPCClient<AppRouter>({
     links: [
         httpBatchLink({
-            url: `${Constants.expoConfig?.extra?.apiUrl || 'https://rork.app'}/api/trpc`,
-            transformer: superjson,
-            headers: async () => {
-                return await getAuthHeaders();
-            },
+            url: Constants.expoConfig?.extra?.apiUrl,
+            headers: getAuthHeaders,
         }),
     ],
 });

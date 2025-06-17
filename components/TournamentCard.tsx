@@ -2,7 +2,7 @@ import React from "react";
 import {Pressable, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {ArrowRight, Calendar, Trophy, Users} from "lucide-react-native";
-import {Tournament, TournamentStatus} from "@/types";
+import {Tournament, TournamentStatus} from "@/backend/types";
 import {colors} from "@/constants/colors";
 import {formatDate} from "@/utils/formatters";
 import {usePlayerStore} from "@/store/playerStore";

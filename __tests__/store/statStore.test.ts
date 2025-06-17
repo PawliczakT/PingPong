@@ -1,6 +1,6 @@
 import {useStatsStore} from '@/store/statsStore';
 import {usePlayerStore} from '@/store/playerStore';
-import {Player} from '@/types';
+import {Player} from '@/backend/types';
 
 // Mock dependencies
 jest.mock('@/store/playerStore', () => ({

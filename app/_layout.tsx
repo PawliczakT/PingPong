@@ -3,7 +3,7 @@ import {useFonts} from "expo-font";
 import {Stack, useRootNavigationState, useRouter} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, {useCallback, useEffect, useState} from "react";
-import {Linking, Platform, StyleSheet} from "react-native";
+import {Linking, Platform} from "react-native";
 import {ErrorBoundary} from "./error-boundary";
 import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
@@ -57,6 +57,17 @@ export default function RootLayout() {
         }
     }, [user]);
 
+    // Set up the refresh profile function that can be called from outside
+    useEffect(() => {
+        refreshProfileState = () => {
+            setIsCheckingProfile(true);
+            checkProfile();
+        };
+        return () => {
+            refreshProfileState = null;
+        };
+    }, [checkProfile]);
+
     useEffect(() => {
         if (isInitialized) {
             checkProfile();
@@ -93,27 +104,52 @@ export default function RootLayout() {
             }
         };
 
-        const handleDeepLink = (event: { url: string }) => {
+        handleWebAuthCallback();
+    }, []);
+
+    useEffect(() => {
+        const handleDeepLink = async (event: { url: string }) => {
             const url = new URL(event.url);
-            const fragment = url.hash.substring(1);
-            if (fragment) {
-                const params = new URLSearchParams(fragment);
-                const accessToken = params.get('access_token');
-                const refreshToken = params.get('refresh_token');
-                if (accessToken && refreshToken) {
-                    supabase.auth.setSession({access_token: accessToken, refresh_token: refreshToken});
+            const path = url.pathname;
+
+            try {
+                if (path.startsWith('/reset-password')) {
+                    // Handle password reset
+                    const accessToken = url.searchParams.get('access_token');
+                    const refreshToken = url.searchParams.get('refresh_token');
+                    if (accessToken && refreshToken) {
+                        await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken,
+                        });
+                        // Use a valid route that exists in your app
+                        router.replace('/');
+                    }
+                } else if (path.startsWith('/auth/')) {
+                    // Handle auth deep links - ensure the path is valid
+                    const authPath = path.replace(/^\/auth\//, '/(auth)/');
+                    router.replace(authPath as any); // Type assertion as a last resort
                 }
+            } catch (error) {
+                console.error('Error handling deep link:', error);
+                // Redirect to a safe route on error
+                router.replace('/');
             }
         };
 
-        handleWebAuthCallback();
         const subscription = Linking.addEventListener('url', handleDeepLink);
-        Linking.getInitialURL().then(url => url && handleDeepLink({url}));
+
+        // Check initial URL in case the app was opened with a deep link
+        Linking.getInitialURL().then(url => {
+            if (url) {
+                handleDeepLink({url});
+            }
+        });
 
         return () => {
             subscription.remove();
         };
-    }, []);
+    }, [router]);
 
     useEffect(() => {
         const initializeNetwork = async () => {
@@ -134,6 +170,14 @@ export default function RootLayout() {
         return () => clearInterval(interval);
     }, [checkNetworkStatus, syncPendingMatches]);
 
+    // Set up network status check interval
+    useEffect(() => {
+        checkNetworkStatus();
+        const networkInterval = setInterval(checkNetworkStatus, 30000);
+        return () => clearInterval(networkInterval);
+    }, [checkNetworkStatus]);
+
+    // Set up the refresh profile function that can be called from outside
     useEffect(() => {
         refreshProfileState = () => {
             setIsCheckingProfile(true);
@@ -168,14 +212,17 @@ export default function RootLayout() {
         }
     }, [user]);
 
+    // Handle navigation based on auth state and profile status
     useEffect(() => {
         const isFontsReady = loaded || fontError;
         const canNavigate = navigationState?.key;
 
+        // Hide splash screen when everything is ready
         if (isFontsReady && canNavigate && isInitialized && !isLoading && !isCheckingProfile) {
             SplashScreen.hideAsync().catch(e => console.warn("SplashScreen.hideAsync error:", e));
         }
 
+        // Log navigation state for debugging
         console.log("--- NAVIGATE CHECK ---", {
             isFontsReady,
             canNavigate: !!canNavigate,
@@ -186,14 +233,24 @@ export default function RootLayout() {
             hasProfile,
         });
 
+        // Don't proceed if not ready
         if (!isFontsReady || !canNavigate || !isInitialized || isCheckingProfile || isLoading) {
             return;
         }
 
+        // Handle navigation based on auth state
         if (user) {
-            router.replace(hasProfile ? '/(tabs)' : '/player/setup');
+            // User is logged in
+            if (hasProfile) {
+                // User has a profile, go to main app
+                router.replace('/(tabs)');
+            } else {
+                // User needs to complete profile
+                router.replace('/player/setup');
+            }
         } else {
-            router.replace('/auth/login');
+            // User is not logged in, go to auth flow
+            router.replace('/(auth)/login');
         }
     }, [loaded, fontError, isInitialized, isLoading, navigationState?.key, user, hasProfile, isCheckingProfile, router]);
 
@@ -203,10 +260,21 @@ export default function RootLayout() {
             <trpc.Provider client={trpcClient} queryClient={queryClient}>
                 <QueryClientProvider client={queryClient}>
                     <Stack screenOptions={{headerBackTitle: "Back", headerShadowVisible: false}}>
+                        {/* Auth group - handles all authentication related screens */}
                         <Stack.Screen name="(auth)" options={{headerShown: false}}/>
+
+                        {/* Main app tabs */}
                         <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
-                        <Stack.Screen name="player/setup" options={{title: "Setup Profile", headerShown: false}}/>
-                        <Stack.Screen name="auth/login" options={{headerShown: false}}/>
+
+                        {/* Profile setup */}
+                        <Stack.Screen
+                            name="player/setup"
+                            options={{
+                                title: "Setup Profile",
+                                headerShown: false,
+                                gestureEnabled: false,
+                            }}
+                        />
                         <Stack.Screen name="modal" options={{presentation: "modal", title: "Modal Screen"}}/>
                         <Stack.Screen name="player/[id]" options={{title: "Player Details"}}/>
                         <Stack.Screen name="player/create" options={{title: "Add Player"}}/>
@@ -226,12 +294,3 @@ export default function RootLayout() {
         </ErrorBoundary>
     );
 }
-
-const styles = StyleSheet.create({
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#ffffff',
-    },
-});

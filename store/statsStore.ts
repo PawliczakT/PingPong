@@ -1,7 +1,7 @@
 import {create} from "zustand";
 import {createJSONStorage, persist} from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {HeadToHead, Player, RankingChange} from "@/types";
+import {HeadToHead, Player, RankingChange} from "@/backend/types";
 import {usePlayerStore} from "./playerStore";
 
 interface StatsState {

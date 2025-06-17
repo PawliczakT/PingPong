@@ -1,4 +1,4 @@
-import { useChatStore } from './chatStore';
+import { useChatStore } from '../../store/chatStore';
 import { trpc } from '@/lib/trpc'; // To be mocked
 import { ChatMessage } from '@/components/ChatMessageItem'; // Import type
 

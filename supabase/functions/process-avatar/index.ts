@@ -1,5 +1,7 @@
 // Improved Edge Function with better error handling and debugging
+// @ts-ignore
 import {serve} from 'https://deno.land/std@0.168.0/http/server.ts'
+// @ts-ignore
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 // Lista dozwolonych originów dla CORS
@@ -21,8 +23,11 @@ const corsHeaders = {
 
 // Konfiguracja AWS
 const awsConfig = {
+    // @ts-ignore
     region: Deno.env.get('AWS_REGION') || 'eu-central-1',
+    // @ts-ignore
     accessKeyId: Deno.env.get('AWS_ACCESS_KEY_ID') || '',
+    // @ts-ignore
     secretAccessKey: Deno.env.get('AWS_SECRET_ACCESS_KEY') || ''
 }
 
@@ -120,7 +125,7 @@ async function hmacSHA256(message: string, key: string | ArrayBuffer): Promise<A
     const cryptoKey = await crypto.subtle.importKey(
         'raw',
         keyData,
-        { name: 'HMAC', hash: 'SHA-256' },
+        {name: 'HMAC', hash: 'SHA-256'},
         false,
         ['sign']
     );
@@ -234,8 +239,8 @@ const processImage = async (imageBase64: string, fileName: string, playerId: str
 
     // Inicjalizacja klienta Supabase
     const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') || '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+        Deno.env.get('EXPO_PUBLIC_SUPABASE_URL') || '',
+        Deno.env.get('EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY') || ''
     );
 
     try {

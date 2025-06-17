@@ -2,7 +2,7 @@ import {create} from "zustand";
 import {createJSONStorage, persist} from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
-import {Set} from "@/types";
+import {Set} from "@/backend/types";
 import {useMatchStore} from "./matchStore";
 
 interface PendingMatch {

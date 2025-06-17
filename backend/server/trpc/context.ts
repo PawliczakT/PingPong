@@ -1,5 +1,5 @@
 import {FetchCreateContextFnOptions} from '@trpc/server/adapters/fetch';
-import {supabase} from '@/lib/supabase';
+import {supabaseAsAdmin} from '../lib/supabase';
 
 export async function createContext({req}: FetchCreateContextFnOptions) {
     const authHeader = req.headers.get('authorization');
@@ -8,17 +8,26 @@ export async function createContext({req}: FetchCreateContextFnOptions) {
     if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
         try {
-            const {data, error} = await supabase.auth.getUser(token);
+            console.log('🔍 Verifying token...');
+
+            const {data, error} = await supabaseAsAdmin.auth.getUser(token);
+
             if (!error && data?.user) {
                 user = data.user;
+                console.log('✅ User authenticated:', user.id);
+            } else {
+                console.log('❌ Auth failed:', error);
             }
         } catch (error) {
-            console.error('Error verifying token:', error);
+            console.error('❌ Error verifying token:', error);
         }
+    } else {
+        console.log('❌ No valid auth header');
     }
+
     return {
         user,
-        supabase,
+        supabase: supabaseAsAdmin,
     };
 }
 

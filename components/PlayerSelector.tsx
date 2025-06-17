@@ -2,7 +2,7 @@ import React from "react";
 import {Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {ChevronDown, User} from "lucide-react-native";
 import {colors} from "@/constants/colors";
-import {Player} from "@/types";
+import {Player} from "@/backend/types";
 import PlayerAvatar from "./PlayerAvatar";
 
 interface PlayerSelectorProps {

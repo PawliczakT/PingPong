@@ -6,7 +6,7 @@ import {Calendar, Users} from "lucide-react-native";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import {useTournamentStore} from "@/store/tournamentStore";
-import {TournamentFormat} from "@/types";
+import {TournamentFormat} from "@/backend/types";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import * as Haptics from "expo-haptics";

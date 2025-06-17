@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import MessageReactions, { ReactionsData } from './MessageReactions';
+import MessageReactions, { ReactionsData } from '../../components/MessageReactions';
 
 // Mock useTheme
 jest.mock('@react-navigation/native', () => ({

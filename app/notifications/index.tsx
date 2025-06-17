@@ -5,7 +5,7 @@ import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {useNotificationStore} from "@/store/notificationStore";
 import NotificationsList from "@/components/NotificationsList";
-import {Notification} from "@/types";
+import {Notification} from "@/backend/types";
 
 export default function NotificationsScreen() {
     const router = useRouter();

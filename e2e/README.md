@@ -63,7 +63,7 @@ The comprehensive E2E test (`app.e2e.test.js`) covers the following functionalit
 10. Checking the achievements tab and verifying unlocked achievements
 11. Checking the settings and app information
 
-This test ensures that all major features of the application work together correctly, providing confidence that implementing new features won't break existing functionality.
+This test ensures that all major features of the application work together correctly, providing confidence that implementing new features won'init break existing functionality.
 
 ## Customizing Tests
 

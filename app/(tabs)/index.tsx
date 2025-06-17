@@ -1,3 +1,4 @@
+//app/(tabs)/index.tsx
 import React, {useEffect} from "react";
 import {Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
@@ -19,8 +20,6 @@ import NetworkStatusBar from "@/components/NetworkStatusBar";
 export default function HomeScreen() {
     const router = useRouter();
 
-    // --- POPRAWIONY SPOSÓB POBIERANIA DANYCH I AKCJI ZE STORE'ÓW ---
-    // Używamy selektorów dla każdej potrzebnej funkcji i wartości.
     const getActivePlayersSortedByRating = usePlayerStore(state => state.getActivePlayersSortedByRating);
     const getRecentMatches = useMatchStore(state => state.getRecentMatches);
     const getUpcomingTournaments = useTournamentStore(state => state.getUpcomingTournaments);
@@ -30,7 +29,6 @@ export default function HomeScreen() {
     const registerForPushNotifications = useNotificationStore(state => state.registerForPushNotifications);
     const notificationHistory = useNotificationStore(state => state.notificationHistory);
 
-    // Wywołania funkcji pozostają bez zmian, ale teraz pochodzą z bezpiecznie pobranych referencji
     const topPlayers = getActivePlayersSortedByRating().slice(0, 3);
     const recentMatches = getRecentMatches(3);
     const upcomingTournaments = [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2);

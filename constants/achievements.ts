@@ -1,4 +1,5 @@
-import {Achievement, AchievementType} from "@/types";
+//constants/achievements.ts
+import {Achievement, AchievementType} from "@/backend/types";
 import {Award, Crown, Flame, Medal, Star, Target, Trophy, Zap, Users, ArrowUp} from "lucide-react-native";
 
 export const achievements: Achievement[] = [

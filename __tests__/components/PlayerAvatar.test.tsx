@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from '@testing-library/react-native';
 import PlayerAvatar from '@/components/PlayerAvatar';
-import {Player} from '@/types';
+import {Player} from '@/backend/types';
 
 jest.mock('expo-image', () => ({
     Image: 'Image',

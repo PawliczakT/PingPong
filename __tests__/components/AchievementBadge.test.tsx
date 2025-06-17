@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from '@testing-library/react-native';
 import AchievementBadge from '@/components/AchievementBadge';
-import {Achievement, AchievementType} from '@/types';
+import {Achievement, AchievementType} from '@/backend/types';
 
 jest.mock('@/constants/achievements', () => ({
     getAchievementIcon: () => () => null,

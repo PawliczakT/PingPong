@@ -3,7 +3,7 @@ import {Pressable, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {ArrowRight} from "lucide-react-native";
 import PlayerAvatar from "./PlayerAvatar";
-import {Player} from "@/types";
+import {Player} from "@/backend/types";
 import {colors} from "@/constants/colors";
 import {formatWinRate} from "@/utils/formatters";
 

@@ -3,7 +3,7 @@ import {render} from '@testing-library/react-native';
 import {usePlayerStore} from '@/store/playerStore';
 import {useMatchStore} from '@/store/matchStore';
 import {useAchievementStore} from '@/store/achievementStore';
-import {AchievementType} from '@/types';
+import {AchievementType} from '@/backend/types';
 
 // Mock the screen components
 const PlayerProfileScreen = () => <React.Fragment/>;

@@ -1,12 +1,15 @@
+//tsconfig.json
 {
   "compilerOptions": {
-    "strict": true,
-    "jsx": "react-native",
-    "esModuleInterop": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"],
+      "@components/*": ["./components/*"],
+      "@lib/*": ["./lib/*"],
+      "@store/*": ["./store/*"],
+      "@constants/*": ["./constants/*"],
+      "@hooks/*": ["./hooks/*"],
+      "@types/*": ["./types/*"]
     }
   },
   "include": [

@@ -1,6 +1,6 @@
 import {usePlayerStore} from '@/store/playerStore';
 import {useMatchStore} from '@/store/matchStore';
-import {Player} from '@/types';
+import {Player} from '@/backend/types';
 
 // Reset store state between tests
 beforeEach(() => {

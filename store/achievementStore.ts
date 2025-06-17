@@ -8,7 +8,7 @@ import {
     Set as MatchSet,
     Tournament,
     TournamentFormat
-} from "@/types";
+} from "@/backend/types";
 import {usePlayerStore} from "./playerStore";
 import {useTournamentStore} from "./tournamentStore";
 import {achievements as allAchievementDefinitions} from "@/constants/achievements";

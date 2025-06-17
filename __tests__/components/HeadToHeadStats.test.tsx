@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from '@testing-library/react-native';
 import HeadToHeadStats from '@/components/HeadToHeadStats';
-import {HeadToHead} from '@/types';
+import {HeadToHead} from '@/backend/types';
 
 jest.mock('@/components/PlayerAvatar', () => 'PlayerAvatar');
 

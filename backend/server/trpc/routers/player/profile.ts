@@ -1,13 +1,14 @@
+//backend/server/trpc/routers/player/profile.ts
 import {TRPCError} from '@trpc/server';
-import {protectedProcedure} from '../../app-router';
+import {protectedProcedure} from '../../init';
 import {z} from 'zod';
 
 interface Player {
-    id: bigint;
+    id: string;  // Zmieniono z bigint na string, aby pasowało do typu zwracanego z bazy
     user_id: string;
     name: string;
     nickname?: string | null;
-    avatarUrl?: string | null;
+    avatar_url?: string | null;
     elo_rating: number;
     wins: number;
     losses: number;
@@ -49,7 +50,7 @@ export const ensurePlayerProfileProcedure = protectedProcedure
         const newPlayerData = {
             user_id: userId,
             name: userName,
-            avatarUrl: avatarUrl,
+            avatar_url: avatarUrl,  // Zmieniono z avatarUrl na avatar_url
             elo_rating: 1200,
             wins: 0,
             losses: 0,
@@ -109,7 +110,7 @@ export const updateMyProfileProcedure = protectedProcedure
         const updateData: {
             name?: string;
             nickname?: string | null;
-            avatarUrl?: string | null;
+            avatar_url?: string | null;  // Zmieniono z avatarUrl na avatar_url
             updated_at?: string; // Keep updated_at for Supabase auto-update or manual set
         } = {};
 
@@ -120,7 +121,7 @@ export const updateMyProfileProcedure = protectedProcedure
             updateData.nickname = input.nickname;
         }
         if (input.avatarUrl !== undefined) {
-            updateData.avatarUrl = input.avatarUrl;
+            updateData.avatar_url = input.avatarUrl;  // Zmieniono z avatarUrl na avatar_url
         }
 
         // If no fields are provided for update, we could return the existing profile or throw an error.

@@ -3,7 +3,7 @@ import { render } from '@testing-library/react-native';
 import { usePlayerStore } from '@/store/playerStore';
 import { useTournamentStore } from '@/store/tournamentStore';
 import { useMatchStore } from '@/store/matchStore';
-import { TournamentFormat, TournamentStatus } from '@/types';
+import { TournamentFormat, TournamentStatus } from '@/backend/types';
 
 // Mock the screen components
 const TournamentsScreen = () => <React.Fragment />;
@@ -82,48 +82,48 @@ const setupTestData = () => {
   // Mock the getPlayerById method
   jest.spyOn(playerStore, 'getPlayerById').mockImplementation((id) => {
     const players = [
-      { 
-        id: 'player1', 
-        name: 'John Doe', 
-        email: 'john@example.com', 
-        avatarUrl: undefined, 
-        active: true, 
+      {
+        id: 'player1',
+        name: 'John Doe',
+        email: 'john@example.com',
+        avatarUrl: undefined,
+        active: true,
         eloRating: 1100,
         wins: 5,
         losses: 2,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
-      { 
-        id: 'player2', 
-        name: 'Jane Smith', 
-        email: 'jane@example.com', 
-        avatarUrl: undefined, 
-        active: true, 
+      {
+        id: 'player2',
+        name: 'Jane Smith',
+        email: 'jane@example.com',
+        avatarUrl: undefined,
+        active: true,
         eloRating: 1050,
         wins: 4,
         losses: 3,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
-      { 
-        id: 'player3', 
-        name: 'Bob Johnson', 
-        email: 'bob@example.com', 
-        avatarUrl: undefined, 
-        active: true, 
+      {
+        id: 'player3',
+        name: 'Bob Johnson',
+        email: 'bob@example.com',
+        avatarUrl: undefined,
+        active: true,
         eloRating: 1000,
         wins: 3,
         losses: 2,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
-      { 
-        id: 'player4', 
-        name: 'Alice Brown', 
-        email: 'alice@example.com', 
-        avatarUrl: undefined, 
-        active: true, 
+      {
+        id: 'player4',
+        name: 'Alice Brown',
+        email: 'alice@example.com',
+        avatarUrl: undefined,
+        active: true,
         eloRating: 950,
         wins: 2,
         losses: 4,
@@ -137,48 +137,48 @@ const setupTestData = () => {
   // Mock the getActivePlayersSortedByRating method
   jest.spyOn(playerStore, 'getActivePlayersSortedByRating').mockImplementation(() => {
     return [
-      { 
-        id: 'player1', 
-        name: 'John Doe', 
-        email: 'john@example.com', 
-        avatarUrl: undefined, 
-        active: true, 
+      {
+        id: 'player1',
+        name: 'John Doe',
+        email: 'john@example.com',
+        avatarUrl: undefined,
+        active: true,
         eloRating: 1100,
         wins: 5,
         losses: 2,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
-      { 
-        id: 'player2', 
-        name: 'Jane Smith', 
-        email: 'jane@example.com', 
-        avatarUrl: undefined, 
-        active: true, 
+      {
+        id: 'player2',
+        name: 'Jane Smith',
+        email: 'jane@example.com',
+        avatarUrl: undefined,
+        active: true,
         eloRating: 1050,
         wins: 4,
         losses: 3,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
-      { 
-        id: 'player3', 
-        name: 'Bob Johnson', 
-        email: 'bob@example.com', 
-        avatarUrl: undefined, 
-        active: true, 
+      {
+        id: 'player3',
+        name: 'Bob Johnson',
+        email: 'bob@example.com',
+        avatarUrl: undefined,
+        active: true,
         eloRating: 1000,
         wins: 3,
         losses: 2,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
-      { 
-        id: 'player4', 
-        name: 'Alice Brown', 
-        email: 'alice@example.com', 
-        avatarUrl: undefined, 
-        active: true, 
+      {
+        id: 'player4',
+        name: 'Alice Brown',
+        email: 'alice@example.com',
+        avatarUrl: undefined,
+        active: true,
         eloRating: 950,
         wins: 2,
         losses: 4,
@@ -285,7 +285,7 @@ describe('Tournament Management E2E Flow', () => {
     const tournamentStore = useTournamentStore.getState();
     const playerIds = ['player1', 'player2', 'player3', 'player4'];
     const tournamentDate = '2025-05-24T12:00:00.000Z'; // Używamy stałej daty
-    
+
     const newTournament = await tournamentStore.createTournament(
       'New Test Tournament',
       tournamentDate,
@@ -354,41 +354,41 @@ describe('Tournament Management E2E Flow', () => {
 
     // Calculate standings (simple version of what the app would do)
     const playerStats: PlayerStatsRecord = {};
-    
+
     // Initialize player stats
     ['player1', 'player2', 'player3'].forEach(playerId => {
       playerStats[playerId] = { playerId, wins: 0, losses: 0, points: 0 };
     });
-    
+
     // Count wins and losses
     matches.forEach(match => {
       const winner = match.winnerId === 1 ? match.player1Id : match.player2Id;
       const loser = match.winnerId === 1 ? match.player2Id : match.player1Id;
-      
+
       playerStats[winner].wins += 1;
       playerStats[winner].points += 3; // 3 points for a win
       playerStats[loser].losses += 1;
       playerStats[loser].points += 1; // 1 point for a loss
     });
-    
+
     // Sort players by points
     const standings: PlayerStat[] = Object.values(playerStats).sort((a, b) => b.points - a.points);
-    
+
     // Assertions for the standings
     expect(standings.length).toBe(3);
-    
+
     // Player1: 2 wins, 0 losses, 6 points
     expect(standings[0].playerId).toBe('player1');
     expect(standings[0].wins).toBe(2);
     expect(standings[0].losses).toBe(0);
     expect(standings[0].points).toBe(6);
-    
+
     // Player3: 1 win, 1 loss, 4 points
     expect(standings[1].playerId).toBe('player3');
     expect(standings[1].wins).toBe(1);
     expect(standings[1].losses).toBe(1);
     expect(standings[1].points).toBe(4);
-    
+
     // Player2: 0 wins, 2 losses, 2 points
     expect(standings[2].playerId).toBe('player2');
     expect(standings[2].wins).toBe(0);

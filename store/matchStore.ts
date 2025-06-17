@@ -1,7 +1,7 @@
 import {create} from "zustand";
-import {Achievement, HeadToHead, Match, Set} from "@/types";
+import {Achievement, HeadToHead, Match, Set} from "@/backend/types";
 import {usePlayerStore} from "./playerStore";
-import { dispatchSystemNotification } from '@/backend/services/notificationService'; // Using path alias
+import { dispatchSystemNotification } from '@/backend/server/trpc/services/notificationService'; // Using path alias
 import {
     sendAchievementNotification,
     sendMatchResultNotification,

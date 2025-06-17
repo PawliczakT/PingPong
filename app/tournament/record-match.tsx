@@ -6,7 +6,7 @@ import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import {useTournamentStore} from "@/store/tournamentStore";
-import {Set} from "@/types";
+import {Set} from "@/backend/types";
 import SetScoreInput from "@/components/SetScoreInput";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
