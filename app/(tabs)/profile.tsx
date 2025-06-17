@@ -19,7 +19,7 @@ import {colors} from '@/constants/colors';
 import {Bell, Camera, Image as ImageIcon, LogOut, Pencil, User} from 'lucide-react-native';
 import {usePlayerStore} from '@/store/playerStore';
 import {useNotificationStore} from '@/store/notificationStore';
-import {Player} from '@/types';
+import {Player} from '@/backend/types';
 import * as ImagePicker from 'expo-image-picker';
 import {decode} from "base64-arraybuffer";
 
@@ -236,9 +236,16 @@ export default function ProfileScreen() {
                     setName(foundPlayer.name || ''); // Bezpieczne ustawienie
                     setNickname(foundPlayer.nickname || ''); // Bezpieczne ustawienie
                 }
-            } catch (error) {
+            } catch (error: any) { // Dodaj ': any' tutaj
                 console.error('Error loading player profile:', error);
-                Alert.alert('Error', 'Failed to load profile. Please try again.');
+                console.error('Error details:', {
+                    message: error?.message,
+                    code: error?.code,
+                    details: error?.details,
+                    hint: error?.hint,
+                    user: user?.id
+                });
+                Alert.alert('Profile Error', `Failed to load profile: ${error?.message || 'Unknown error'}`);
             } finally {
                 setLoadingProfile(false);
             }
@@ -259,7 +266,6 @@ export default function ProfileScreen() {
         try {
             setLoadingProfile(true);
 
-            // Sprawdź czy profil już istnieje przed utworzeniem (zabezpieczenie przed duplikatami)
             if (isNewUser) {
                 const {data: existingCheck} = await supabase
                     .from('players')
@@ -271,7 +277,6 @@ export default function ProfileScreen() {
                     console.log('Profile already exists, not creating duplicate');
                     Alert.alert('Info', 'Profile already exists. Refreshing...');
                     setIsNewUser(false);
-                    // Przekieruj do głównej aplikacji
                     router.replace('/(tabs)');
                     return;
                 }
@@ -279,7 +284,7 @@ export default function ProfileScreen() {
 
             const playerData = {
                 user_id: user.id,
-                name: name.trim(), // Bezpieczne użycie trim
+                name: name.trim(),
                 nickname: (nickname && true && nickname?.trim()) ? nickname.trim() : null,
                 avatar_url: currentPlayer.avatarUrl,
                 elo_rating: currentPlayer.eloRating,
@@ -331,8 +336,6 @@ export default function ProfileScreen() {
             setIsEditing(false);
 
             if (isNewUser) {
-                // Dodaj do store
-                // await addPlayer(updatedPlayer.name);
                 setIsNewUser(false);
                 console.log('Successfully created new player profile');
 
@@ -340,7 +343,6 @@ export default function ProfileScreen() {
                     {
                         text: 'OK',
                         onPress: () => {
-                            // Przekieruj do głównej aplikacji
                             router.replace('/');
                         }
                     }
@@ -370,7 +372,7 @@ export default function ProfileScreen() {
                     onPress: async () => {
                         try {
                             await logout();
-                            router.replace('/auth/login');
+                            router.replace('/(auth)/login');
                         } catch (error) {
                             console.error('Error signing out:', error);
                             Alert.alert('Error', 'Failed to sign out');
@@ -397,7 +399,7 @@ export default function ProfileScreen() {
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
                     <Text style={styles.errorText}>Please log in to view your profile</Text>
-                    <Button title="Go to Login" onPress={() => router.push('/auth/login')}/>
+                    <Button title="Go to Login" onPress={() => router.push('/(auth)/login')}/>
                 </View>
             </SafeAreaView>
         );

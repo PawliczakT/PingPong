@@ -8,7 +8,7 @@ import * as Haptics from "expo-haptics";
 import {colors} from "@/constants/colors";
 import {useTournamentStore, useTournamentsRealtime} from "@/store/tournamentStore";
 import {usePlayerStore} from "@/store/playerStore";
-import {Player, TournamentFormat, TournamentMatch} from "@/types";
+import {Player, TournamentFormat, TournamentMatch} from "@/backend/types";
 import {formatDate} from "@/utils/formatters";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";

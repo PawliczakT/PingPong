@@ -1,4 +1,4 @@
-import {AchievementType, Match, Set as MatchSet, Tournament, TournamentFormat, TournamentStatus} from '@/types';
+import {AchievementType, Match, Set as MatchSet, Tournament, TournamentFormat, TournamentStatus} from '@/backend/types';
 import {useAchievementStore} from '@/store/achievementStore';
 import {achievements as allAchievementDefinitions} from '../../constants/achievements';
 

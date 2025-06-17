@@ -2,7 +2,7 @@ import React from "react";
 import {FlatList, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {Bell, Trash2} from "lucide-react-native";
 import {colors} from "@/constants/colors";
-import {Notification} from "@/types";
+import {Notification} from "@/backend/types";
 
 interface NotificationsListProps {
     notifications: Notification[];

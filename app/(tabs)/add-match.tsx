@@ -7,7 +7,7 @@ import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import {useMatchStore} from "@/store/matchStore";
 import {useNetworkStore}from "@/store/networkStore";
-import {Player, Set} from "@/types";
+import {Player, Set} from "@/backend/types";
 import PlayerSelector from "@/components/PlayerSelector";
 import SetScoreInput from "@/components/SetScoreInput";
 import Button from "@/components/Button";

@@ -8,7 +8,7 @@ import {usePlayerStore} from "@/store/playerStore";
 import {useStatsStore} from "@/store/statsStore";
 import PlayerCard from "@/components/PlayerCard";
 import StreakDisplay from "@/components/StreakDisplay";
-import {Player} from "@/types";
+import {Player} from "@/backend/types";
 import Button from "@/components/Button";
 
 export default function StatsScreen() {
@@ -92,7 +92,7 @@ export default function StatsScreen() {
                             <PlayerCard
                                 key={`rate-${player.id}`}
                                 player={player}
-                                statValue={`${((player.stats?.winRate ?? 0) * 100).toFixed(1)}%`}
+                                statValue={`${((player.stats?.winRate ?? 0)).toFixed(1)}%`}
                                 statLabel="win rate"
                                 onPress={() => router.push(`/player/${player.id}`)}
                             />

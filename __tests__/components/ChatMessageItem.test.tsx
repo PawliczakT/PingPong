@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import ChatMessageItem, { ChatMessage } from './ChatMessageItem'; // Assuming ChatMessage is exported
+import ChatMessageItem, { ChatMessage } from '../../components/ChatMessageItem'; // Assuming ChatMessage is exported
 import { useTheme } from '@react-navigation/native'; // Mocked
 import { useRouter } from 'expo-router'; // Mocked
 
@@ -24,12 +24,12 @@ jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
 }));
 
-jest.mock('./PlayerAvatar', () => {
+jest.mock('../../components/PlayerAvatar', () => {
   const { View, Text } = require('react-native');
   return jest.fn(({ source, size }) => <View testID="mock-player-avatar"><Text>{source?.uri || 'default-avatar'}</Text></View>);
 });
 
-jest.mock('./MessageReactions', () => {
+jest.mock('../../components/MessageReactions', () => {
   const { View, Text } = require('react-native');
   return jest.fn(({ reactions }) => (
     <View testID="mock-message-reactions">

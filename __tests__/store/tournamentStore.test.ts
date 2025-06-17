@@ -1,4 +1,4 @@
-import {Set as MatchSet, Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/types';
+import {Set as MatchSet, Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
 import {useTournamentStore} from '@/store/tournamentStore';
 
 // Define mock getState functions

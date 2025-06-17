@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import ReactionPicker from './ReactionPicker'; // Assuming path is correct
+import ReactionPicker from '../../components/ReactionPicker'; // Assuming path is correct
 import { Animated } from 'react-native';
 
 // Mock useTheme

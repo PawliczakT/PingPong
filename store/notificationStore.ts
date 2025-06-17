@@ -1,9 +1,10 @@
+//store/notificationStore.ts
 import {create} from "zustand";
 import {useEffect} from "react";
 import {Platform} from "react-native";
 import * as Notifications from "expo-notifications";
 import {supabase} from "@/lib/supabase";
-import {Achievement, Match, Player, Tournament} from "@/types";
+import {Achievement, Match, Player, Tournament} from "../backend/types";
 import {usePlayerStore} from "./playerStore";
 
 export interface NotificationRecord {

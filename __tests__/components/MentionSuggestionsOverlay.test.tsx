@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import MentionSuggestionsOverlay from './MentionSuggestionsOverlay';
+import MentionSuggestionsOverlay from '../../components/MentionSuggestionsOverlay';
 
 // Mock useTheme
 jest.mock('@react-navigation/native', () => ({
@@ -15,7 +15,7 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 // Mock PlayerAvatar
-jest.mock('./PlayerAvatar', () => {
+jest.mock('../../components/PlayerAvatar', () => {
   const { View, Text } = require('react-native');
   return jest.fn(({ source }) => <View testID="mock-player-avatar-mention"><Text>{source?.uri || 'default-avatar'}</Text></View>);
 });

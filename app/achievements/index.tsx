@@ -5,7 +5,7 @@ import {useAchievementStore} from '@/store/achievementStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useEffect, useRef, useState} from 'react';
 import {getAchievementIcon} from '@/constants/achievements';
-import {AchievementType} from '@/types';
+import {AchievementType} from '@/backend/types';
 import {ChevronDown, LucideIcon, User} from 'lucide-react-native';
 
 type DisplayAchievement = {

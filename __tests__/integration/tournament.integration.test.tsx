@@ -1,7 +1,7 @@
 import {useTournamentStore} from '@/store/tournamentStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useMatchStore} from '@/store/matchStore';
-import {Player, TournamentFormat, TournamentStatus} from '@/types';
+import {Player, TournamentFormat, TournamentStatus} from '@/backend/types';
 
 // Reset store state between tests
 beforeEach(() => {

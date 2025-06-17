@@ -4,7 +4,16 @@
   "devCommand": "expo",
   "cleanUrls": true,
   "framework": null,
+  "functions": {
+    "backend/api/trpc/[trpc].ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/trpc/(.*)",
+      "destination": "/backend/api/trpc/[trpc]"
+    },
     {
       "source": "/:path*",
       "destination": "/"

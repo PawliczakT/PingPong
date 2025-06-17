@@ -19,7 +19,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mosinacity.pingpongstatkeeper",
-      "associatedDomains": ["applinks:msiemlfljcnhnwkwwpvhm.supabase.co"]
+      "associatedDomains": [
+        "applinks:msiemlfljcnhnwkwwpvhm.supabase.co"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -36,7 +38,10 @@
               "scheme": "pingpongstatkeeper"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -60,6 +65,9 @@
       "typedRoutes": true
     },
     "extra": {
+      "apiUrl": "https://ping-pong-three-woad.vercel.app/api/trpc",
+      "apiUrlDev": "http://localhost:8001/api/trpc",
+      "vercelUrl": "https://ping-pong-three-woad.vercel.app",
       "router": {
         "origin": false
       },
@@ -69,4 +77,3 @@
     }
   }
 }
-

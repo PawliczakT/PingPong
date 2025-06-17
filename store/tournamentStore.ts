@@ -1,10 +1,10 @@
 import {create} from 'zustand';
 import {supabase} from '@/lib/supabase';
 import {v4 as uuidv4} from 'uuid';
-import type {Set as MatchSet} from '@/types';
-import {Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/types';
+import type {Set as MatchSet} from '@/backend/types';
+import {Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
 import {useEffect} from "react";
-import { dispatchSystemNotification } from '@/backend/services/notificationService'; // Using path alias
+import { dispatchSystemNotification } from '@/backend/server/trpc/services/notificationService'; // Using path alias
 import { usePlayerStore } from './playerStore'; // To get player nickname
 
 type TournamentStore = {
@@ -591,7 +591,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     .from('tournaments')
                     .select('name')
                     .ilike('name', 'Tournament %');
-                
+
                 if (fetchErr) {
                     console.warn("Error fetching existing tournament names:", fetchErr);
                     finalName = "Tournament 1"; // Default if can't fetch

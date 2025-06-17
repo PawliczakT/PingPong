@@ -1,10 +1,11 @@
+//store/playerStore.ts
 import {create} from "zustand";
-import {Player} from "@/types";
+import {Player} from "@/backend/types";
 import {getInitialEloRating} from "@/utils/elo";
 import {supabase} from "@/lib/supabase";
 import {useEffect} from "react";
-import {getRankByWins, Rank} from "@/constants/ranks"; // Import Rank type
-import { dispatchSystemNotification } from '@/backend/services/notificationService'; // Using path alias
+import {getRankByWins, Rank} from "@/constants/ranks";
+import {trpcClient} from '@/lib/trpc';
 
 interface PlayerState {
     players: Player[];
@@ -21,7 +22,6 @@ interface PlayerState {
 
 export const usePlayerStore = create<PlayerState>()(
     (set, get) => ({
-
         players: [],
         isLoading: false,
         error: null,
@@ -69,25 +69,26 @@ export const usePlayerStore = create<PlayerState>()(
                 }));
                 await fetchPlayersFromSupabase();
 
-                // Dispatch "new_player" notification
+                // POPRAWKA: Wywołanie notyfikacji przez tRPC
                 try {
-                  if (newPlayer) {
-                    await dispatchSystemNotification('new_player', {
-                      notification_type: 'new_player',
-                      newPlayerNickname: newPlayer.nickname || newPlayer.name || 'Nowy gracz',
-                      playerId: newPlayer.id,
-                    });
-                  }
+                    if (newPlayer) {
+                        const metadata = {
+                            notification_type: 'new_player' as const,
+                            newPlayerNickname: newPlayer.nickname || newPlayer.name || 'Nowy gracz',
+                            playerId: newPlayer.id,
+                        };
+                        await trpcClient.chat.sendSystemNotification.mutate({
+                            type: 'new_player',
+                            metadata: metadata,
+                        });
+                    }
                 } catch (e) {
-                  console.warn("Failed to dispatch new_player system notification", e);
+                    console.warn("Failed to dispatch new_player system notification via tRPC", e);
                 }
 
                 return newPlayer;
             } catch (error) {
-                set({
-                    isLoading: false,
-                    error: error instanceof Error ? error.message : "Failed to add player"
-                });
+                set({isLoading: false, error: error instanceof Error ? error.message : "Failed to add player"});
                 throw error;
             }
         },
@@ -115,10 +116,7 @@ export const usePlayerStore = create<PlayerState>()(
                     isLoading: false,
                 }));
             } catch (error) {
-                set({
-                    isLoading: false,
-                    error: error instanceof Error ? error.message : "Failed to update player"
-                });
+                set({isLoading: false, error: error instanceof Error ? error.message : "Failed to update player"});
                 throw error;
             }
         },
@@ -140,10 +138,7 @@ export const usePlayerStore = create<PlayerState>()(
                     isLoading: false,
                 }));
             } catch (error) {
-                set({
-                    isLoading: false,
-                    error: error instanceof Error ? error.message : "Failed to deactivate player"
-                });
+                set({isLoading: false, error: error instanceof Error ? error.message : "Failed to deactivate player"});
                 throw error;
             }
         },
@@ -188,24 +183,26 @@ export const usePlayerStore = create<PlayerState>()(
             try {
                 const player = get().players.find((p) => p.id === playerId);
                 if (!player) throw new Error('Player not found');
-                const oldRank = player.rank; // Store old rank
+                const oldRank = player.rank;
                 const newWins = won ? player.wins + 1 : player.wins;
                 const newLosses = won ? player.losses : player.losses + 1;
-
-                // Calculate the player's rank based on their win count
                 const newRank: Rank = getRankByWins(newWins);
 
+                // POPRAWKA: Wywołanie notyfikacji o zmianie rangi przez tRPC
                 if (oldRank && newRank.name !== oldRank.name) {
-                  // Rank has changed, dispatch notification
-                  try {
-                    await dispatchSystemNotification('rank_up', {
-                      notification_type: 'rank_up',
-                      playerNickname: player.nickname || player.name || 'Gracz',
-                      rankName: newRank.name,
-                    });
-                  } catch (e) {
-                    console.warn("Failed to dispatch rank_up system notification", e);
-                  }
+                    try {
+                        const metadata = {
+                            notification_type: 'rank_up' as const,
+                            playerNickname: player.nickname || player.name || 'Gracz',
+                            rankName: newRank.name,
+                        };
+                        await trpcClient.chat.sendSystemNotification.mutate({
+                            type: 'rank_up',
+                            metadata: metadata,
+                        });
+                    } catch (e) {
+                        console.warn("Failed to dispatch rank_up system notification via tRPC", e);
+                    }
                 }
 
                 const {error} = await supabase.from('players').update({
@@ -239,6 +236,7 @@ export const usePlayerStore = create<PlayerState>()(
     }),
 );
 
+// Reszta pliku (fetchPlayersFromSupabase, usePlayersRealtime) bez zmian
 export const fetchPlayersFromSupabase = async () => {
     usePlayerStore.setState({isLoading: true, error: null});
     try {
@@ -270,9 +268,7 @@ export const usePlayersRealtime = () => {
     useEffect(() => {
         const channel = supabase
             .channel('players-changes')
-            .on(
-                'postgres_changes',
-                {event: '*', schema: 'public', table: 'players'},
+            .on('postgres_changes', {event: '*', schema: 'public', table: 'players'},
                 () => {
                     fetchPlayersFromSupabase().catch((e) => {
                         console.warn("Error during players realtime update:", e);
@@ -281,7 +277,7 @@ export const usePlayersRealtime = () => {
             )
             .subscribe();
         return () => {
-            supabase.removeChannel(channel).then(r =>
+            supabase.removeChannel(channel).catch(r =>
                 console.error("Error removing players channel:", r));
         };
     }, []);

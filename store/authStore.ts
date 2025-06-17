@@ -1,3 +1,4 @@
+//store/authStore.ts
 import {create} from 'zustand';
 import {Session, User} from '@supabase/supabase-js';
 import {signInWithGoogle, signOut as supabaseSignOut, supabase} from '../lib/supabase';
@@ -55,6 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         try {
             const {error} = await supabaseSignOut();
             if (error) throw error;
+            set({user: null, session: null, isLoading: false});
         } catch (e) {
             console.error('Exception during logout:', e);
             set({error: e instanceof Error ? e : new Error('Logout failed'), isLoading: false});
@@ -67,3 +69,5 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 useAuthStore.getState().initialize();
+
+export const useAuth = () => useAuthStore();

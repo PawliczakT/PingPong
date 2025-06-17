@@ -3,7 +3,7 @@ import {Pressable, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {ArrowRight} from "lucide-react-native";
 import PlayerAvatar from "./PlayerAvatar";
-import {Match} from "@/types";
+import {Match} from "@/backend/types";
 import {colors} from "@/constants/colors";
 import {formatDate} from "@/utils/formatters";
 import {usePlayerStore} from "@/store/playerStore";

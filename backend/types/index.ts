@@ -1,3 +1,4 @@
+//backend/types/index.ts
 export interface Player {
     id: string;
     user_id?: string;
