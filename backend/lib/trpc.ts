@@ -1,3 +1,4 @@
+//backend/lib/trpc.ts
 import {createTRPCReact} from '@trpc/react-query';
 import {createTRPCClient, httpBatchLink} from '@trpc/client';
 import Constants from 'expo-constants';
@@ -21,7 +22,7 @@ const getApiUrl = () => {
     if (__DEV__) {
         return Constants.expoConfig?.extra?.apiUrlDev || 'http://localhost:8081/api/trpc';
     }
-    return Constants.expoConfig?.extra?.apiUrl || 'https://pingpong-statkeeper.vercel.app/api/trpc';
+    return Constants.expoConfig?.extra?.apiUrl || 'https://ping-pong-three-woad.vercel.app/api/trpc';
 };
 
 export const trpcClient = createTRPCClient<AppRouter>({
