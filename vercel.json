@@ -1,14 +1,9 @@
 {
-  "buildCommand": "expo export -p web",
+  "buildCommand": "npx expo prebuild --platform web --no-install && npx expo export -p web",
   "outputDirectory": "dist",
   "devCommand": "expo",
   "cleanUrls": true,
   "framework": null,
-  "functions": {
-    "backend/api/trpc/[trpc].ts": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/trpc/(.*)",
