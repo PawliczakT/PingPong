@@ -1,4 +1,4 @@
-//backend/types/supabase.ts
+//backend/types/supabaseAdmin.ts
 export type Json =
     | string
     | number

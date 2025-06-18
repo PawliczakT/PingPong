@@ -1,6 +1,6 @@
 //hooks/useChatRealtime.ts
 import {useCallback, useEffect, useRef} from 'react';
-import {supabase} from '@/lib/supabase';
+import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
 import {useChatStore} from '@/store/chatStore';
 import {useAuthStore} from '@/store/authStore';
 import type {ChatMessage} from '@/components/ChatMessageItem';
@@ -26,7 +26,7 @@ const useChatRealtime = () => {
 
         try {
             // Zmieniono nazwę kanału na stałą dla wszystkich użytkowników
-            const channel = supabase.channel(CHAT_CHANNEL_NAME);
+            const channel = supabaseAsAdmin.channel(CHAT_CHANNEL_NAME);
 
             channel
                 .on('postgres_changes',

@@ -2,7 +2,7 @@
 import {createTRPCReact} from '@trpc/react-query';
 import {createTRPCClient, httpBatchLink} from '@trpc/client';
 import Constants from 'expo-constants';
-import {supabaseAsAdmin} from '../server/lib/supabase';
+import {supabaseAsAdmin} from '../server/lib/supabaseAdmin';
 import type {AppRouter} from '../server/trpc/index';
 
 export const trpc = createTRPCReact<AppRouter>();

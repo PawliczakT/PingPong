@@ -3,8 +3,8 @@ import {create} from "zustand";
 import {useEffect} from "react";
 import {Platform} from "react-native";
 import * as Notifications from "expo-notifications";
-import {supabase} from "@/lib/supabase";
-import {Achievement, Match, Player, Tournament} from "../backend/types";
+import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {Achievement, Match, Player, Tournament} from "@/backend/types";
 import {usePlayerStore} from "./playerStore";
 
 export interface NotificationRecord {
@@ -73,9 +73,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             const {
                 data,
                 error
-            } = await supabase.from('notifications').select('*').order('timestamp', {ascending: false});
+            } = await supabaseAsAdmin.from('notifications').select('*').order('timestamp', {ascending: false});
             if (error) throw error;
-            set({notificationHistory: data || [], isLoading: false});
+            set({ notificationHistory: (data as unknown) as NotificationRecord[], isLoading: false });
         } catch (error) {
             set({isLoading: false, error: error instanceof Error ? error.message : "Failed to fetch notifications"});
         }
@@ -90,7 +90,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 p_type: notification.type,
                 p_data: notification.data || {}
             };
-            const {error} = await supabase.rpc('create_notification', rpc_params);
+            const {error} = await supabaseAsAdmin.rpc('create_notification', rpc_params);
             if (error) throw error;
         } catch (error) {
             console.error("Failed to add notification via RPC:", error);
@@ -106,7 +106,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             set({notificationHistory: []});
 
             // Krok 2: W tle wywołaj RPC, które usunie TYLKO personalne rekordy w bazie.
-            const {error} = await supabase.rpc('clear_my_notifications');
+            const {error} = await supabaseAsAdmin.rpc('clear_my_notifications');
             if (error) throw error;
         } catch (error) {
             console.error("Failed to clear notification history:", error);
@@ -122,7 +122,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 n.id === notificationId ? {...n, read: true} : n
             ),
         }));
-        await supabase.from('notifications').update({read: true}).eq('id', notificationId);
+        await supabaseAsAdmin.from('notifications').update({read: true}).eq('id', notificationId);
     },
 }));
 
@@ -132,7 +132,7 @@ export const useNotificationsRealtime = () => {
     }, []);
 
     useEffect(() => {
-        const channel = supabase
+        const channel = supabaseAsAdmin
             .channel('public:notifications')
             .on('postgres_changes', {event: '*', schema: 'public', table: 'notifications'},
                 (payload) => {
@@ -157,7 +157,7 @@ export const useNotificationsRealtime = () => {
                 }
             ).subscribe();
         return () => {
-            supabase.removeChannel(channel);
+            supabaseAsAdmin.removeChannel(channel);
         };
     }, []);
 };

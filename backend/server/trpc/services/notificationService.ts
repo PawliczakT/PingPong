@@ -1,5 +1,5 @@
 //backend/server/trpc/services/notificationService.ts
-import {supabaseAsAdmin} from '../../lib/supabase';
+import {supabaseAsAdmin} from '../../lib/supabaseAdmin';
 import {z} from 'zod'
 import {Json} from '../../../types/supabase';
 
