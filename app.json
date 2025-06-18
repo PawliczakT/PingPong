@@ -65,8 +65,11 @@
       "typedRoutes": true
     },
     "extra": {
+      "supabaseUrl": "${EXPO_PUBLIC_SUPABASE_URL}",
+      "supabaseAnonKey": "${EXPO_PUBLIC_SUPABASE_ANON_KEY}",
+      "supabaseServiceKey": "${EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}",
       "apiUrl": "https://ping-pong-three-woad.vercel.app/api/trpc",
-      "apiUrlDev": "http://localhost:8001/api/trpc",
+      "apiUrlDev": "http://localhost:8081/api/trpc",
       "vercelUrl": "https://ping-pong-three-woad.vercel.app",
       "router": {
         "origin": false
