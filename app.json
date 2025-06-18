@@ -35,7 +35,8 @@
           "autoVerify": true,
           "data": [
             {
-              "scheme": "pingpongstatkeeper"
+              "scheme": "pingpongstatkeeper",
+              "host": "auth"
             }
           ],
           "category": [
