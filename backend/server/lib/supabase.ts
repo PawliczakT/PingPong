@@ -1,21 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {createClient} from '@supabase/supabase-js';
-import {Platform} from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 import 'react-native-url-polyfill/auto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-const googleClientIdIOS = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS || '';
-const googleClientIdAndroid = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID || '';
-
-if (!supabaseUrl || !supabaseAnonKey) {
-    const errorMsg = 'KRYTYCZNY BŁĄD: Brakuje Supabase URL lub Anon Key. Sprawdź plik .env i prefiks EXPO_PUBLIC_, a następnie przebuduj aplikację.';
-    console.error(errorMsg);
-    throw new Error(errorMsg);
-}
-
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const ExpoSecureStoreAdapter = {
     getItem: (key: string) => {
@@ -39,51 +30,71 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 export const signInWithGoogle = async () => {
-    const redirectUrl = Platform.select({
-        web: 'https://ping-pong-three-woad.vercel.app/auth/callback',
-        default: 'pingpongstatkeeper://auth/callback'
-    });
+    try {
+        // For web
+        if (Platform.OS === 'web') {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'select_account',
+                    },
+                },
+            });
+            if (error) throw error;
+            return;
+        }
 
-    console.log(`[Auth] Starting Google OAuth with redirect: ${redirectUrl}`);
+        // For mobile
+        const redirectUrl = Linking.createURL('auth/callback');
+        console.log('Redirect URL:', redirectUrl);
 
-    const {data, error} = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-            redirectTo: redirectUrl,
-            skipBrowserRedirect: Platform.OS !== 'web',
-        },
-    });
-
-    if (error) throw error;
-    if (Platform.OS === 'web' || !data?.url) return {data, error};
-
-    // Dla aplikacji mobilnej
-    const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectUrl
-    );
-
-    if (result.type !== 'dismiss') {
-        WebBrowser.dismissBrowser();
-    }
-
-    if (result.type === 'success') {
-        const url = new URL(result.url);
-        const params = new URLSearchParams(url.hash.substring(1));
-
-        const {data: sessionData, error: sessionError} = await supabase.auth.setSession({
-            access_token: params.get('access_token') || '',
-            refresh_token: params.get('refresh_token') || '',
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: redirectUrl,
+                skipBrowserRedirect: true,
+            },
         });
 
-        if (sessionError) throw sessionError;
-        return {data: sessionData, error: null};
-    }
+        if (error) throw error;
+        if (!data?.url) throw new Error('No auth URL returned');
 
-    return {
-        data: null,
-        error: new Error(`Authentication ${result.type === 'cancel' ? 'cancelled' : 'failed'}`),
-    };
+        // Add a small delay to ensure the browser opens after the current stack clears
+        setTimeout(async () => {
+            try {
+                const result = await WebBrowser.openAuthSessionAsync(
+                    data.url,
+                    redirectUrl,
+                    { showInRecents: true }
+                );
+
+                if (result.type === 'success') {
+                    const url = new URL(result.url);
+                    const params = new URLSearchParams(url.hash.substring(1));
+
+                    const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                        access_token: params.get('access_token') || '',
+                        refresh_token: params.get('refresh_token') || '',
+                    });
+
+                    if (sessionError) throw sessionError;
+                    return { data: sessionData, error: null };
+                }
+
+                throw new Error(`Authentication ${result.type}`);
+            } catch (error) {
+                console.error('Error in auth session:', error);
+                throw error;
+            }
+        }, 100);
+
+    } catch (error) {
+        console.error('Error during Google sign in:', error);
+        throw error;
+    }
 };
 
 export const signOut = async () => {

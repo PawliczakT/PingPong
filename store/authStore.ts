@@ -43,8 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     loginWithGoogle: async () => {
         set({isLoading: true, error: null});
         try {
-            const {error} = await signInWithGoogle();
-            if (error) throw error;
+            await signInWithGoogle();
         } catch (e) {
             console.error('Exception during Google login:', e);
             set({error: e instanceof Error ? e : new Error('Login failed'), isLoading: false});
@@ -54,8 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     logout: async () => {
         set({isLoading: true, error: null});
         try {
-            const {error} = await supabaseSignOut();
-            if (error) throw error;
+            await supabaseSignOut();
         } catch (e) {
             console.error('Exception during logout:', e);
             set({error: e instanceof Error ? e : new Error('Logout failed'), isLoading: false});
@@ -69,15 +67,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 // Export the hook with proper typing
 export const useAuth = () => {
-  const state = useAuthStore();
+    const state = useAuthStore();
 
-  // Initialize auth state when the hook is first used
-  React.useEffect(() => {
-    const cleanup = state.initialize();
-    return () => cleanup?.();
-  }, []);
+    // Initialize auth state when the hook is first used
+    React.useEffect(() => {
+        const cleanup = state.initialize();
+        return () => cleanup?.();
+    }, []);
 
-  return state;
+    return state;
 };
 
 // Initialize auth state when the store is created
