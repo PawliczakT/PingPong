@@ -4,11 +4,7 @@ import Button from '../../components/Button';
 import {useAuthStore} from '@/store/authStore';
 
 export default function LoginScreen() {
-// Use individual selectors to prevent unnecessary re-renders
-    const loginWithGoogle = useAuthStore(state => state.loginWithGoogle);
-    const isLoading = useAuthStore(state => state.isLoading);
-    const error = useAuthStore(state => state.error);
-    const clearError = useAuthStore(state => state.clearError);
+    const {loginWithGoogle, isLoading, error, clearError} = useAuthStore();
 
     const handleLogin = async () => {
         if (error) {
@@ -21,7 +17,6 @@ export default function LoginScreen() {
             console.log('[Login] Authentication flow completed successfully');
         } catch (e) {
             console.error('[Login] Authentication error caught in component:', e);
-            // Error will be set in the store by loginWithGoogle
         }
     };
 

@@ -1,81 +1,84 @@
-// store/authStore.ts
-import { create } from 'zustand';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/backend/server/lib/supabase';
+import {create} from 'zustand';
+import {Session, User} from '@supabase/supabase-js';
+import {signInWithGoogle, signOut as supabaseSignOut, supabase} from '@/backend/server/lib/supabase';
+import React from "react";
 
 interface AuthState {
-    session: Session | null;
     user: User | null;
+    session: Session | null;
     isLoading: boolean;
-    error: string | null;
-    signInWithGoogle: () => Promise<void>;
-    signOut: () => Promise<void>;
-    setSession: (session: Session | null) => void;
+    isInitialized: boolean;
+    error: Error | null;
+    loginWithGoogle: () => Promise<void>;
+    logout: () => Promise<void>;
     clearError: () => void;
+    initialize: () => () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-    session: null,
     user: null,
-    isLoading: false,
+    session: null,
+    isLoading: true,
+    isInitialized: false,
     error: null,
 
-    signInWithGoogle: async () => {
-        set({ isLoading: true, error: null });
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent',
-                    },
-                },
-            });
-
-            if (error) {
-                throw error;
+    initialize: () => {
+        const {data: {subscription}} = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                console.log(`Auth event: ${event}`);
+                set({
+                    user: session?.user ?? null,
+                    session,
+                    isLoading: false,
+                    isInitialized: true
+                });
             }
-        } catch (error: any) {
-            console.error('Błąd logowania przez Google:', error);
-            set({
-                error: error.message || 'Wystąpił błąd podczas logowania przez Google',
-                isLoading: false
-            });
-        } finally {
-            set({ isLoading: false });
-        }
+        );
+
+        return () => {
+            subscription.unsubscribe();
+        };
     },
 
-    signOut: async () => {
-        set({ isLoading: true });
+    loginWithGoogle: async () => {
+        set({isLoading: true, error: null});
         try {
-            const { error } = await supabase.auth.signOut();
+            const {error} = await signInWithGoogle();
             if (error) throw error;
-            set({ session: null, user: null });
-        } catch (error: any) {
-            console.error('Błąd podczas wylogowywania:', error);
-            set({
-                error: error.message || 'Wystąpił błąd podczas wylogowywania',
-                isLoading: false
-            });
-        } finally {
-            set({ isLoading: false });
+        } catch (e) {
+            console.error('Exception during Google login:', e);
+            set({error: e instanceof Error ? e : new Error('Login failed'), isLoading: false});
         }
     },
 
-    setSession: (session) => {
-        set({
-            session,
-            user: session?.user ?? null,
-            isLoading: false
-        });
+    logout: async () => {
+        set({isLoading: true, error: null});
+        try {
+            const {error} = await supabaseSignOut();
+            if (error) throw error;
+        } catch (e) {
+            console.error('Exception during logout:', e);
+            set({error: e instanceof Error ? e : new Error('Logout failed'), isLoading: false});
+        }
     },
 
     clearError: () => {
-        set({ error: null });
-    }
+        set({error: null});
+    },
 }));
 
-export const useAuth = () => useAuthStore();
+// Export the hook with proper typing
+export const useAuth = () => {
+  const state = useAuthStore();
+
+  // Initialize auth state when the hook is first used
+  React.useEffect(() => {
+    const cleanup = state.initialize();
+    return () => cleanup?.();
+  }, []);
+
+  return state;
+};
+
+// Initialize auth state when the store is created
+useAuthStore.getState().initialize();

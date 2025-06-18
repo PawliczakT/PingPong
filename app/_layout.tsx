@@ -9,7 +9,7 @@ import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {trpc, trpcClient} from "@/backend/lib/trpc";
 import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
-import {useAuthStore} from "@/store/authStore";
+import {useAuth} from "@/store/authStore";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";
 import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
 import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
@@ -31,7 +31,7 @@ export default function RootLayout() {
     const navigationState = useRootNavigationState();
     const [loaded, fontError] = useFonts({...FontAwesome.font});
     const {checkNetworkStatus, syncPendingMatches} = useNetworkStore();
-    const {user, isInitialized, isLoading} = useAuthStore();
+    const {user, isInitialized, isLoading} = useAuth();
     const [hasProfile, setHasProfile] = useState<boolean | null>(null);
     const [isCheckingProfile, setIsCheckingProfile] = useState(true);
 
@@ -96,7 +96,10 @@ export default function RootLayout() {
                     const accessToken = params.get('access_token');
                     const refreshToken = params.get('refresh_token');
                     if (accessToken && refreshToken) {
-                        supabaseAsAdmin.auth.setSession({access_token: accessToken, refresh_token: refreshToken}).then(() => {
+                        supabaseAsAdmin.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken
+                        }).then(() => {
                             window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
                         });
                     }
@@ -217,11 +220,6 @@ export default function RootLayout() {
         const isFontsReady = loaded || fontError;
         const canNavigate = navigationState?.key;
 
-        // Hide splash screen when everything is ready
-        if (isFontsReady && canNavigate && isInitialized && !isLoading && !isCheckingProfile) {
-            SplashScreen.hideAsync().catch(e => console.warn("SplashScreen.hideAsync error:", e));
-        }
-
         // Log navigation state for debugging
         console.log("--- NAVIGATE CHECK ---", {
             isFontsReady,
@@ -233,24 +231,28 @@ export default function RootLayout() {
             hasProfile,
         });
 
-        // Don't proceed if not ready
-        if (!isFontsReady || !canNavigate || !isInitialized || isCheckingProfile || isLoading) {
-            return;
-        }
+        // Hide splash screen when everything is ready
+        if (isFontsReady && canNavigate && isInitialized && !isLoading && !isCheckingProfile) {
+            SplashScreen.hideAsync().catch(e => console.warn("SplashScreen.hideAsync error:", e));
 
-        // Handle navigation based on auth state
-        if (user) {
-            // User is logged in
-            if (hasProfile) {
-                // User has a profile, go to main app
-                router.replace('/(tabs)');
+            // Handle navigation based on auth state
+            if (user) {
+                // User is logged in
+                if (hasProfile) {
+                    // User has a profile, go to main app
+                    if (router.canGoBack()) {
+                        router.back();
+                    } else {
+                        router.replace('/(tabs)');
+                    }
+                } else {
+                    // User needs to complete profile
+                    router.replace('/player/setup');
+                }
             } else {
-                // User needs to complete profile
-                router.replace('/player/setup');
+                // User is not logged in, go to auth flow
+                router.replace('/(auth)/login');
             }
-        } else {
-            // User is not logged in, go to auth flow
-            router.replace('/(auth)/login');
         }
     }, [loaded, fontError, isInitialized, isLoading, navigationState?.key, user, hasProfile, isCheckingProfile, router]);
 
