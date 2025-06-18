@@ -1,73 +1,81 @@
-//store/authStore.ts
-import {create} from 'zustand';
-import {Session, User} from '@supabase/supabase-js';
-import {signInWithGoogle, signOut as supabaseSignOut, supabase} from '../lib/supabase';
+// store/authStore.ts
+import { create } from 'zustand';
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from '@/backend/server/lib/supabase';
 
 interface AuthState {
-    user: User | null;
     session: Session | null;
+    user: User | null;
     isLoading: boolean;
-    isInitialized: boolean;
-    error: Error | null;
-    loginWithGoogle: () => Promise<void>;
-    logout: () => Promise<void>;
+    error: string | null;
+    signInWithGoogle: () => Promise<void>;
+    signOut: () => Promise<void>;
+    setSession: (session: Session | null) => void;
     clearError: () => void;
-    initialize: () => () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-    user: null,
     session: null,
-    isLoading: true,
-    isInitialized: false,
+    user: null,
+    isLoading: false,
     error: null,
 
-    initialize: () => {
-        const {data: {subscription}} = supabase.auth.onAuthStateChange(
-            (event, session) => {
-                console.log(`Auth event: ${event}`);
-                set({
-                    user: session?.user ?? null,
-                    session,
-                    isLoading: false,
-                    isInitialized: true
-                });
+    signInWithGoogle: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    },
+                },
+            });
+
+            if (error) {
+                throw error;
             }
-        );
-
-        return () => {
-            subscription.unsubscribe();
-        };
-    },
-
-    loginWithGoogle: async () => {
-        set({isLoading: true, error: null});
-        try {
-            const {error} = await signInWithGoogle();
-            if (error) throw error;
-        } catch (e) {
-            console.error('Exception during Google login:', e);
-            set({error: e instanceof Error ? e : new Error('Login failed'), isLoading: false});
+        } catch (error: any) {
+            console.error('Błąd logowania przez Google:', error);
+            set({
+                error: error.message || 'Wystąpił błąd podczas logowania przez Google',
+                isLoading: false
+            });
+        } finally {
+            set({ isLoading: false });
         }
     },
 
-    logout: async () => {
-        set({isLoading: true, error: null});
+    signOut: async () => {
+        set({ isLoading: true });
         try {
-            const {error} = await supabaseSignOut();
+            const { error } = await supabase.auth.signOut();
             if (error) throw error;
-            set({user: null, session: null, isLoading: false});
-        } catch (e) {
-            console.error('Exception during logout:', e);
-            set({error: e instanceof Error ? e : new Error('Logout failed'), isLoading: false});
+            set({ session: null, user: null });
+        } catch (error: any) {
+            console.error('Błąd podczas wylogowywania:', error);
+            set({
+                error: error.message || 'Wystąpił błąd podczas wylogowywania',
+                isLoading: false
+            });
+        } finally {
+            set({ isLoading: false });
         }
+    },
+
+    setSession: (session) => {
+        set({
+            session,
+            user: session?.user ?? null,
+            isLoading: false
+        });
     },
 
     clearError: () => {
-        set({error: null});
-    },
+        set({ error: null });
+    }
 }));
-
-useAuthStore.getState().initialize();
 
 export const useAuth = () => useAuthStore();

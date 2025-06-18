@@ -23,7 +23,7 @@ import MentionSuggestionsOverlay from '@/components/MentionSuggestionsOverlay';
 import {useChatStore} from '@/store/chatStore';
 import useChatRealtime from '@/hooks/useChatRealtime';
 import {useAuth} from '@/store/authStore';
-import {trpcClient} from "@/lib/trpc";
+import {trpcClient} from "@/backend/lib/trpc";
 
 const ChatScreen = () => {
     const {colors} = useTheme();

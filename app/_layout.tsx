@@ -7,8 +7,8 @@ import {Linking, Platform} from "react-native";
 import {ErrorBoundary} from "./error-boundary";
 import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
-import {trpc, trpcClient} from "@/lib/trpc";
-import {supabase} from "@/lib/supabase";
+import {trpc, trpcClient} from "@/backend/lib/trpc";
+import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
 import {useAuthStore} from "@/store/authStore";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";
 import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
@@ -46,7 +46,7 @@ export default function RootLayout() {
             const {
                 data: existingPlayer,
                 error
-            } = await supabase.from('players').select('id').eq('user_id', user.id).maybeSingle();
+            } = await supabaseAsAdmin.from('players').select('id').eq('user_id', user.id).maybeSingle();
             if (error) throw error;
             setHasProfile(!!existingPlayer);
         } catch (error) {
@@ -96,7 +96,7 @@ export default function RootLayout() {
                     const accessToken = params.get('access_token');
                     const refreshToken = params.get('refresh_token');
                     if (accessToken && refreshToken) {
-                        supabase.auth.setSession({access_token: accessToken, refresh_token: refreshToken}).then(() => {
+                        supabaseAsAdmin.auth.setSession({access_token: accessToken, refresh_token: refreshToken}).then(() => {
                             window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
                         });
                     }
@@ -118,7 +118,7 @@ export default function RootLayout() {
                     const accessToken = url.searchParams.get('access_token');
                     const refreshToken = url.searchParams.get('refresh_token');
                     if (accessToken && refreshToken) {
-                        await supabase.auth.setSession({
+                        await supabaseAsAdmin.auth.setSession({
                             access_token: accessToken,
                             refresh_token: refreshToken,
                         });

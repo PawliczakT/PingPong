@@ -1,10 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-// Assuming useAuth hook to get current user ID for checking if user reacted
-// import { useAuth } from '@/store/authStore';
-// Assuming tRPC hook for adding/removing reactions
-// import { trpc } from '@/lib/trpc';
 
 export interface ReactionsData {
   [emoji: string]: string[]; // emoji: list of user_ids who reacted with it

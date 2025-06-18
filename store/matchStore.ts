@@ -1,15 +1,16 @@
 import {create} from "zustand";
 import {Achievement, HeadToHead, Match, Set} from "@/backend/types";
 import {usePlayerStore} from "./playerStore";
-import { dispatchSystemNotification } from '@/backend/server/trpc/services/notificationService'; // Using path alias
+import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
 import {
     sendAchievementNotification,
     sendMatchResultNotification,
     sendRankingChangeNotification
 } from "./notificationStore";
 import {calculateEloRating} from "@/utils/elo";
-import {supabase} from "@/lib/supabase";
+import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
 import {useEffect} from "react";
+import {Json} from "@/backend/types/supabase";
 
 interface MatchState {
     matches: Match[];
@@ -59,13 +60,13 @@ export const useMatchStore = create<MatchState>()(
                     winner === player1Id
                 );
 
-                const {data, error: insertError} = await supabase.from('matches').insert([
+                const {data, error: insertError} = await supabaseAsAdmin.from('matches').insert([
                     {
                         player1_id: player1Id,
                         player2_id: player2Id,
                         player1_score: player1Score,
                         player2_score: player2Score,
-                        sets: sets,
+                        sets: sets as unknown as Json,
                         winner: winner,
                         tournament_id: tournamentId,
                         date: new Date().toISOString(),
@@ -80,9 +81,9 @@ export const useMatchStore = create<MatchState>()(
                     player2Id: data.player2_id,
                     player1Score: data.player1_score,
                     player2Score: data.player2_score,
-                    sets: data.sets,
+                    sets: data.sets as unknown as Set[],
                     winner: data.winner,
-                    winnerId: data.winner,
+                    winnerId: parseInt(data.winner, 10),
                     date: data.date,
                     tournamentId: data.tournament_id,
                 };
@@ -117,18 +118,20 @@ export const useMatchStore = create<MatchState>()(
 
                 // Dispatch system notification for chat
                 try {
-                  if (newMatch && updatedPlayer1 && updatedPlayer2) {
-                    const winnerNickname = newMatch.winnerId === updatedPlayer1.id ? updatedPlayer1.nickname : updatedPlayer2.nickname;
-                    const opponentNickname = newMatch.winnerId === updatedPlayer1.id ? updatedPlayer2.nickname : updatedPlayer1.nickname;
-                    await dispatchSystemNotification('match_won', {
-                      notification_type: 'match_won',
-                      winnerNickname,
-                      opponentNickname,
-                      matchId: newMatch.id,
-                    });
-                  }
+                    if (newMatch && updatedPlayer1 && updatedPlayer2) {
+                        const winnerIdStr = String(newMatch.winnerId);
+                        const winnerNickname = winnerIdStr === updatedPlayer1.id ? updatedPlayer1.nickname : updatedPlayer2.nickname;
+                        const opponentNickname = winnerIdStr === updatedPlayer1.id ? updatedPlayer2.nickname : updatedPlayer1.nickname;
+
+                        await dispatchSystemNotification('match_won', {
+                            notification_type: 'match_won',
+                            winnerNickname,
+                            opponentNickname,
+                            matchId: newMatch.id,
+                        });
+                    }
                 } catch (error) {
-                  console.warn("Non-critical error in addMatch [dispatchSystemNotification]:", error);
+                    console.warn("Non-critical error in addMatch [dispatchSystemNotification]:", error);
                 }
 
                 try {
@@ -260,7 +263,7 @@ export const useMatchStore = create<MatchState>()(
 export const fetchMatchesFromSupabase = async () => {
     useMatchStore.setState({isLoading: true, error: null});
     try {
-        const {data, error} = await supabase.from('matches').select('*');
+        const {data, error} = await supabaseAsAdmin.from('matches').select('*');
         if (error) throw error;
         const matches: Match[] = data.map((item: any) => ({
             id: item.id,
@@ -285,7 +288,7 @@ export const fetchMatchesFromSupabase = async () => {
 
 export const useMatchesRealtime = () => {
     useEffect(() => {
-        const channel = supabase
+        const channel = supabaseAsAdmin
             .channel('matches-changes')
             .on(
                 'postgres_changes',
@@ -298,7 +301,7 @@ export const useMatchesRealtime = () => {
             )
             .subscribe();
         return () => {
-            supabase.removeChannel(channel).catch(e =>
+            supabaseAsAdmin.removeChannel(channel).catch(e =>
                 console.error("Error removing matches channel:", e));
         };
     }, []);

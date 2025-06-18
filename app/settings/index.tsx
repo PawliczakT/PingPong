@@ -3,8 +3,8 @@ import {ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View} from 'reac
 import {useSettingsStore} from '@/store/settingsStore';
 import {useAuthStore} from '@/store/authStore';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {Bell, Info, LogOut, Moon, Shield, Wifi, User} from 'lucide-react-native'; // Added User icon
-import { Link } from 'expo-router'; // Added Link
+import {Bell, Info, LogOut, Moon, Shield, Wifi, User} from 'lucide-react-native';
+import { Link } from 'expo-router';
 
 export default function SettingsScreen() {
     const {

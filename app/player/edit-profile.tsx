@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, View,} from 'react-native';
-import {trpc} from '@/lib/trpc';
+import {trpc} from '@/backend/lib/trpc';
 import Button from '@/components/Button';
 import PlayerAvatar from '@/components/PlayerAvatar';
 
@@ -10,7 +10,7 @@ export default function EditProfileScreen() {
         isLoading: isLoadingProfile,
         error: profileError,
         refetch
-    } = trpc.player.getProfile.useQuery(undefined, {
+    } = trpc.player.getMyProfile.useQuery(undefined, {
         // Dodajemy opcje obsługi błędów dla braku profilu
         retry: (failureCount, error) => {
             // Jeśli błąd dotyczy braku profilu, nie próbujemy ponownie
@@ -25,7 +25,7 @@ export default function EditProfileScreen() {
         mutate: updateProfile,
         isPending: isUpdatingProfile,
         error: updateError
-    } = trpc.player.updateProfile.useMutation();
+    } = trpc.player.updateMyProfile.useMutation();
 
     const [name, setName] = useState('');
     const [nickname, setNickname] = useState('');
@@ -36,7 +36,7 @@ export default function EditProfileScreen() {
         if (profile) {
             setName(profile.name || '');
             setNickname(profile.nickname || '');
-            setAvatarUrl(profile.avatarUrl || '');
+            setAvatarUrl(profile.avatar_url || '');
         }
     }, [profile]);
 
@@ -81,7 +81,7 @@ export default function EditProfileScreen() {
                 if (updatedData) {
                     setName(updatedData.name || '');
                     setNickname(updatedData.nickname || '');
-                    setAvatarUrl(updatedData.avatarUrl || '');
+                    setAvatarUrl(updatedData.avatar_url || '');
                 }
                 setTimeout(() => setSuccessMessage(null), 3000);
             },

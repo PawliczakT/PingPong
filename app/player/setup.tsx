@@ -15,7 +15,7 @@ import {useLocalSearchParams, useRouter} from 'expo-router';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAuthStore} from '@/store/authStore';
 import {usePlayerStore} from '@/store/playerStore';
-import {supabase} from '@/lib/supabase';
+import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
 import Button from '@/components/Button';
 import {colors} from '@/constants/colors';
 import {Camera, Image as ImageIcon} from 'lucide-react-native';
@@ -119,7 +119,7 @@ const SetupProfileScreen = () => {
 
         if (!user) {
             Alert.alert('Error', 'User not found');
-            router.replace('/auth/login');
+            router.replace('/(auth)/login');
             return;
         }
 
@@ -139,7 +139,7 @@ const SetupProfileScreen = () => {
                     type: 'image/jpeg',
                 });
 
-                const {data: uploadData, error: uploadError} = await supabase.storage
+                const {data: uploadData, error: uploadError} = await supabaseAsAdmin.storage
                     .from('avatars')
                     .upload(fileName, formData, {
                         cacheControl: '3600',
@@ -148,7 +148,7 @@ const SetupProfileScreen = () => {
 
                 if (uploadError) throw uploadError;
 
-                const {data: publicUrlData} = supabase.storage
+                const {data: publicUrlData} = supabaseAsAdmin.storage
                     .from('avatars')
                     .getPublicUrl(fileName);
 

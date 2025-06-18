@@ -12,7 +12,7 @@ import {
 import {usePlayerStore} from "./playerStore";
 import {useTournamentStore} from "./tournamentStore";
 import {achievements as allAchievementDefinitions} from "@/constants/achievements";
-import {supabase} from "@/lib/supabase";
+import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
 import {useEffect} from "react";
 import {useMatchStore} from "./matchStore";
 
@@ -110,7 +110,7 @@ export const useAchievementStore = create<AchievementState>()(
             if (!achievementDef) return null;
             set({isLoading: true, error: null});
             try {
-                const {error} = await supabase.from('achievements').upsert({
+                const {error} = await supabaseAsAdmin.from('achievements').upsert({
                     player_id: playerId,
                     type: achievementType,
                     progress: achievementDef.target,
@@ -572,7 +572,7 @@ export const useAchievementStore = create<AchievementState>()(
 export const fetchAchievementsFromSupabase = async () => {
     useAchievementStore.setState({isLoading: true, error: null});
     try {
-        const {data, error} = await supabase.from('achievements').select('*');
+        const {data, error} = await supabaseAsAdmin.from('achievements').select('*');
         if (error) throw error;
         const playerAchievements: Record<string, AchievementProgress[]> = {};
         data.forEach((item: any) => {
@@ -595,7 +595,7 @@ export const fetchAchievementsFromSupabase = async () => {
 
 export const useAchievementsRealtime = () => {
     useEffect(() => {
-        const channel = supabase
+        const channel = supabaseAsAdmin
             .channel('achievements-changes')
             .on(
                 'postgres_changes',
@@ -608,7 +608,7 @@ export const useAchievementsRealtime = () => {
             )
             .subscribe();
         return () => {
-            supabase.removeChannel(channel).catch((e) => {
+            supabaseAsAdmin.removeChannel(channel).catch((e) => {
                 console.error("Error removing channel:", e);
             });
         };

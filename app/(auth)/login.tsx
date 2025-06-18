@@ -1,7 +1,7 @@
 import React from 'react';
 import {ActivityIndicator, SafeAreaView, StyleSheet, Text, View} from 'react-native';
-import Button from '../../components/Button'; // Adjusted path
-import {useAuthStore} from '@/store/authStore'; // Adjusted path
+import Button from '../../components/Button';
+import {useAuthStore} from '@/store/authStore';
 
 export default function LoginScreen() {
 // Use individual selectors to prevent unnecessary re-renders

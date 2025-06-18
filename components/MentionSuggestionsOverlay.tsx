@@ -35,7 +35,7 @@ const MentionSuggestionsOverlay: React.FC<MentionSuggestionsOverlayProps> = ({
       accessibilityLabel={`Select mention ${item.nickname}`}
       accessibilityRole="button"
     >
-      <PlayerAvatar source={{ uri: item.avatar_url }} size={24} />
+      <PlayerAvatar avatarUrl={item.avatar_url} name={item.nickname} size={24} />
       <Text style={[styles.nicknameText, { color: colors.text }]}>{item.nickname}</Text>
     </TouchableOpacity>
   );

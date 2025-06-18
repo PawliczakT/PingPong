@@ -25,7 +25,7 @@ ios
 *.tsbuildinfo
 .turbo
 
-# Media 
+# Media
 assets/videos/*
 assets/large-images/*
 
@@ -52,7 +52,6 @@ Thumbs.db
 
 # Credentials
 credentials/
-*.json
 *.key
 *.p8
 *.p12
@@ -60,3 +59,4 @@ credentials/
 *.keystore
 pingpong-d4f52-firebase-adminsdk-fbsvc-380b824200.json
 google-services.json
+*.jks

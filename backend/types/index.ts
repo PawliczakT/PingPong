@@ -197,6 +197,7 @@ export enum AchievementType {
 }
 
 export interface Achievement {
+    id: string;
     progress: number;
     unlocked: boolean;
     type: AchievementType;

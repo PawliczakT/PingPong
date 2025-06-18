@@ -7,7 +7,7 @@ import {usePlayerStore} from "@/store/playerStore";
 import Button from "@/components/Button";
 import {pickAndProcessAvatarWithAWS} from "@/utils/imageUpload";
 import {Image as ExpoImage} from "expo-image";
-import {supabase} from "@/lib/supabase";
+import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
 
 export default function CreatePlayerScreen() {
     const router = useRouter();
@@ -60,7 +60,7 @@ export default function CreatePlayerScreen() {
 
         try {
             // Pobierz aktualnego użytkownika
-            const {data: {user}} = await supabase.auth.getUser();
+            const {data: {user}} = await supabaseAsAdmin.auth.getUser();
 
             if (!user) {
                 Alert.alert("Error", "User not authenticated");
@@ -81,7 +81,7 @@ export default function CreatePlayerScreen() {
             };
 
             // Utworzenie profilu gracza
-            const {data: createdPlayer, error} = await supabase
+            const {data: createdPlayer, error} = await supabaseAsAdmin
                 .from('players')
                 .insert(player)
                 .select()
@@ -95,7 +95,11 @@ export default function CreatePlayerScreen() {
             }
 
             // Ustaw profil w store
-            addPlayer(createdPlayer);
+            await addPlayer(
+                createdPlayer.name,
+                createdPlayer.nickname,
+                createdPlayer.avatar_url
+            );
 
             // Przekieruj na stronę główną
             router.replace("/(tabs)");

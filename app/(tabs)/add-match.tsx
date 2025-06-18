@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import {Alert, Platform, ScrollView, StyleSheet, Text, View} from "react-native";
-import {useRouter, Link} from "expo-router"; // Added Link
+import {useRouter, Link} from "expo-router";
 import {PlusCircle} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
@@ -13,7 +13,7 @@ import SetScoreInput from "@/components/SetScoreInput";
 import Button from "@/components/Button";
 import NetworkStatusBar from "@/components/NetworkStatusBar";
 import * as Haptics from "expo-haptics";
-import { useAuthStore } from "@/store/authStore"; // Added useAuthStore
+import { useAuthStore } from "@/store/authStore";
 
 export default function AddMatchScreen() {
     const router = useRouter();
@@ -162,7 +162,7 @@ export default function AddMatchScreen() {
                     <Text style={styles.loginPromptText}>
                         Please log in to record a match.
                     </Text>
-                    <Link href="/auth/login" asChild>
+                    <Link href="/(auth)/login" asChild>
                         <Button
                             title="Log In"
                             style={styles.loginButton}

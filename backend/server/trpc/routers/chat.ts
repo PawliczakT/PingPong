@@ -2,7 +2,7 @@
 import {z} from 'zod';
 import {TRPCError} from '@trpc/server';
 import {protectedProcedure, publicProcedure, router,} from '../init';
-import {supabaseAsAdmin} from '../../lib/supabase';
+import {supabaseAsAdmin} from '../../lib/supabaseAdmin';
 import {CHAT_MESSAGE_PAGE_SIZE} from '@/constants';
 import {
     dispatchSystemNotification,
