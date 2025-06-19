@@ -2,7 +2,7 @@
 import {create} from "zustand";
 import {Player} from "@/backend/types";
 import {getInitialEloRating} from "@/utils/elo";
-import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {supabase} from '@/backend/server/lib/supabase';
 import {useEffect} from "react";
 import {getRankByWins, Rank} from "@/constants/ranks";
 import {trpcClient} from '@/backend/lib/trpc';
@@ -38,7 +38,7 @@ export const usePlayerStore = create<PlayerState>()(
                     set({isLoading: false, error: errMsg});
                     throw new Error(errMsg);
                 }
-                const {data, error} = await supabaseAsAdmin.from('players').insert([
+                const {data, error} = await supabase.from('players').insert([
                     {
                         name,
                         nickname,
@@ -96,7 +96,7 @@ export const usePlayerStore = create<PlayerState>()(
         updatePlayer: async (updatedPlayer) => {
             set({isLoading: true, error: null});
             try {
-                const {error} = await supabaseAsAdmin.from('players').update({
+                const {error} = await supabase.from('players').update({
                     name: updatedPlayer.name,
                     nickname: updatedPlayer.nickname,
                     avatar_url: updatedPlayer.avatarUrl,
@@ -124,7 +124,7 @@ export const usePlayerStore = create<PlayerState>()(
         deactivatePlayer: async (playerId) => {
             set({isLoading: true, error: null});
             try {
-                const {error} = await supabaseAsAdmin.from('players').update({
+                const {error} = await supabase.from('players').update({
                     active: false,
                     updated_at: new Date().toISOString(),
                 }).eq('id', playerId);
@@ -156,7 +156,7 @@ export const usePlayerStore = create<PlayerState>()(
         updatePlayerRating: async (playerId, newRating) => {
             set({isLoading: true, error: null});
             try {
-                const {error} = await supabaseAsAdmin.from('players').update({
+                const {error} = await supabase.from('players').update({
                     elo_rating: newRating,
                     updated_at: new Date().toISOString(),
                 }).eq('id', playerId);
@@ -205,7 +205,7 @@ export const usePlayerStore = create<PlayerState>()(
                     }
                 }
 
-                const {error} = await supabaseAsAdmin.from('players').update({
+                const {error} = await supabase.from('players').update({
                     wins: newWins,
                     losses: newLosses,
                     updated_at: new Date().toISOString(),
@@ -240,7 +240,7 @@ export const usePlayerStore = create<PlayerState>()(
 export const fetchPlayersFromSupabase = async () => {
     usePlayerStore.setState({isLoading: true, error: null});
     try {
-        const {data, error} = await supabaseAsAdmin.from('players').select('*');
+        const {data, error} = await supabase.from('players').select('*');
         if (error) throw error;
         const players: Player[] = data.map((item: any) => ({
             id: item.id,
@@ -266,7 +266,7 @@ export const fetchPlayersFromSupabase = async () => {
 
 export const usePlayersRealtime = () => {
     useEffect(() => {
-        const channel = supabaseAsAdmin
+        const channel = supabase
             .channel('players-changes')
             .on('postgres_changes', {event: '*', schema: 'public', table: 'players'},
                 () => {
@@ -277,7 +277,7 @@ export const usePlayersRealtime = () => {
             )
             .subscribe();
         return () => {
-            supabaseAsAdmin.removeChannel(channel).catch(r =>
+            supabase.removeChannel(channel).catch(r =>
                 console.error("Error removing players channel:", r));
         };
     }, []);

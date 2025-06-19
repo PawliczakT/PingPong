@@ -13,7 +13,7 @@ import {
 import {Stack, useRouter} from 'expo-router';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAuthStore} from '@/store/authStore';
-import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {supabase} from '@/backend/server/lib/supabase';
 import Button from '@/components/Button';
 import {colors} from '@/constants/colors';
 import {Bell, Camera, Image as ImageIcon, LogOut, Pencil, User} from 'lucide-react-native';
@@ -114,7 +114,7 @@ export default function ProfileScreen() {
             const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
             const fileName = `${user.id}_${Date.now()}.${fileExt}`;
 
-            const {data, error} = await supabaseAsAdmin.storage
+            const {data, error} = await supabase.storage
                 .from('avatars')
                 .upload(fileName, decode(base64Data), {
                     contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
@@ -126,11 +126,11 @@ export default function ProfileScreen() {
                 throw error;
             }
 
-            const {data: {publicUrl}} = supabaseAsAdmin.storage
+            const {data: {publicUrl}} = supabase.storage
                 .from('avatars')
                 .getPublicUrl(fileName);
 
-            const {data: updatedPlayerData, error: updateError} = await supabaseAsAdmin
+            const {data: updatedPlayerData, error: updateError} = await supabase
                 .from('players')
                 .update({
                     avatar_url: publicUrl,
@@ -178,7 +178,7 @@ export default function ProfileScreen() {
 
                 // Jeśli nie ma w store, sprawdź w bazie
                 if (!foundPlayer) {
-                    const {data, error} = await supabaseAsAdmin
+                    const {data, error} = await supabase
                         .from('players')
                         .select('*')
                         .eq('user_id', user.id)
@@ -267,7 +267,7 @@ export default function ProfileScreen() {
             setLoadingProfile(true);
 
             if (isNewUser) {
-                const {data: existingCheck} = await supabaseAsAdmin
+                const {data: existingCheck} = await supabase
                     .from('players')
                     .select('id')
                     .eq('user_id', user.id)
@@ -297,12 +297,12 @@ export default function ProfileScreen() {
             console.log('Saving player data:', playerData);
 
             const {data, error} = isNewUser
-                ? await supabaseAsAdmin
+                ? await supabase
                     .from('players')
                     .insert(playerData)
                     .select()
                     .single()
-                : await supabaseAsAdmin
+                : await supabase
                     .from('players')
                     .update(playerData)
                     .eq('id', currentPlayer.id)

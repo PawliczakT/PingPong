@@ -4,7 +4,6 @@ import {useAuth} from '@/store/authStore';
 export default function AuthLayout() {
     const {user} = useAuth();
 
-    // If user is already logged in, redirect to home
     if (user) {
         return <Redirect href="/(tabs)"/>;
     }
@@ -16,7 +15,8 @@ export default function AuthLayout() {
                 contentStyle: {backgroundColor: '#fff'},
             }}
         >
-            <Stack.Screen name="login"/>
+            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen name="callback" options={{ headerShown: false }} />
         </Stack>
     );
 }

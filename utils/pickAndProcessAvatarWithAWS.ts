@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import {Alert, Platform} from 'react-native';
-import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {supabase} from '@/backend/server/lib/supabase';
 
 interface ProcessAvatarResult {
     canceled: boolean;
@@ -56,7 +56,7 @@ export async function pickAndProcessAvatarWithAWS(): Promise<ProcessAvatarResult
             console.log('AWS recognition: base64 length', asset.base64?.length);
 
             // Call Supabase Edge Function to process the image with AWS
-            const {data: functionData, error: functionError} = await supabaseAsAdmin.functions.invoke(
+            const {data: functionData, error: functionError} = await supabase.functions.invoke(
                 'process-avatar',
                 {
                     body: {

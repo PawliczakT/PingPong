@@ -1,3 +1,4 @@
+//store/authStore.ts
 import {create} from 'zustand';
 import {Session, User} from '@supabase/supabase-js';
 import {signInWithGoogle, signOut as supabaseSignOut, supabase} from '@/backend/server/lib/supabase';
