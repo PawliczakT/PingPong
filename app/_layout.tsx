@@ -1,3 +1,4 @@
+//app/_layout.tsx
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {useFonts} from "expo-font";
 import {Stack, useRootNavigationState, useRouter} from "expo-router";
@@ -5,32 +6,23 @@ import * as SplashScreen from "expo-splash-screen";
 import React, {useCallback, useEffect, useState} from "react";
 import {Linking, Platform} from "react-native";
 import {ErrorBoundary} from "./error-boundary";
-import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {trpc, trpcClient} from "@/backend/lib/trpc";
-import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {supabase} from '@/backend/server/lib/supabase';
 import {useAuth} from "@/store/authStore";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";
 import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
 import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
 import {useNotificationsRealtime, useNotificationStore} from "@/store/notificationStore";
-import LogRocket from '@logrocket/react-native';
-import * as Updates from 'expo-updates';
 
 const queryClient = new QueryClient();
 SplashScreen.preventAutoHideAsync().catch((e) => console.warn("SplashScreen error:", e));
-
-let refreshProfileState: (() => void) | null = null;
-export const triggerProfileRefresh = () => {
-    if (refreshProfileState) refreshProfileState();
-};
 
 export default function RootLayout() {
     const router = useRouter();
     const navigationState = useRootNavigationState();
     const [loaded, fontError] = useFonts({...FontAwesome.font});
-    const {checkNetworkStatus, syncPendingMatches} = useNetworkStore();
     const {user, isInitialized, isLoading} = useAuth();
     const [hasProfile, setHasProfile] = useState<boolean | null>(null);
     const [isCheckingProfile, setIsCheckingProfile] = useState(true);
@@ -43,153 +35,89 @@ export default function RootLayout() {
         }
         setIsCheckingProfile(true);
         try {
-            const {
-                data: existingPlayer,
-                error
-            } = await supabaseAsAdmin.from('players').select('id').eq('user_id', user.id).maybeSingle();
+            const {data: existingPlayer, error} = await supabase
+                .from('players')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle();
             if (error) throw error;
             setHasProfile(!!existingPlayer);
         } catch (error) {
-            console.error('Layout: Error checking profile:', error instanceof Error ? error.message : String(error));
+            console.error('Layout: Error checking profile:', error);
             setHasProfile(false);
         } finally {
             setIsCheckingProfile(false);
         }
     }, [user]);
 
-    // Set up the refresh profile function that can be called from outside
     useEffect(() => {
-        refreshProfileState = () => {
-            setIsCheckingProfile(true);
-            checkProfile();
-        };
-        return () => {
-            refreshProfileState = null;
-        };
-    }, [checkProfile]);
-
-    useEffect(() => {
-        if (isInitialized) {
-            checkProfile();
-        }
-    }, [user, isInitialized, checkProfile]);
-
-    useEffect(() => {
-        LogRocket.init('y1vslm/pingpong', {
-            updateId: Updates.isEmbeddedLaunch ? null : Updates.updateId,
-            expoChannel: Updates.channel,
-        });
-        if (user) {
-            LogRocket.identify(user.id, {
-                name: user.email ?? 'Użytkownik bez emaila',
-                email: user.email ?? 'brak@email.com'
-            });
-        }
-    }, [user]);
-
-    useEffect(() => {
-        const handleWebAuthCallback = () => {
-            if (Platform.OS === 'web') {
-                const hash = window.location.hash;
-                if (hash) {
-                    const params = new URLSearchParams(hash.replace('#', ''));
-                    const accessToken = params.get('access_token');
-                    const refreshToken = params.get('refresh_token');
-                    if (accessToken && refreshToken) {
-                        supabaseAsAdmin.auth.setSession({
-                            access_token: accessToken,
-                            refresh_token: refreshToken
-                        }).then(() => {
-                            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-                        });
-                    }
+        if (Platform.OS === 'web') {
+            const hash = window.location.hash;
+            if (hash) {
+                const params = new URLSearchParams(hash.replace('#', ''));
+                const accessToken = params.get('access_token');
+                const refreshToken = params.get('refresh_token');
+                if (accessToken && refreshToken) {
+                    supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    }).then(() => {
+                        window.history.replaceState({}, document.title,
+                            window.location.pathname + window.location.search);
+                    });
                 }
             }
-        };
-
-        handleWebAuthCallback();
+        }
     }, []);
 
     useEffect(() => {
         const handleDeepLink = async (event: { url: string }) => {
+            if (Platform.OS === 'web') return;
+
             const url = new URL(event.url);
             const path = url.pathname;
 
             try {
-                if (path.startsWith('/reset-password')) {
-                    // Handle password reset
-                    const accessToken = url.searchParams.get('access_token');
-                    const refreshToken = url.searchParams.get('refresh_token');
+                if (path.includes('/auth/callback')) {
+                    const accessToken = url.searchParams.get('access_token') ||
+                        new URLSearchParams(url.hash.substring(1)).get('access_token');
+                    const refreshToken = url.searchParams.get('refresh_token') ||
+                        new URLSearchParams(url.hash.substring(1)).get('refresh_token');
+
                     if (accessToken && refreshToken) {
-                        await supabaseAsAdmin.auth.setSession({
+                        await supabase.auth.setSession({
                             access_token: accessToken,
                             refresh_token: refreshToken,
                         });
-                        // Use a valid route that exists in your app
+                        router.replace('/(tabs)');
+                    }
+                    return;
+                }
+
+                if (path.startsWith('/reset-password')) {
+                    const accessToken = url.searchParams.get('access_token');
+                    const refreshToken = url.searchParams.get('refresh_token');
+                    if (accessToken && refreshToken) {
+                        await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken,
+                        });
                         router.replace('/');
                     }
-                } else if (path.startsWith('/auth/')) {
-                    // Handle auth deep links - ensure the path is valid
-                    const authPath = path.replace(/^\/auth\//, '/(auth)/');
-                    router.replace(authPath as any); // Type assertion as a last resort
                 }
             } catch (error) {
                 console.error('Error handling deep link:', error);
-                // Redirect to a safe route on error
-                router.replace('/');
+                router.replace('/(auth)/login');
             }
         };
 
         const subscription = Linking.addEventListener('url', handleDeepLink);
-
-        // Check initial URL in case the app was opened with a deep link
         Linking.getInitialURL().then(url => {
-            if (url) {
-                handleDeepLink({url});
-            }
+            if (url) handleDeepLink({url});
         });
 
-        return () => {
-            subscription.remove();
-        };
+        return () => subscription.remove();
     }, [router]);
-
-    useEffect(() => {
-        const initializeNetwork = async () => {
-            const isOnline = await checkNetworkStatus();
-            if (isOnline) await syncPendingMatches();
-        };
-        initializeNetwork();
-        const interval = setInterval(async () => {
-            try {
-                const isOnline = await checkNetworkStatus();
-                if (isOnline) {
-                    await syncPendingMatches();
-                }
-            } catch (err) {
-                console.error("Error during periodic network check/sync:", err);
-            }
-        }, 60000);
-        return () => clearInterval(interval);
-    }, [checkNetworkStatus, syncPendingMatches]);
-
-    // Set up network status check interval
-    useEffect(() => {
-        checkNetworkStatus();
-        const networkInterval = setInterval(checkNetworkStatus, 30000);
-        return () => clearInterval(networkInterval);
-    }, [checkNetworkStatus]);
-
-    // Set up the refresh profile function that can be called from outside
-    useEffect(() => {
-        refreshProfileState = () => {
-            setIsCheckingProfile(true);
-            checkProfile();
-        };
-        return () => {
-            refreshProfileState = null;
-        };
-    }, [checkProfile]);
 
     useEffect(() => {
         if (isInitialized) {
@@ -215,12 +143,10 @@ export default function RootLayout() {
         }
     }, [user]);
 
-    // Handle navigation based on auth state and profile status
     useEffect(() => {
         const isFontsReady = loaded || fontError;
         const canNavigate = navigationState?.key;
 
-        // Log navigation state for debugging
         console.log("--- NAVIGATE CHECK ---", {
             isFontsReady,
             canNavigate: !!canNavigate,
@@ -231,11 +157,9 @@ export default function RootLayout() {
             hasProfile,
         });
 
-        // Hide splash screen when everything is ready
         if (isFontsReady && canNavigate && isInitialized && !isLoading && !isCheckingProfile) {
             SplashScreen.hideAsync().catch(e => console.warn("SplashScreen.hideAsync error:", e));
 
-            // Handle navigation based on auth state
             if (user) {
                 // User is logged in
                 if (hasProfile) {
@@ -256,19 +180,13 @@ export default function RootLayout() {
         }
     }, [loaded, fontError, isInitialized, isLoading, navigationState?.key, user, hasProfile, isCheckingProfile, router]);
 
-
     return (
         <ErrorBoundary>
             <trpc.Provider client={trpcClient} queryClient={queryClient}>
                 <QueryClientProvider client={queryClient}>
                     <Stack screenOptions={{headerBackTitle: "Back", headerShadowVisible: false}}>
-                        {/* Auth group - handles all authentication related screens */}
                         <Stack.Screen name="(auth)" options={{headerShown: false}}/>
-
-                        {/* Main app tabs */}
                         <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
-
-                        {/* Profile setup */}
                         <Stack.Screen
                             name="player/setup"
                             options={{

@@ -3,7 +3,6 @@ import {createClient} from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import {Database} from '../../types/supabase';
 
-// Get the Supabase URL and service key from environment variables or Expo config
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || Constants.expoConfig?.extra?.supabaseUrl;
 const supabaseServiceKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY || Constants.expoConfig?.extra?.supabaseServiceKey;
 

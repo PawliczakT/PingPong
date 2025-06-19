@@ -1,5 +1,5 @@
 import {create} from 'zustand';
-import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {supabase} from '@/backend/server/lib/supabase';
 import {v4 as uuidv4} from 'uuid';
 import type {Set as MatchSet} from '@/backend/types';
 import {Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
@@ -236,7 +236,7 @@ async function generateKnockoutPhase(tournamentId: string, qualifiedPlayers: str
         matchIdMatrix.push(currRoundMatches);
     }
 
-    const {error: mErr} = await supabaseAsAdmin.from('tournament_matches').insert(
+    const {error: mErr} = await supabase.from('tournament_matches').insert(
         matchesToInsert.map(match => ({
             ...match,
             sets: match.sets ? JSON.stringify(match.sets) : null,
@@ -252,7 +252,7 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
 
     try {
         // Fetch tournament data
-        const {data: tournamentData, error: tournamentError} = await supabaseAsAdmin
+        const {data: tournamentData, error: tournamentError} = await supabase
             .from('tournaments')
             .select('*, tournament_matches(*)')
             .eq('id', tournamentId)
@@ -391,7 +391,7 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
                 // Update tournament winner with a delay to avoid blocking the main thread
                 const {error} = await new Promise<{ error?: any }>((resolve) => {
                     setTimeout(async () => {
-                        const result = await supabaseAsAdmin
+                        const result = await supabase
                             .from('tournaments')
                             .update({
                                 winner_id: winner.playerId,
@@ -435,7 +435,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                 const groupMatches = get().getTournamentMatches(tournamentId).filter(m => m.round === 1);
 
-                const {data: participantsData, error: pErr} = await supabaseAsAdmin
+                const {data: participantsData, error: pErr} = await supabase
                     .from('tournament_participants')
                     .select('player_id')
                     .eq('tournament_id', tournamentId);
@@ -497,7 +497,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         set({loading: true, error: null});
 
         try {
-            const {data: rawTournaments, error} = await supabaseAsAdmin
+            const {data: rawTournaments, error} = await supabase
                 .from('tournaments')
                 .select(`
                     id, name, date, format, status, winner_id, created_at, updated_at,
@@ -599,7 +599,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             let finalName = name?.trim();
             if (!finalName) {
                 // Get existing tournaments to find the next number
-                const {data: existingTournaments, error: fetchErr} = await supabaseAsAdmin
+                const {data: existingTournaments, error: fetchErr} = await supabase
                     .from('tournaments')
                     .select('name')
                     .ilike('name', 'Tournament %');
@@ -623,7 +623,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 }
             }
 
-            const {data: tData, error: tErr} = await supabaseAsAdmin
+            const {data: tData, error: tErr} = await supabase
                 .from('tournaments')
                 .insert({name: finalName, date, format, status: 'pending'})
                 .select()
@@ -638,9 +638,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 tournament_id: tournamentId!,
                 player_id: pid
             }));
-            const {error: pErr} = await supabaseAsAdmin.from('tournament_participants').insert(participantsRows);
+            const {error: pErr} = await supabase.from('tournament_participants').insert(participantsRows);
             if (pErr) {
-                await supabaseAsAdmin.from('tournaments').delete().eq('id', tournamentId);
+                await supabase.from('tournaments').delete().eq('id', tournamentId);
                 throw pErr;
             }
 
@@ -652,8 +652,8 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         } catch (error: any) {
             console.error("Create Tournament Error:", error);
             if (tournamentId) {
-                await supabaseAsAdmin.from('tournament_participants').delete().eq('tournament_id', tournamentId);
-                await supabaseAsAdmin.from('tournaments').delete().eq('id', tournamentId);
+                await supabase.from('tournament_participants').delete().eq('tournament_id', tournamentId);
+                await supabase.from('tournaments').delete().eq('id', tournamentId);
             }
             set({loading: false, error: error.message || 'Failed to create tournament'});
             console.log('[STORE] set loading: false (catch createTournament)');
@@ -671,7 +671,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             if (!existingTournament) throw new Error(`Tournament ${tournamentId} not found.`);
             if (existingTournament.status !== 'pending') throw new Error(`Tournament ${tournamentId} is not in pending state.`);
 
-            const {data: participantsData, error: pFetchErr} = await supabaseAsAdmin
+            const {data: participantsData, error: pFetchErr} = await supabase
                 .from('tournament_participants')
                 .select('player_id')
                 .eq('tournament_id', tournamentId);
@@ -720,11 +720,11 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     next_match_id: null,
                 }));
 
-                const {error: mErr} = await supabaseAsAdmin.from('tournament_matches').insert(matchesToInsert);
+                const {error: mErr} = await supabase.from('tournament_matches').insert(matchesToInsert);
                 if (mErr) throw mErr;
                 generatedMatchesInserted = true;
 
-                const {error: statusErr} = await supabaseAsAdmin
+                const {error: statusErr} = await supabase
                     .from('tournaments')
                     .update({status: 'active'})
                     .eq('id', tournamentId);
@@ -753,7 +753,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     group: match.group
                 }));
 
-                const {error: mErr} = await supabaseAsAdmin.from('tournament_matches').insert(
+                const {error: mErr} = await supabase.from('tournament_matches').insert(
                     matchesToInsert.map(match => ({
                         ...match,
                         sets: match.sets ? JSON.stringify(match.sets) : null,
@@ -762,7 +762,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 if (mErr) throw mErr;
                 generatedMatchesInserted = true;
 
-                const {error: statusErr} = await supabaseAsAdmin
+                const {error: statusErr} = await supabase
                     .from('tournaments')
                     .update({status: 'active'})
                     .eq('id', tournamentId);
@@ -848,7 +848,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     matchIdMatrix.push(currRoundMatches);
                 }
 
-                const {error: mErr} = await supabaseAsAdmin.from('tournament_matches').insert(
+                const {error: mErr} = await supabase.from('tournament_matches').insert(
                     matchesToInsert.map(match => ({
                         ...match,
                         sets: match.sets ? JSON.stringify(match.sets) : null,
@@ -857,7 +857,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 if (mErr) throw mErr;
                 generatedMatchesInserted = true;
 
-                const {error: statusErr} = await supabaseAsAdmin
+                const {error: statusErr} = await supabase
                     .from('tournaments')
                     .update({status: 'active'})
                     .eq('id', tournamentId);
@@ -871,7 +871,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         } catch (error: any) {
             console.error("Generate and Start Tournament Error:", error);
             if (generatedMatchesInserted) {
-                await supabaseAsAdmin.from('tournament_matches').delete().eq('tournament_id', tournamentId);
+                await supabase.from('tournament_matches').delete().eq('tournament_id', tournamentId);
             }
             set({loading: false, error: error.message || 'Failed to generate and start tournament'});
             console.log('[STORE] set loading: false (catch generateAndStartTournament)');
@@ -932,7 +932,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         status: updateData.status as MatchStatus
                     };
 
-                    const result = await supabaseAsAdmin
+                    const result = await supabase
                         .from('tournament_matches')
                         .update(serializedData)
                         .eq('id', matchId);
@@ -985,7 +985,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         // Update next match with a delay
                         await new Promise(resolve => {
                             setTimeout(async () => {
-                                await supabaseAsAdmin
+                                await supabase
                                     .from('tournament_matches')
                                     .update(updateData)
                                     .eq('id', nextMatchId);
@@ -1022,7 +1022,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                             error?: any
                         }>(resolve => {
                             setTimeout(async () => {
-                                const result = await supabaseAsAdmin
+                                const result = await supabase
                                     .from('tournaments')
                                     .select('*, tournament_matches(status)')
                                     .eq('id', tournamentId)
@@ -1123,7 +1123,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         set(state => ({
             tournaments: state.tournaments.map(t => t.id === tournamentId ? {...t, status} : t)
         }));
-        const {error} = await supabaseAsAdmin.from('tournaments').update({status}).eq('id', tournamentId);
+        const {error} = await supabase.from('tournaments').update({status}).eq('id', tournamentId);
         if (error) {
             console.error("DB Status Update Error:", error);
             get().fetchTournaments();
@@ -1152,7 +1152,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             }));
 
             // Then, update the database
-            const {error} = await supabaseAsAdmin.from('tournaments').update({
+            const {error} = await supabase.from('tournaments').update({
                 winner_id: winnerId,
                 status: TournamentStatus.COMPLETED
             }).eq('id', tournamentId);
@@ -1251,7 +1251,7 @@ export function useTournamentsRealtime() {
         };
 
         // Listen for changes in the tournaments table
-        const tournamentsChannel = supabaseAsAdmin
+        const tournamentsChannel = supabase
             .channel('tournaments-changes')
             .on(
                 'postgres_changes',
@@ -1261,7 +1261,7 @@ export function useTournamentsRealtime() {
             .subscribe();
 
         // Listen for changes in the tournament_matches table
-        const matchesChannel = supabaseAsAdmin
+        const matchesChannel = supabase
             .channel('tournament-matches-changes')
             .on(
                 'postgres_changes',
@@ -1271,9 +1271,9 @@ export function useTournamentsRealtime() {
             .subscribe();
 
         return () => {
-            supabaseAsAdmin.removeChannel(tournamentsChannel).catch((e) =>
+            supabase.removeChannel(tournamentsChannel).catch((e) =>
                 console.error("Error removing tournaments channel:", e));
-            supabaseAsAdmin.removeChannel(matchesChannel).catch((e) =>
+            supabase.removeChannel(matchesChannel).catch((e) =>
                 console.error("Error removing matches channel:", e));
         };
     }, []);

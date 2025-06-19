@@ -8,7 +8,7 @@ import {
     sendRankingChangeNotification
 } from "./notificationStore";
 import {calculateEloRating} from "@/utils/elo";
-import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {supabase} from '@/backend/server/lib/supabase';
 import {useEffect} from "react";
 import {Json} from "@/backend/types/supabase";
 
@@ -60,7 +60,7 @@ export const useMatchStore = create<MatchState>()(
                     winner === player1Id
                 );
 
-                const {data, error: insertError} = await supabaseAsAdmin.from('matches').insert([
+                const {data, error: insertError} = await supabase.from('matches').insert([
                     {
                         player1_id: player1Id,
                         player2_id: player2Id,
@@ -263,7 +263,7 @@ export const useMatchStore = create<MatchState>()(
 export const fetchMatchesFromSupabase = async () => {
     useMatchStore.setState({isLoading: true, error: null});
     try {
-        const {data, error} = await supabaseAsAdmin.from('matches').select('*');
+        const {data, error} = await supabase.from('matches').select('*');
         if (error) throw error;
         const matches: Match[] = data.map((item: any) => ({
             id: item.id,
@@ -288,7 +288,7 @@ export const fetchMatchesFromSupabase = async () => {
 
 export const useMatchesRealtime = () => {
     useEffect(() => {
-        const channel = supabaseAsAdmin
+        const channel = supabase
             .channel('matches-changes')
             .on(
                 'postgres_changes',
@@ -301,7 +301,7 @@ export const useMatchesRealtime = () => {
             )
             .subscribe();
         return () => {
-            supabaseAsAdmin.removeChannel(channel).catch(e =>
+            supabase.removeChannel(channel).catch(e =>
                 console.error("Error removing matches channel:", e));
         };
     }, []);

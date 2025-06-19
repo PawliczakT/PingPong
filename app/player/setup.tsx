@@ -15,7 +15,7 @@ import {useLocalSearchParams, useRouter} from 'expo-router';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAuthStore} from '@/store/authStore';
 import {usePlayerStore} from '@/store/playerStore';
-import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {supabase} from '@/backend/server/lib/supabase';
 import Button from '@/components/Button';
 import {colors} from '@/constants/colors';
 import {Camera, Image as ImageIcon} from 'lucide-react-native';
@@ -139,7 +139,7 @@ const SetupProfileScreen = () => {
                     type: 'image/jpeg',
                 });
 
-                const {data: uploadData, error: uploadError} = await supabaseAsAdmin.storage
+                const {data: uploadData, error: uploadError} = await supabase.storage
                     .from('avatars')
                     .upload(fileName, formData, {
                         cacheControl: '3600',
@@ -148,7 +148,7 @@ const SetupProfileScreen = () => {
 
                 if (uploadError) throw uploadError;
 
-                const {data: publicUrlData} = supabaseAsAdmin.storage
+                const {data: publicUrlData} = supabase.storage
                     .from('avatars')
                     .getPublicUrl(fileName);
 

@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
+import {supabase} from '@/backend/server/lib/supabase';
 import {decode} from 'base64-arraybuffer';
 import {manipulateAsync, SaveFormat} from 'expo-image-manipulator';
 import {Platform} from 'react-native';
@@ -608,7 +608,7 @@ export const uploadImageToSupabase = async (
 
         console.log('Uploading image to Supabase bucket: avatars');
 
-        const {data, error} = await supabaseAsAdmin.storage
+        const {data, error} = await supabase.storage
             .from('avatars')
             .upload(fileName, arrayBuffer, {
                 contentType,
@@ -620,7 +620,7 @@ export const uploadImageToSupabase = async (
             return {url: undefined, error: error.message};
         }
 
-        const {data: {publicUrl}} = supabaseAsAdmin.storage.from('avatars').getPublicUrl(fileName);
+        const {data: {publicUrl}} = supabase.storage.from('avatars').getPublicUrl(fileName);
         console.log('Image uploaded successfully, public URL:', publicUrl);
 
         return {url: publicUrl, error: undefined};

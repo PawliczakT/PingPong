@@ -1,3 +1,4 @@
+//app/(auth)/login.tsx
 import React from 'react';
 import {ActivityIndicator, SafeAreaView, StyleSheet, Text, View} from 'react-native';
 import Button from '../../components/Button';
@@ -81,14 +82,14 @@ const styles = StyleSheet.create({
     errorContainer: {
         marginTop: 20,
         padding: 15,
-        backgroundColor: '#FFD2D2', // Light red background for error
+        backgroundColor: '#FFD2D2',
         borderRadius: 8,
         alignItems: 'center',
         width: '100%',
         maxWidth: 300,
     },
     errorText: {
-        color: '#D8000C', // Dark red color for error text
+        color: '#D8000C',
         fontSize: 16,
         textAlign: 'center',
         marginBottom: 10,
