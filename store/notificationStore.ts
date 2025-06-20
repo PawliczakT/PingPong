@@ -18,7 +18,7 @@ export interface NotificationRecord {
     timestamp: string;
     read: boolean;
     data?: any;
-    user_id?: string; // ✅ Dodano user_id dla filtrowania
+    user_id?: string;
 }
 
 interface NotificationState {
@@ -53,7 +53,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
     },
 
-    // ✅ Save timestamp do localStorage/AsyncStorage
     saveClearedTimestamp: async (timestamp: string) => {
         try {
             await AsyncStorage.setItem(CLEARED_TIMESTAMP_KEY, timestamp);
@@ -64,7 +63,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     },
 
     registerForPushNotifications: async () => {
-        // ✅ Dodano check dla web platform
         if (Platform.OS === 'web') {
             console.log('🔔 Push notifications not supported on web');
             return null;
@@ -108,7 +106,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
     },
 
-    // ✅ Poprawiona funkcja z user filtering i cleared timestamp
     fetchNotifications: async (userId) => {
         set({isLoading: true, error: null});
 
@@ -122,12 +119,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
             console.log(`🔔 Fetching notifications for user: ${currentUserId}`);
 
-            // ✅ Load cleared timestamp
             await get().loadClearedTimestamp();
             const clearedTimestamp = get().lastClearedTimestamp;
             console.log('🔔 Cleared timestamp:', clearedTimestamp);
 
-            // ✅ Simple query first - get all user notifications
             let query = supabase
                 .from('notifications')
                 .select('*')
@@ -144,7 +139,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             let notifications = (data || []) as NotificationRecord[];
             console.log(`🔔 Before filtering: ${notifications.length} notifications`);
 
-            // ✅ OPTIONAL timestamp filtering - tylko jeśli timestamp istnieje i jest newer
             if (clearedTimestamp) {
                 console.log('🔔 Filtering by cleared timestamp:', clearedTimestamp);
                 const filteredCount = notifications.length;
@@ -200,13 +194,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         set({isLoading: true, error: null});
 
         try {
-            // ✅ Simplified approach - tylko string lub fallback
             let currentUserId: string | null = null;
 
             if (typeof userId === 'string' && userId.trim()) {
                 currentUserId = userId;
             } else {
-                // Fallback do auth store
                 currentUserId = useAuthStore.getState().user?.id || null;
             }
 
@@ -218,22 +210,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 return;
             }
 
-            // ✅ Timestamp wyczyszczenia
             const clearTimestamp = new Date().toISOString();
             console.log('🔔 Clear timestamp:', clearTimestamp);
-
-            // ✅ Krok 1: Natychmiast wyczyść lokalny stan
             set({notificationHistory: []});
-
-            // ✅ Krok 2: Zapisz user-specific timestamp
             const key = `notifications_cleared_timestamp_${currentUserId}`;
             await AsyncStorage.setItem(key, clearTimestamp);
-            set({ lastClearedTimestamp: clearTimestamp });
+            set({lastClearedTimestamp: clearTimestamp});
             console.log('🔔 Timestamp saved to user-specific storage');
-
-            // ✅ Krok 3: Usuń z bazy
             console.log('🔔 Deleting from database with user_id:', currentUserId);
-
             const {error} = await supabase
                 .from('notifications')
                 .delete()
@@ -256,7 +240,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     },
 
     markAsRead: async (notificationId: string) => {
-        // ✅ Optimistic update
         set(state => ({
             notificationHistory: state.notificationHistory.map(n =>
                 n.id === notificationId ? {...n, read: true} : n
@@ -271,7 +254,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
             if (error) {
                 console.error('Failed to mark notification as read:', error);
-                // Rollback optimistic update
                 set(state => ({
                     notificationHistory: state.notificationHistory.map(n =>
                         n.id === notificationId ? {...n, read: false} : n
@@ -283,7 +265,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
     },
 
-    // ✅ Nowa funkcja markAllAsRead
     markAllAsRead: async (userId?: string | null) => {
         let currentUserId: string | null = null;
 
@@ -298,7 +279,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             return;
         }
 
-        // ✅ Optimistic update
         set(state => ({
             notificationHistory: state.notificationHistory.map(n => ({...n, read: true}))
         }));
@@ -311,8 +291,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
             if (error) {
                 console.error('Failed to mark all notifications as read:', error);
-                // Rollback - refetch notifications
-                // fetchNotifications(currentUserId);
             }
 
             console.log(`🔔 Marked all notifications as read for user ${currentUserId}`);
@@ -323,9 +301,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     },
 }));
 
-// ✅ Poprawiony realtime hook z user filtering
 export const useNotificationsRealtime = () => {
-    const { user } = useAuthStore();
+    const {user} = useAuthStore();
 
     useEffect(() => {
         if (!user?.id) {
@@ -336,19 +313,18 @@ export const useNotificationsRealtime = () => {
         console.log('🔔 🔴 Setting up realtime subscription for user:', user.id);
 
         const channel = supabase
-            .channel(`notifications-realtime-${user.id}`) // ✅ Unique channel name
+            .channel(`notifications-realtime-${user.id}`)
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
                 table: 'notifications',
-                filter: `user_id=eq.${user.id}` // ✅ Filter by user_id
+                filter: `user_id=eq.${user.id}`
             }, (payload) => {
                 console.log('🔔 🔴 REALTIME INSERT RECEIVED:', payload);
                 console.log('🔔 🔴 NEW NOTIFICATION:', payload.new);
 
                 const newNotification = payload.new as NotificationRecord;
 
-                // ✅ Add to store immediately
                 useNotificationStore.setState(state => {
                     const updated = [newNotification, ...state.notificationHistory];
                     console.log('🔔 🔴 Updated notification count:', updated.length);
@@ -414,7 +390,6 @@ export const useNotificationsRealtime = () => {
     }, [user?.id]);
 };
 
-// ✅ Poprawione funkcje wysyłania z user context
 export const sendMatchResultNotification = async (match: Match, player1: Player, player2: Player) => {
     const winner = match.winner === player1.id ? player1 : player2;
     const loser = match.winner === player1.id ? player2 : player1;
@@ -428,7 +403,6 @@ export const sendMatchResultNotification = async (match: Match, player1: Player,
 
     await useNotificationStore.getState().addNotification(notification);
 
-    // ✅ Platform-specific notification
     if (Platform.OS !== 'web') {
         await Notifications.scheduleNotificationAsync({
             content: notification,

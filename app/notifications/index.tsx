@@ -16,7 +16,6 @@ export default function NotificationsScreen() {
     const notificationHistory = useNotificationStore(state => state.notificationHistory);
     const clearHistory = useNotificationStore(state => state.clearHistory);
 
-    // ✅ Debug log
     React.useEffect(() => {
         console.log('🔔 NotificationsScreen render:', {
             isLoading,
@@ -57,7 +56,6 @@ export default function NotificationsScreen() {
         }
     };
 
-    // ✅ Proper clearHistory call with type safety
     const handleClearAll = useCallback(() => {
         console.log('🔔 Clear all notifications clicked');
         if (user?.id) {
@@ -94,7 +92,7 @@ export default function NotificationsScreen() {
             <NotificationsList
                 notifications={notificationsToDisplay}
                 onPress={handleNotificationPress}
-                onClear={handleClearAll} // ✅ Proper type-safe function
+                onClear={handleClearAll}
             />
         </SafeAreaView>
     );
