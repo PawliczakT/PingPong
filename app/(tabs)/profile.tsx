@@ -84,7 +84,6 @@ export default function ProfileScreen() {
     const handleNotificationBadgePress = useCallback(() => {
         console.log('🔔 Notification badge clicked, redirecting to notifications...');
 
-        // ✅ Type-safe call
         if (user?.id) {
             console.log('🔔 Marking all as read for user:', user.id);
             markAllAsRead(user.id);
@@ -201,7 +200,7 @@ export default function ProfileScreen() {
                     justifyContent: 'center',
                     alignItems: 'center',
                     backgroundColor: '#F2F2F7'
-                }}> {/* ✅ Poprawiony backgroundColor */}
+                }}>
                 <ActivityIndicator size="large" color="#007AFF"/>
                 <Text style={{marginTop: 16, fontSize: 16, color: '#666'}}>
                     Loading profile...
@@ -338,9 +337,8 @@ export default function ProfileScreen() {
     }
 
     return (
-        <SafeAreaView style={{flex: 1, backgroundColor: '#F2F2F7'}}> {/* ✅ Poprawiony backgroundColor */}
+        <SafeAreaView style={{flex: 1, backgroundColor: '#F2F2F7'}}>
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Header */}
                 <LinearGradient
                     colors={['#667eea', '#764ba2']}
                     style={{
@@ -362,8 +360,8 @@ export default function ProfileScreen() {
                         </Text>
                         <View style={{flexDirection: 'row', alignItems: 'center'}}>
                             {unreadCount > 0 && (
-                                <TouchableOpacity  // ✅ Zmieniono z View na TouchableOpacity
-                                    onPress={handleNotificationBadgePress} // ✅ Dodano obsługę kliknięcia
+                                <TouchableOpacity
+                                    onPress={handleNotificationBadgePress}
                                     style={{
                                         backgroundColor: '#FF3B30',
                                         borderRadius: 10,
@@ -371,7 +369,7 @@ export default function ProfileScreen() {
                                         paddingVertical: 4,
                                         marginRight: 10
                                     }}
-                                    activeOpacity={0.7} // ✅ Dodano efekt kliknięcia
+                                    activeOpacity={0.7}
                                 >
                                     <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>
                                         {unreadCount}
@@ -473,8 +471,6 @@ export default function ProfileScreen() {
                         )}
                     </View>
                 </LinearGradient>
-
-                {/* Stats Cards */}
                 {currentPlayer && playerStats && (
                     <View style={{paddingHorizontal: 20, marginTop: -20, marginBottom: 20}}>
                         <View style={{
@@ -517,7 +513,6 @@ export default function ProfileScreen() {
                     </View>
                 )}
 
-                {/* Profile Details */}
                 <View style={{paddingHorizontal: 20, marginBottom: 20}}>
                     <View style={{
                         backgroundColor: 'white',
@@ -652,7 +647,6 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
-                {/* Settings Section */}
                 <View style={{paddingHorizontal: 20, marginBottom: 30}}>
                     <View style={{
                         backgroundColor: 'white',

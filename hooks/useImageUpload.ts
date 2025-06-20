@@ -35,13 +35,8 @@ export const useImageUpload = (
             if (!response.ok) {
                 throw new Error(`Failed to fetch image: ${response.statusText}`);
             }
-
             const blob = await response.blob();
-
-            // ✅ Poprawione wykrywanie formatu pliku
-            let fileExt = 'jpg'; // Default fallback
-
-            // Pierwszy sprawdź MIME type z blob
+            let fileExt = 'jpg';
             if (blob.type) {
                 const mimeType = blob.type.toLowerCase();
                 if (mimeType.includes('jpeg') || mimeType.includes('jpg')) {
@@ -68,7 +63,6 @@ export const useImageUpload = (
 
             console.log('🔍 File format detected:', fileExt, 'MIME type:', blob.type);
 
-            // ✅ Sprawdź rozmiar pliku
             if (blob.size > 5 * 1024 * 1024) { // 5MB limit
                 throw new Error('Image too large. Please choose a smaller image (max 5MB).');
             }
@@ -79,7 +73,7 @@ export const useImageUpload = (
             const {data, error} = await supabase.storage
                 .from('avatars')
                 .upload(fileName, arrayBuffer, {
-                    contentType: blob.type || `image/${fileExt}`, // ✅ Użyj MIME type z blob
+                    contentType: blob.type || `image/${fileExt}`,
                     upsert: true,
                     cacheControl: '3600'
                 });
@@ -112,7 +106,6 @@ export const useImageUpload = (
 
     const pickAndUploadImage = useCallback(async () => {
         try {
-            // ✅ Różne podejście dla web i mobile
             let result;
 
             if (Platform.OS === 'web') {
@@ -122,7 +115,6 @@ export const useImageUpload = (
                     aspect: [1, 1],
                     quality: 0.8,
                     base64: false,
-                    // ✅ Web-specific options
                     allowsMultipleSelection: false,
                 });
             } else {
