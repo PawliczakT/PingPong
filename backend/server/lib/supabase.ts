@@ -6,51 +6,40 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import {Platform} from 'react-native';
 
-declare global {
-    interface Window {
-        supabaseInstanceCount?: number;
-    }
-}
-
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-if (typeof window !== 'undefined') {
-    window.supabaseInstanceCount = (window.supabaseInstanceCount || 0) + 1;
-    console.log(`🔍 Creating Supabase instance #${window.supabaseInstanceCount}`);
+class SupabaseClient {
+    private static instance: any = null;
+    private static instanceCount = 0;
+
+    static getInstance() {
+        if (!this.instance) {
+            this.instanceCount++;
+            if (typeof window !== 'undefined') {
+                console.log(`🔍 Creating Supabase instance #${this.instanceCount}`);
+            }
+
+            this.instance = createClient(supabaseUrl, supabaseAnonKey, {
+                auth: {
+                    storage: {
+                        getItem: (key: string) => AsyncStorage.getItem(key),
+                        setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
+                        removeItem: (key: string) => AsyncStorage.removeItem(key),
+                    },
+                    autoRefreshToken: true,
+                    persistSession: true,
+                    detectSessionInUrl: Platform.OS === 'web',
+                },
+            });
+        } else {
+            console.log('🔄 Reusing existing Supabase instance');
+        }
+        return this.instance;
+    }
 }
 
-const ExpoSecureStoreAdapter = {
-    getItem: (key: string) => AsyncStorage.getItem(key),
-    setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
-    removeItem: (key: string) => AsyncStorage.removeItem(key),
-};
-
-let supabaseInstance: any = null;
-
-export const supabase = (() => {
-    if (supabaseInstance) {
-        console.log('🔄 Reusing existing Supabase instance');
-        return supabaseInstance;
-    }
-
-    if (typeof window !== 'undefined') {
-        window.supabaseInstanceCount = (window.supabaseInstanceCount || 0) + 1;
-        console.log(`🔍 Creating Supabase instance #${window.supabaseInstanceCount}`);
-    }
-
-    console.log('🆕 Creating new Supabase client instance');
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-            storage: ExpoSecureStoreAdapter,
-            autoRefreshToken: true,
-            persistSession: true,
-            detectSessionInUrl: Platform.OS === 'web',
-        },
-    });
-
-    return supabaseInstance;
-})();
+export const supabase = SupabaseClient.getInstance();
 
 export const signInWithGoogle = async () => {
     try {
