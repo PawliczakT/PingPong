@@ -1,4 +1,4 @@
-//backend/types/supabaseAdmin.ts
+// backend/types/supabase.ts
 export type Json =
     | string
     | number
@@ -153,6 +153,7 @@ export type Database = {
                     timestamp: string
                     title: string | null
                     type: string | null
+                    user_id: string | null
                 }
                 Insert: {
                     body?: string | null
@@ -163,6 +164,7 @@ export type Database = {
                     timestamp?: string
                     title?: string | null
                     type?: string | null
+                    user_id?: string | null
                 }
                 Update: {
                     body?: string | null
@@ -173,6 +175,7 @@ export type Database = {
                     timestamp?: string
                     title?: string | null
                     type?: string | null
+                    user_id?: string | null
                 }
                 Relationships: [
                     {
@@ -390,13 +393,14 @@ export type Database = {
             }
             create_notification: {
                 Args: {
-                    p_player_id: string
                     p_title: string
                     p_body: string
                     p_type: string
-                    p_data: Json
+                    p_player_id?: string
+                    p_user_id?: string
+                    p_data?: Json
                 }
-                Returns: undefined
+                Returns: string
             }
             gtrgm_compress: {
                 Args: { "": unknown }

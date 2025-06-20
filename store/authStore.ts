@@ -2,6 +2,7 @@
 import {create} from 'zustand';
 import {Session, User} from '@supabase/supabase-js';
 import {signInWithGoogle, signOut as supabaseSignOut, supabase} from '@/backend/server/lib/supabase';
+import {Platform} from 'react-native';
 import React from "react";
 
 interface AuthState {
@@ -43,7 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             return;
         }
 
-        console.log('🔐 Setting auth state:', {
+        console.log('🔐 Setting debounced auth state:', {
             userId: user?.id || 'null',
             hasSession: !!session
         });
@@ -54,7 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
             isLoading: false,
             isInitialized: true
         });
-    }, 100);
+    }, 250);
 
     return {
         user: null,
@@ -77,7 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
                     const now = Date.now();
                     const userId = session?.user?.id || null;
 
-                    if (now - lastEventTime < 200 &&
+                    if (now - lastEventTime < 300 &&
                         lastUserId === userId &&
                         event !== 'INITIAL_SESSION') {
                         console.log(`🔐 Skipping duplicate auth event: ${event}`);
@@ -89,7 +90,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
                     console.log(`🔐 Auth event: ${event}`, {
                         userId: userId || 'null',
-                        hasSession: !!session
+                        hasSession: !!session,
+                        timestamp: new Date().toISOString()
                     });
 
                     switch (event) {
@@ -107,11 +109,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
                             break;
 
                         case 'SIGNED_OUT':
+                            console.log('🔐 Processing SIGNED_OUT event');
                             set({
                                 user: null,
                                 session: null,
                                 isLoading: false,
-                                isInitialized: true
+                                isInitialized: true,
+                                error: null
                             });
                             break;
 
@@ -165,15 +169,62 @@ export const useAuthStore = create<AuthState>((set, get) => {
             set({isLoading: true, error: null});
 
             try {
-                await supabaseSignOut();
-            } catch (e) {
-                console.error('🔐 Logout failed:', e);
-                const error = e instanceof Error ? e : new Error('Logout failed');
+                if (Platform.OS === 'web') {
+                    console.log('🔐 Web logout - clearing local storage');
+
+                    if (typeof window !== 'undefined') {
+                        const projectRef = supabase.supabaseUrl.split('//')[1];
+                        const storageKey = `sb-${projectRef}-auth-token`;
+
+                        window.localStorage.removeItem(storageKey);
+                        window.sessionStorage.removeItem(storageKey);
+                        window.localStorage.removeItem('supabase.auth.token');
+                        window.sessionStorage.clear();
+
+                        console.log('🔐 Cleared local storage keys');
+                    }
+                }
+
+                const {error} = await supabaseSignOut();
+
+                if (error) {
+                    console.error('🔐 Supabase signOut error:', error);
+                }
+
+                console.log('🔐 Force clearing auth state');
                 set({
-                    error,
-                    isLoading: false
+                    user: null,
+                    session: null,
+                    isLoading: false,
+                    isInitialized: true,
+                    error: null
                 });
-                throw error;
+
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                    console.log('🔐 Reloading page for complete cleanup');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 100);
+                }
+
+            } catch (e) {
+                console.error('🔐 Logout error:', e);
+
+                set({
+                    user: null,
+                    session: null,
+                    isLoading: false,
+                    isInitialized: true,
+                    error: null
+                });
+
+                if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 100);
+                }
+
+                console.log('🔐 Logout completed despite errors');
             }
         },
 

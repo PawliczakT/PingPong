@@ -6,6 +6,7 @@ import {Ionicons} from '@expo/vector-icons';
 import {LinearGradient} from 'expo-linear-gradient';
 import {BlurView} from 'expo-blur';
 import {Image} from 'expo-image';
+import {useRouter} from 'expo-router';
 import {useAuth} from '@/store/authStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useNotificationStore} from '@/store/notificationStore';
@@ -26,7 +27,8 @@ export const getRankByWins = (wins: number): Rank => {
 export default function ProfileScreen() {
     const {user, logout} = useAuth();
     const {players, updatePlayer, addPlayer} = usePlayerStore();
-    const {notificationHistory} = useNotificationStore();
+    const {notificationHistory, markAllAsRead} = useNotificationStore();
+    const router = useRouter();
 
     const [formState, setFormState] = useState({
         name: '',
@@ -78,6 +80,18 @@ export default function ProfileScreen() {
             rank: getRankByWins(currentPlayer.wins)
         };
     }, [currentPlayer]);
+
+    const handleNotificationBadgePress = useCallback(() => {
+        console.log('🔔 Notification badge clicked, redirecting to notifications...');
+
+        // ✅ Type-safe call
+        if (user?.id) {
+            console.log('🔔 Marking all as read for user:', user.id);
+            markAllAsRead(user.id);
+        }
+
+        router.push('/notifications');
+    }, [router, markAllAsRead, user?.id]);
 
     React.useEffect(() => {
         if (currentPlayer) {
@@ -182,7 +196,12 @@ export default function ProfileScreen() {
     if (isLoadingProfile) {
         return (
             <SafeAreaView
-                style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F2F2F27'}}>
+                style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: '#F2F2F7'
+                }}> {/* ✅ Poprawiony backgroundColor */}
                 <ActivityIndicator size="large" color="#007AFF"/>
                 <Text style={{marginTop: 16, fontSize: 16, color: '#666'}}>
                     Loading profile...
@@ -198,7 +217,7 @@ export default function ProfileScreen() {
                 justifyContent: 'center',
                 alignItems: 'center',
                 padding: 20,
-                backgroundColor: '#F2F2F27'
+                backgroundColor: '#F2F2F7'
             }}>
                 <Ionicons name="alert-circle" size={50} color="#FF3B30"/>
                 <Text style={{marginTop: 16, fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: '#000'}}>
@@ -227,7 +246,7 @@ export default function ProfileScreen() {
 
     if (isNewUser) {
         return (
-            <SafeAreaView style={{flex: 1, backgroundColor: '#F2F2F27'}}>
+            <SafeAreaView style={{flex: 1, backgroundColor: '#F2F2F7'}}>
                 <LinearGradient
                     colors={['#667eea', '#764ba2']}
                     style={{flex: 1}}
@@ -319,7 +338,7 @@ export default function ProfileScreen() {
     }
 
     return (
-        <SafeAreaView style={{flex: 1, backgroundColor: '#F2F2F27'}}>
+        <SafeAreaView style={{flex: 1, backgroundColor: '#F2F2F7'}}> {/* ✅ Poprawiony backgroundColor */}
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Header */}
                 <LinearGradient
@@ -343,17 +362,21 @@ export default function ProfileScreen() {
                         </Text>
                         <View style={{flexDirection: 'row', alignItems: 'center'}}>
                             {unreadCount > 0 && (
-                                <View style={{
-                                    backgroundColor: '#FF3B30',
-                                    borderRadius: 10,
-                                    paddingHorizontal: 8,
-                                    paddingVertical: 4,
-                                    marginRight: 10
-                                }}>
+                                <TouchableOpacity  // ✅ Zmieniono z View na TouchableOpacity
+                                    onPress={handleNotificationBadgePress} // ✅ Dodano obsługę kliknięcia
+                                    style={{
+                                        backgroundColor: '#FF3B30',
+                                        borderRadius: 10,
+                                        paddingHorizontal: 8,
+                                        paddingVertical: 4,
+                                        marginRight: 10
+                                    }}
+                                    activeOpacity={0.7} // ✅ Dodano efekt kliknięcia
+                                >
                                     <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>
                                         {unreadCount}
                                     </Text>
-                                </View>
+                                </TouchableOpacity>
                             )}
                             <TouchableOpacity onPress={handleLogout}>
                                 <Ionicons name="log-out-outline" size={24} color="white"/>
@@ -451,6 +474,7 @@ export default function ProfileScreen() {
                     </View>
                 </LinearGradient>
 
+                {/* Stats Cards */}
                 {currentPlayer && playerStats && (
                     <View style={{paddingHorizontal: 20, marginTop: -20, marginBottom: 20}}>
                         <View style={{
@@ -493,6 +517,7 @@ export default function ProfileScreen() {
                     </View>
                 )}
 
+                {/* Profile Details */}
                 <View style={{paddingHorizontal: 20, marginBottom: 20}}>
                     <View style={{
                         backgroundColor: 'white',
@@ -627,7 +652,7 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
-                {/* Sekcja "Ustawienia" tylko z wylogowaniem */}
+                {/* Settings Section */}
                 <View style={{paddingHorizontal: 20, marginBottom: 30}}>
                     <View style={{
                         backgroundColor: 'white',
