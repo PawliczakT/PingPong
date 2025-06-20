@@ -99,4 +99,4 @@ const useChatRealtime = () => {
     };
 };
 
-export default useChatRealtime;
+export { useChatRealtime };

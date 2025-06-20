@@ -28,47 +28,39 @@ export default function RootLayout() {
     const [isCheckingProfile, setIsCheckingProfile] = useState(true);
 
     const checkProfile = useCallback(async () => {
-        if (!user) {
+        if (!user?.id) {
+            console.log('🔍 No user ID available for profile check');
             setHasProfile(false);
             setIsCheckingProfile(false);
             return;
         }
+
+        console.log(`🔍 Checking profile for user: ${user.id}`);
         setIsCheckingProfile(true);
+
         try {
             const {data: existingPlayer, error} = await supabase
                 .from('players')
                 .select('id')
                 .eq('user_id', user.id)
                 .maybeSingle();
-            if (error) throw error;
-            setHasProfile(!!existingPlayer);
+
+            if (error) {
+                console.error('🔍 Profile check error:', error.message, error.details);
+                throw error;
+            }
+
+            const hasProfile = !!existingPlayer;
+            console.log(`🔍 Profile check result: ${hasProfile ? 'found' : 'not found'}`);
+            setHasProfile(hasProfile);
+
         } catch (error) {
-            console.error('Layout: Error checking profile:', error);
+            console.error('🔍 Error checking profile:', error);
             setHasProfile(false);
         } finally {
             setIsCheckingProfile(false);
         }
     }, [user]);
-
-    useEffect(() => {
-        if (Platform.OS === 'web') {
-            const hash = window.location.hash;
-            if (hash) {
-                const params = new URLSearchParams(hash.replace('#', ''));
-                const accessToken = params.get('access_token');
-                const refreshToken = params.get('refresh_token');
-                if (accessToken && refreshToken) {
-                    supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken
-                    }).then(() => {
-                        window.history.replaceState({}, document.title,
-                            window.location.pathname + window.location.search);
-                    });
-                }
-            }
-        }
-    }, []);
 
     useEffect(() => {
         const handleDeepLink = async (event: { url: string }) => {
@@ -133,13 +125,44 @@ export default function RootLayout() {
 
     useEffect(() => {
         if (user) {
-            Promise.all([
-                fetchPlayersFromSupabase(),
-                useTournamentStore.getState().fetchTournaments(),
-                fetchAchievementsFromSupabase(),
-                useNotificationStore.getState().fetchNotifications(),
-                fetchMatchesFromSupabase(),
-            ]).catch(fetchError => console.error("Layout: Error fetching initial data:", fetchError));
+            const fetchData = async () => {
+                try {
+                    await fetchPlayersFromSupabase();
+                    console.log('✅ Players loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching players:", error);
+                }
+
+                try {
+                    await useTournamentStore.getState().fetchTournaments();
+                    console.log('✅ Tournaments loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching tournaments:", error);
+                }
+
+                try {
+                    await fetchAchievementsFromSupabase();
+                    console.log('✅ Achievements loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching achievements:", error);
+                }
+
+                try {
+                    await useNotificationStore.getState().fetchNotifications();
+                    console.log('✅ Notifications loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching notifications:", error);
+                }
+
+                try {
+                    await fetchMatchesFromSupabase();
+                    console.log('✅ Matches loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching matches:", error);
+                }
+            };
+
+            fetchData();
         }
     }, [user]);
 
@@ -161,20 +184,16 @@ export default function RootLayout() {
             SplashScreen.hideAsync().catch(e => console.warn("SplashScreen.hideAsync error:", e));
 
             if (user) {
-                // User is logged in
                 if (hasProfile) {
-                    // User has a profile, go to main app
                     if (router.canGoBack()) {
                         router.back();
                     } else {
                         router.replace('/(tabs)');
                     }
                 } else {
-                    // User needs to complete profile
                     router.replace('/player/setup');
                 }
             } else {
-                // User is not logged in, go to auth flow
                 router.replace('/(auth)/login');
             }
         }

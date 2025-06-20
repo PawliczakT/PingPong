@@ -1,3 +1,4 @@
+//components/ChatInput.tsx
 import React, {useRef} from 'react';
 import {Platform, StyleSheet, TextInput, TouchableOpacity, View} from 'react-native';
 import {useTheme} from '@react-navigation/native';

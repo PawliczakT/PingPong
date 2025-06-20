@@ -16,7 +16,6 @@ export default function AuthLayout() {
             }}
         >
             <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="callback" options={{ headerShown: false }} />
         </Stack>
     );
 }

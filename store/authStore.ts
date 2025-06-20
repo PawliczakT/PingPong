@@ -16,68 +16,194 @@ interface AuthState {
     initialize: () => () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-    user: null,
-    session: null,
-    isLoading: true,
-    isInitialized: false,
-    error: null,
+let authSubscription: any = null;
+let isGloballyInitialized = false;
 
-    initialize: () => {
-        const {data: {subscription}} = supabase.auth.onAuthStateChange(
-            (event, session) => {
-                console.log(`Auth event: ${event}`);
-                set({
-                    user: session?.user ?? null,
-                    session,
-                    isLoading: false,
-                    isInitialized: true
-                });
-            }
-        );
-
-        return () => {
-            subscription.unsubscribe();
+const debounce = (func: Function, wait: number) => {
+    let timeout: NodeJS.Timeout;
+    return function executedFunction(...args: any[]) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
         };
-    },
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+};
 
-    loginWithGoogle: async () => {
-        set({isLoading: true, error: null});
-        try {
-            await signInWithGoogle();
-        } catch (e) {
-            console.error('Exception during Google login:', e);
-            set({error: e instanceof Error ? e : new Error('Login failed'), isLoading: false});
+export const useAuthStore = create<AuthState>((set, get) => {
+    let lastEventTime = 0;
+    let lastUserId: string | null = null;
+
+    const debouncedSetAuth = debounce((user: User | null, session: Session | null) => {
+        const currentState = get();
+
+        if (currentState.user?.id === user?.id &&
+            currentState.session?.access_token === session?.access_token) {
+            return;
         }
-    },
 
-    logout: async () => {
-        set({isLoading: true, error: null});
-        try {
-            await supabaseSignOut();
-        } catch (e) {
-            console.error('Exception during logout:', e);
-            set({error: e instanceof Error ? e : new Error('Logout failed'), isLoading: false});
-        }
-    },
+        console.log('🔐 Setting auth state:', {
+            userId: user?.id || 'null',
+            hasSession: !!session
+        });
 
-    clearError: () => {
-        set({error: null});
-    },
-}));
+        set({
+            user,
+            session,
+            isLoading: false,
+            isInitialized: true
+        });
+    }, 100);
 
-// Export the hook with proper typing
+    return {
+        user: null,
+        session: null,
+        isLoading: true,
+        isInitialized: false,
+        error: null,
+
+        initialize: () => {
+            if (authSubscription) {
+                console.log('🔐 Auth store already initialized, skipping...');
+                return () => {
+                };
+            }
+
+            console.log('🔐 Initializing auth store...');
+
+            const {data: {subscription}} = supabase.auth.onAuthStateChange(
+                (event, session) => {
+                    const now = Date.now();
+                    const userId = session?.user?.id || null;
+
+                    if (now - lastEventTime < 200 &&
+                        lastUserId === userId &&
+                        event !== 'INITIAL_SESSION') {
+                        console.log(`🔐 Skipping duplicate auth event: ${event}`);
+                        return;
+                    }
+
+                    lastEventTime = now;
+                    lastUserId = userId;
+
+                    console.log(`🔐 Auth event: ${event}`, {
+                        userId: userId || 'null',
+                        hasSession: !!session
+                    });
+
+                    switch (event) {
+                        case 'INITIAL_SESSION':
+                            set({
+                                user: session?.user ?? null,
+                                session,
+                                isLoading: false,
+                                isInitialized: true
+                            });
+                            break;
+
+                        case 'SIGNED_IN':
+                            debouncedSetAuth(session?.user ?? null, session);
+                            break;
+
+                        case 'SIGNED_OUT':
+                            set({
+                                user: null,
+                                session: null,
+                                isLoading: false,
+                                isInitialized: true
+                            });
+                            break;
+
+                        case 'TOKEN_REFRESHED':
+                            set((state) => ({
+                                ...state,
+                                session,
+                                isLoading: false,
+                                isInitialized: true
+                            }));
+                            break;
+
+                        default:
+                            console.log(`🔐 Unhandled auth event: ${event}`);
+                    }
+                }
+            );
+
+            authSubscription = subscription;
+
+            return () => {
+                console.log('🔐 Cleaning up auth subscription...');
+                if (authSubscription) {
+                    authSubscription.unsubscribe();
+                    authSubscription = null;
+                }
+                lastEventTime = 0;
+                lastUserId = null;
+            };
+        },
+
+        loginWithGoogle: async () => {
+            console.log('🔐 Starting Google login...');
+            set({isLoading: true, error: null});
+
+            try {
+                await signInWithGoogle();
+            } catch (e) {
+                console.error('🔐 Google login failed:', e);
+                const error = e instanceof Error ? e : new Error('Login failed');
+                set({
+                    error,
+                    isLoading: false
+                });
+                throw error;
+            }
+        },
+
+        logout: async () => {
+            console.log('🔐 Starting logout...');
+            set({isLoading: true, error: null});
+
+            try {
+                await supabaseSignOut();
+            } catch (e) {
+                console.error('🔐 Logout failed:', e);
+                const error = e instanceof Error ? e : new Error('Logout failed');
+                set({
+                    error,
+                    isLoading: false
+                });
+                throw error;
+            }
+        },
+
+        clearError: () => {
+            set({error: null});
+        },
+    };
+});
+
 export const useAuth = () => {
     const state = useAuthStore();
 
-    // Initialize auth state when the hook is first used
     React.useEffect(() => {
+        if (isGloballyInitialized) {
+            console.log('🔐 Auth already globally initialized');
+            return () => {
+            };
+        }
+
+        console.log('🔐 Setting up global auth initialization');
+        isGloballyInitialized = true;
+
         const cleanup = state.initialize();
-        return () => cleanup?.();
+
+        return () => {
+            console.log('🔐 Cleaning up global auth initialization');
+            isGloballyInitialized = false;
+            cleanup();
+        };
     }, []);
 
     return state;
 };
-
-// Initialize auth state when the store is created
-useAuthStore.getState().initialize();
