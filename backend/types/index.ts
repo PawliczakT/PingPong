@@ -192,8 +192,6 @@ export enum AchievementType {
     ROUND_ROBIN_WINNER = 'round_robin_winner', // Win a round-robin tournament
     CHAMPION_NO_LOSSES = 'champion_no_losses', // Win a tournament without losing a single match
     ALWAYS_A_BRIDESMAID = 'always_a_bridesmaid', // Finish as runner-up X times
-
-    // Meta Achievements
 }
 
 export interface Achievement {

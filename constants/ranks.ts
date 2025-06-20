@@ -203,13 +203,11 @@ export const ranks: Rank[] = [
 ];
 
 export const getRankByWins = (wins: number): Rank => {
-    // Find the highest rank that the player qualifies for
     for (let i = ranks.length - 1; i >= 0; i--) {
         if (wins >= ranks[i].requiredWins) {
             return ranks[i];
         }
     }
-    // Default to the first rank if no match (should never happen as first rank requires 0 wins)
     return ranks[0];
 };
 

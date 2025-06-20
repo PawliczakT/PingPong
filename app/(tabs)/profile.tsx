@@ -1,733 +1,659 @@
-import React, {useEffect, useState} from 'react';
-import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
-} from 'react-native';
-import {Stack, useRouter} from 'expo-router';
+// app/(tabs)/profile.tsx
+import React, {useCallback, useMemo, useState} from 'react';
+import {ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useAuthStore} from '@/store/authStore';
-import {supabase} from '@/backend/server/lib/supabase';
-import Button from '@/components/Button';
-import {colors} from '@/constants/colors';
-import {Bell, Camera, Image as ImageIcon, LogOut, Pencil, User} from 'lucide-react-native';
+import {Ionicons} from '@expo/vector-icons';
+import {LinearGradient} from 'expo-linear-gradient';
+import {BlurView} from 'expo-blur';
+import {Image} from 'expo-image';
+import {useAuth} from '@/store/authStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useNotificationStore} from '@/store/notificationStore';
-import {Player} from '@/backend/types';
-import * as ImagePicker from 'expo-image-picker';
-import {decode} from "base64-arraybuffer";
+import {supabase} from '@/backend/server/lib/supabase';
+import {usePlayerProfile} from '@/hooks/usePlayerProfile';
+import {useImageUpload} from '@/hooks/useImageUpload';
+import {Rank, ranks} from "@/constants";
+
+export const getRankByWins = (wins: number): Rank => {
+    for (let i = ranks.length - 1; i >= 0; i--) {
+        if (wins >= ranks[i].requiredWins) {
+            return ranks[i];
+        }
+    }
+    return ranks[0];
+};
 
 export default function ProfileScreen() {
-    const router = useRouter();
-    const {user, logout, isLoading: authLoading} = useAuthStore();
-    const {notificationHistory} = useNotificationStore();
+    const {user, logout} = useAuth();
     const {players, updatePlayer, addPlayer} = usePlayerStore();
-    const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
-    const [isEditing, setIsEditing] = useState(false);
-    const [name, setName] = useState('');
-    const [nickname, setNickname] = useState('');
-    const [loadingProfile, setLoadingProfile] = useState(true);
-    const [isNewUser, setIsNewUser] = useState(false);
-    const [uploadingImage, setUploadingImage] = useState(false);
+    const {notificationHistory} = useNotificationStore();
 
-    const pickImage = async () => {
-        try {
-            const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const [formState, setFormState] = useState({
+        name: '',
+        nickname: '',
+        isEditing: false,
+        isSaving: false
+    });
 
-            if (status !== 'granted') {
-                Alert.alert('Potrzebujemy dostępu do galerii, aby wybrać avatar');
-                return;
-            }
+    const updateFormState = useCallback((updates: Partial<typeof formState>) => {
+        setFormState(prev => ({...prev, ...updates}));
+    }, []);
 
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-            });
+    const {
+        currentPlayer,
+        isLoadingProfile,
+        isNewUser,
+        profileError,
+        refreshProfile
+    } = usePlayerProfile(user, players);
 
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-                await uploadAvatar(result.assets[0].uri);
-            }
-        } catch (error) {
-            console.error('Błąd podczas wybierania obrazu:', error);
-            Alert.alert('Błąd', 'Nie udało się wybrać obrazu. Spróbuj ponownie.');
-        }
-    };
-
-    const takePhoto = async () => {
-        try {
-            const {status} = await ImagePicker.requestCameraPermissionsAsync();
-
-            if (status !== 'granted') {
-                Alert.alert('Potrzebujemy dostępu do kamery, aby zrobić zdjęcie');
-                return;
-            }
-
-            const result = await ImagePicker.launchCameraAsync({
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-            });
-
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-                await uploadAvatar(result.assets[0].uri);
-            }
-        } catch (error) {
-            console.error('Błąd podczas robienia zdjęcia:', error);
-            Alert.alert('Błąd', 'Nie udało się zrobić zdjęcia. Spróbuj ponownie.');
-        }
-    };
-
-    const uploadAvatar = async (uri: string) => {
-        if (!currentPlayer?.id) {
-            Alert.alert('Error', 'User profile not found');
-            return;
-        }
-
-        if (!user?.id) {
-            Alert.alert('Error', 'You must be logged in to upload an avatar');
-            return;
-        }
-
-        try {
-            setUploadingImage(true);
-
-            const response = await fetch(uri);
-            const blob = await response.blob();
-            const base64Data = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const base64String = (reader.result as string).split(',')[1];
-                    resolve(base64String);
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-
-            const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-            const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-
-            const {data, error} = await supabase.storage
-                .from('avatars')
-                .upload(fileName, decode(base64Data), {
-                    contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-                    upsert: true,
+    const {isUploadingImage, pickAndUploadImage} = useImageUpload(
+        currentPlayer,
+        user,
+        (avatarUrl) => {
+            if (currentPlayer) {
+                updatePlayer({
+                    ...currentPlayer,
+                    avatarUrl
                 });
-
-            if (error) {
-                console.error('Error uploading avatar:', error);
-                throw error;
+                refreshProfile();
             }
-
-            const {data: {publicUrl}} = supabase.storage
-                .from('avatars')
-                .getPublicUrl(fileName);
-
-            const {data: updatedPlayerData, error: updateError} = await supabase
-                .from('players')
-                .update({
-                    avatar_url: publicUrl,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', currentPlayer.id)
-                .select()
-                .single();
-
-            if (updateError || !updatedPlayerData) {
-                console.error('Database update error:', updateError);
-                throw updateError || new Error('Failed to update player record');
-            }
-
-            const updatedPlayer = {
-                ...currentPlayer,
-                avatarUrl: publicUrl
-            };
-
-            await updatePlayer(updatedPlayer);
-            setCurrentPlayer(updatedPlayer);
-            Alert.alert('Success', 'Avatar has been updated');
-        } catch (error) {
-            console.error('Error uploading avatar:', error);
-            Alert.alert('Error', 'Failed to update avatar. Please try again.');
-        } finally {
-            setUploadingImage(false);
         }
-    };
+    );
 
-    const unreadCount = notificationHistory.filter(n => !n.read).length;
+    const unreadCount = useMemo(() =>
+            notificationHistory.filter(n => !n.read).length,
+        [notificationHistory]
+    );
 
-    useEffect(() => {
-        const loadPlayerProfile = async () => {
-            if (!user) {
-                setLoadingProfile(false);
-                return;
-            }
+    const playerStats = useMemo(() => {
+        if (!currentPlayer) return null;
 
-            setLoadingProfile(true);
+        const totalGames = currentPlayer.wins + currentPlayer.losses;
+        const winRate = totalGames > 0 ? (currentPlayer.wins / totalGames * 100).toFixed(1) : '0';
 
-            try {
-                // Sprawdź w lokalnym store
-                let foundPlayer = players.find(p => p.user_id === user.id);
-
-                // Jeśli nie ma w store, sprawdź w bazie
-                if (!foundPlayer) {
-                    const {data, error} = await supabase
-                        .from('players')
-                        .select('*')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
-
-                    if (data && !error) {
-                        foundPlayer = {
-                            id: data.id,
-                            user_id: data.user_id,
-                            name: data.name,
-                            nickname: data.nickname,
-                            avatarUrl: data.avatar_url,
-                            eloRating: data.elo_rating,
-                            wins: data.wins,
-                            losses: data.losses,
-                            active: data.active,
-                            createdAt: data.created_at,
-                            updatedAt: data.updated_at,
-                        };
-                    } else if (!data || error?.code === 'PGRST116') {
-                        console.log("No player profile found, creating new profile form");
-                        setIsNewUser(true);
-
-                        // Bezpieczne wyciągnięcie nazwy z metadanych
-                        const defaultName = user.user_metadata?.full_name ||
-                            user.user_metadata?.name ||
-                            user.email?.split('@')[0] ||
-                            'New Player';
-
-                        const newPlayer = {
-                            id: '',
-                            user_id: user.id,
-                            name: defaultName,
-                            nickname: undefined,
-                            avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-                            eloRating: 1200,
-                            wins: 0,
-                            losses: 0,
-                            active: true,
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                        };
-
-                        setCurrentPlayer(newPlayer);
-                        setName(defaultName); // Upewnij się że name nie jest undefined
-                        setNickname(''); // Inicjalizuj jako pusty string
-                        setIsEditing(true);
-                        setLoadingProfile(false);
-                        return;
-                    }
-                }
-
-                if (foundPlayer) {
-                    setCurrentPlayer(foundPlayer);
-                    setName(foundPlayer.name || ''); // Bezpieczne ustawienie
-                    setNickname(foundPlayer.nickname || ''); // Bezpieczne ustawienie
-                }
-            } catch (error: any) { // Dodaj ': any' tutaj
-                console.error('Error loading player profile:', error);
-                console.error('Error details:', {
-                    message: error?.message,
-                    code: error?.code,
-                    details: error?.details,
-                    hint: error?.hint,
-                    user: user?.id
-                });
-                Alert.alert('Profile Error', `Failed to load profile: ${error?.message || 'Unknown error'}`);
-            } finally {
-                setLoadingProfile(false);
-            }
+        return {
+            totalGames,
+            winRate,
+            rank: getRankByWins(currentPlayer.wins)
         };
+    }, [currentPlayer]);
 
-        loadPlayerProfile().then(r => console.error("Error loading player profile:", r));
-    }, [user, players]);
+    React.useEffect(() => {
+        if (currentPlayer) {
+            setFormState(prev => ({
+                ...prev,
+                name: currentPlayer.name || '',
+                nickname: currentPlayer.nickname || ''
+            }));
+        }
+    }, [currentPlayer]);
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!user || !currentPlayer) return;
 
-        // Sprawdź czy name istnieje i nie jest pusty po trim
-        if (!name || !name?.trim()) {
-            Alert.alert('Error', 'Name is required');
-            return;
-        }
+        updateFormState({isSaving: true});
 
         try {
-            setLoadingProfile(true);
-
-            if (isNewUser) {
-                const {data: existingCheck} = await supabase
-                    .from('players')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .maybeSingle();
-
-                if (existingCheck) {
-                    console.log('Profile already exists, not creating duplicate');
-                    Alert.alert('Info', 'Profile already exists. Refreshing...');
-                    setIsNewUser(false);
-                    router.replace('/(tabs)');
-                    return;
-                }
-            }
-
-            const playerData = {
-                user_id: user.id,
-                name: name.trim(),
-                nickname: (nickname && true && nickname?.trim()) ? nickname.trim() : null,
-                avatar_url: currentPlayer.avatarUrl,
-                elo_rating: currentPlayer.eloRating,
-                wins: currentPlayer.wins,
-                losses: currentPlayer.losses,
-                active: true,
-                updated_at: new Date().toISOString(),
-            };
-
-            console.log('Saving player data:', playerData);
-
-            const {data, error} = isNewUser
-                ? await supabase
-                    .from('players')
-                    .insert(playerData)
-                    .select()
-                    .single()
-                : await supabase
-                    .from('players')
-                    .update(playerData)
-                    .eq('id', currentPlayer.id)
-                    .select()
-                    .single();
+            const {error} = await supabase
+                .from('players')
+                .update({
+                    name: formState.name.trim(),
+                    nickname: formState.nickname.trim(),
+                })
+                .eq('id', currentPlayer.id);
 
             if (error) {
-                console.error('Supabase error:', error);
                 throw error;
             }
 
-            if (!data) {
-                throw new Error('No data returned from database');
-            }
-
-            const updatedPlayer = {
+            await updatePlayer({
                 ...currentPlayer,
-                id: data.id,
-                name: data.name,
-                nickname: data.nickname,
-                avatarUrl: data.avatar_url,
-                eloRating: data.elo_rating,
-                wins: data.wins,
-                losses: data.losses,
-                active: data.active,
-                createdAt: data.created_at,
-                updatedAt: data.updated_at,
-            };
+                name: formState.name.trim(),
+                nickname: formState.nickname.trim(),
+            });
 
-            setCurrentPlayer(updatedPlayer);
-            setIsEditing(false);
+            updateFormState({isEditing: false});
+            Alert.alert('Success', 'Profile updated successfully!');
 
-            if (isNewUser) {
-                setIsNewUser(false);
-                console.log('Successfully created new player profile');
-
-                Alert.alert('Success', 'Profile created successfully!', [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            router.replace('/');
-                        }
-                    }
-                ]);
-            } else {
-                await updatePlayer(updatedPlayer);
-                Alert.alert('Success', 'Profile saved successfully!');
-            }
         } catch (error) {
             console.error('Error saving profile:', error);
-            // @ts-ignore
-            Alert.alert('Error', `Failed to save profile: ${error.message || 'Please try again.'}`);
+            Alert.alert(
+                'Error',
+                `Failed to save profile: ${(error as Error)?.message || 'Please try again.'}`
+            );
         } finally {
-            setLoadingProfile(false);
+            updateFormState({isSaving: false});
         }
-    };
+    }, [user, currentPlayer, formState.name, formState.nickname, updatePlayer, updateFormState]);
 
-    const handleSignOut = async () => {
+    const handleCreateProfile = useCallback(async () => {
+        if (!user || !formState.name.trim()) {
+            Alert.alert('Error', 'Please enter your name');
+            return;
+        }
+
+        updateFormState({isSaving: true});
+
+        try {
+            const newPlayer = await addPlayer(
+                formState.name.trim(),
+                formState.nickname.trim() || null,
+                null
+            );
+
+            if (newPlayer) {
+                Alert.alert('Success', 'Profile created successfully!');
+                refreshProfile();
+            }
+        } catch (error) {
+            console.error('Error creating profile:', error);
+            Alert.alert(
+                'Error',
+                `Failed to create profile: ${(error as Error)?.message || 'Please try again.'}`
+            );
+        } finally {
+            updateFormState({isSaving: false});
+        }
+    }, [user, formState.name, formState.nickname, addPlayer, updateFormState, refreshProfile]);
+
+    const handleLogout = useCallback(async () => {
         Alert.alert(
-            'Sign Out',
-            'Are you sure you want to sign out?',
+            'Logout',
+            'Are you sure you want to logout?',
             [
                 {text: 'Cancel', style: 'cancel'},
                 {
-                    text: 'Sign Out',
+                    text: 'Logout',
                     style: 'destructive',
                     onPress: async () => {
                         try {
                             await logout();
-                            router.replace('/(auth)/login');
                         } catch (error) {
-                            console.error('Error signing out:', error);
-                            Alert.alert('Error', 'Failed to sign out');
+                            console.error('Logout error:', error);
+                            Alert.alert('Error', 'Failed to logout. Please try again.');
                         }
                     }
                 }
             ]
         );
-    };
+    }, [logout]);
 
-    if (authLoading || loadingProfile) {
+    if (isLoadingProfile) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primary}/>
-                    <Text style={styles.loadingText}>Loading profile...</Text>
-                </View>
+            <SafeAreaView
+                style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F2F2F27'}}>
+                <ActivityIndicator size="large" color="#007AFF"/>
+                <Text style={{marginTop: 16, fontSize: 16, color: '#666'}}>
+                    Loading profile...
+                </Text>
             </SafeAreaView>
         );
     }
 
-    if (!user) {
+    if (profileError) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <Text style={styles.errorText}>Please log in to view your profile</Text>
-                    <Button title="Go to Login" onPress={() => router.push('/(auth)/login')}/>
-                </View>
+            <SafeAreaView style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: 20,
+                backgroundColor: '#F2F2F27'
+            }}>
+                <Ionicons name="alert-circle" size={50} color="#FF3B30"/>
+                <Text style={{marginTop: 16, fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: '#000'}}>
+                    Error Loading Profile
+                </Text>
+                <Text style={{marginTop: 8, fontSize: 16, color: '#666', textAlign: 'center'}}>
+                    {profileError}
+                </Text>
+                <TouchableOpacity
+                    style={{
+                        marginTop: 20,
+                        backgroundColor: '#007AFF',
+                        paddingHorizontal: 20,
+                        paddingVertical: 10,
+                        borderRadius: 8
+                    }}
+                    onPress={refreshProfile}
+                >
+                    <Text style={{color: 'white', fontSize: 16, fontWeight: 'bold'}}>
+                        Try Again
+                    </Text>
+                </TouchableOpacity>
+            </SafeAreaView>
+        );
+    }
+
+    if (isNewUser) {
+        return (
+            <SafeAreaView style={{flex: 1, backgroundColor: '#F2F2F27'}}>
+                <LinearGradient
+                    colors={['#667eea', '#764ba2']}
+                    style={{flex: 1}}
+                >
+                    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20}}>
+                        <BlurView intensity={20} style={{
+                            padding: 30,
+                            borderRadius: 20,
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            width: '100%',
+                            maxWidth: 400
+                        }}>
+                            <Text style={{
+                                fontSize: 28,
+                                fontWeight: 'bold',
+                                color: 'white',
+                                textAlign: 'center',
+                                marginBottom: 10
+                            }}>
+                                Welcome to Ping Pong!
+                            </Text>
+                            <Text style={{
+                                fontSize: 16,
+                                color: 'white',
+                                textAlign: 'center',
+                                marginBottom: 30,
+                                opacity: 0.9
+                            }}>
+                                Let's set up your profile to get started
+                            </Text>
+
+                            <View style={{marginBottom: 20}}>
+                                <Text style={{color: 'white', fontSize: 16, marginBottom: 8}}>Name *</Text>
+                                <TextInput
+                                    style={{
+                                        backgroundColor: 'rgba(255,255,255,0.9)',
+                                        padding: 15,
+                                        borderRadius: 10,
+                                        fontSize: 16,
+                                        color: '#000'
+                                    }}
+                                    value={formState.name}
+                                    onChangeText={(text) => updateFormState({name: text})}
+                                    placeholder="Enter your name"
+                                    placeholderTextColor="#666"
+                                />
+                            </View>
+
+                            <View style={{marginBottom: 30}}>
+                                <Text style={{color: 'white', fontSize: 16, marginBottom: 8}}>Nickname (Optional)</Text>
+                                <TextInput
+                                    style={{
+                                        backgroundColor: 'rgba(255,255,255,0.9)',
+                                        padding: 15,
+                                        borderRadius: 10,
+                                        fontSize: 16,
+                                        color: '#000'
+                                    }}
+                                    value={formState.nickname}
+                                    onChangeText={(text) => updateFormState({nickname: text})}
+                                    placeholder="Enter your nickname"
+                                    placeholderTextColor="#666"
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                style={{
+                                    backgroundColor: formState.name.trim() ? '#007AFF' : '#666',
+                                    padding: 15,
+                                    borderRadius: 10,
+                                    alignItems: 'center'
+                                }}
+                                onPress={handleCreateProfile}
+                                disabled={!formState.name.trim() || formState.isSaving}
+                            >
+                                {formState.isSaving ? (
+                                    <ActivityIndicator color="white"/>
+                                ) : (
+                                    <Text style={{color: 'white', fontSize: 18, fontWeight: 'bold'}}>
+                                        Create Profile
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        </BlurView>
+                    </View>
+                </LinearGradient>
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <Stack.Screen
-                options={{
-                    title: isNewUser ? "Create Profile" : "My Profile",
-                    headerShadowVisible: false,
-                }}
-            />
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                {isNewUser && (
-                    <View style={styles.welcomeContainer}>
-                        <Text style={styles.welcomeTitle}>Welcome to PingPong StatKeeper!</Text>
-                        <Text style={styles.welcomeText}>
-                            Please set up your player profile to continue. This profile will be used for
-                            matches, tournaments, and notifications.
+        <SafeAreaView style={{flex: 1, backgroundColor: '#F2F2F27'}}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Header */}
+                <LinearGradient
+                    colors={['#667eea', '#764ba2']}
+                    style={{
+                        paddingTop: 20,
+                        paddingBottom: 40,
+                        paddingHorizontal: 20,
+                        borderBottomLeftRadius: 30,
+                        borderBottomRightRadius: 30,
+                    }}
+                >
+                    <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 30
+                    }}>
+                        <Text style={{fontSize: 28, fontWeight: 'bold', color: 'white'}}>
+                            Profile
                         </Text>
+                        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                            {unreadCount > 0 && (
+                                <View style={{
+                                    backgroundColor: '#FF3B30',
+                                    borderRadius: 10,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 4,
+                                    marginRight: 10
+                                }}>
+                                    <Text style={{color: 'white', fontSize: 12, fontWeight: 'bold'}}>
+                                        {unreadCount}
+                                    </Text>
+                                </View>
+                            )}
+                            <TouchableOpacity onPress={handleLogout}>
+                                <Ionicons name="log-out-outline" size={24} color="white"/>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                )}
 
-                <View style={styles.header}>
-                    <View style={styles.avatarContainer}>
-                        {uploadingImage ? (
-                            <View style={styles.avatar}>
-                                <ActivityIndicator size="large" color={colors.primary}/>
-                            </View>
-                        ) : (
-                            <View style={styles.avatar}>
+                    <View style={{alignItems: 'center'}}>
+                        <TouchableOpacity
+                            onPress={pickAndUploadImage}
+                            disabled={isUploadingImage}
+                            style={{
+                                position: 'relative',
+                                marginBottom: 20
+                            }}
+                        >
+                            <View style={{
+                                width: 120,
+                                height: 120,
+                                borderRadius: 60,
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                borderWidth: 4,
+                                borderColor: 'white'
+                            }}>
                                 {currentPlayer?.avatarUrl ? (
                                     <Image
                                         source={{uri: currentPlayer.avatarUrl}}
-                                        style={styles.avatarImage}
+                                        style={{width: 112, height: 112, borderRadius: 56}}
+                                        contentFit="cover"
                                     />
                                 ) : (
-                                    <User size={60} color={colors.text}/>
+                                    <Ionicons name="person" size={50} color="white"/>
                                 )}
                             </View>
-                        )}
 
-                        {!isNewUser && !isEditing && (
-                            <View style={styles.avatarButtons}>
+                            {isUploadingImage && (
+                                <View style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    borderRadius: 60,
+                                    backgroundColor: 'rgba(0,0,0,0.5)',
+                                    justifyContent: 'center',
+                                    alignItems: 'center'
+                                }}>
+                                    <ActivityIndicator color="white"/>
+                                </View>
+                            )}
+
+                            <View style={{
+                                position: 'absolute',
+                                bottom: 5,
+                                right: 5,
+                                backgroundColor: '#007AFF',
+                                borderRadius: 15,
+                                width: 30,
+                                height: 30,
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                borderWidth: 2,
+                                borderColor: 'white'
+                            }}>
+                                <Ionicons name="camera" size={16} color="white"/>
+                            </View>
+                        </TouchableOpacity>
+
+                        <Text style={{fontSize: 24, fontWeight: 'bold', color: 'white', textAlign: 'center'}}>
+                            {currentPlayer?.name || 'Unknown Player'}
+                        </Text>
+                        {currentPlayer?.nickname && (
+                            <Text style={{
+                                fontSize: 16,
+                                color: 'rgba(255,255,255,0.8)',
+                                textAlign: 'center',
+                                marginTop: 4
+                            }}>
+                                "{currentPlayer.nickname}"
+                            </Text>
+                        )}
+                        {playerStats && (
+                            <Text style={{
+                                fontSize: 14,
+                                color: 'rgba(255,255,255,0.9)',
+                                textAlign: 'center',
+                                marginTop: 8
+                            }}>
+                                {playerStats.rank.name} • {playerStats.totalGames} games • {playerStats.winRate}% win
+                                rate
+                            </Text>
+                        )}
+                    </View>
+                </LinearGradient>
+
+                {currentPlayer && playerStats && (
+                    <View style={{paddingHorizontal: 20, marginTop: -20, marginBottom: 20}}>
+                        <View style={{
+                            backgroundColor: 'white',
+                            borderRadius: 15,
+                            padding: 20,
+                            flexDirection: 'row',
+                            justifyContent: 'space-around',
+                            shadowColor: '#000',
+                            shadowOffset: {width: 0, height: 2},
+                            shadowOpacity: 0.1,
+                            shadowRadius: 8,
+                            elevation: 3
+                        }}>
+                            <View style={{alignItems: 'center'}}>
+                                <Text style={{fontSize: 24, fontWeight: 'bold', color: '#007AFF'}}>
+                                    {currentPlayer.wins}
+                                </Text>
+                                <Text style={{fontSize: 12, color: '#666', marginTop: 4}}>
+                                    Wins
+                                </Text>
+                            </View>
+                            <View style={{alignItems: 'center'}}>
+                                <Text style={{fontSize: 24, fontWeight: 'bold', color: '#FF3B30'}}>
+                                    {currentPlayer.losses}
+                                </Text>
+                                <Text style={{fontSize: 12, color: '#666', marginTop: 4}}>
+                                    Losses
+                                </Text>
+                            </View>
+                            <View style={{alignItems: 'center'}}>
+                                <Text style={{fontSize: 24, fontWeight: 'bold', color: '#FF9500'}}>
+                                    {currentPlayer.eloRating}
+                                </Text>
+                                <Text style={{fontSize: 12, color: '#666', marginTop: 4}}>
+                                    ELO Rating
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                )}
+
+                <View style={{paddingHorizontal: 20, marginBottom: 20}}>
+                    <View style={{
+                        backgroundColor: 'white',
+                        borderRadius: 15,
+                        padding: 20,
+                        shadowColor: '#000',
+                        shadowOffset: {width: 0, height: 2},
+                        shadowOpacity: 0.1,
+                        shadowRadius: 8,
+                        elevation: 3
+                    }}>
+                        <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: 20
+                        }}>
+                            <Text style={{fontSize: 20, fontWeight: 'bold', color: '#000'}}>
+                                Profile Details
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => updateFormState({isEditing: !formState.isEditing})}
+                                disabled={formState.isSaving}
+                            >
+                                <Ionicons
+                                    name={formState.isEditing ? "close" : "pencil"}
+                                    size={20}
+                                    color="#007AFF"
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={{marginBottom: 15}}>
+                            <Text style={{fontSize: 14, color: '#666', marginBottom: 8}}>Name</Text>
+                            {formState.isEditing ? (
+                                <TextInput
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: '#E5E5EA',
+                                        borderRadius: 8,
+                                        padding: 12,
+                                        fontSize: 16,
+                                        backgroundColor: '#F9F9F9'
+                                    }}
+                                    value={formState.name}
+                                    onChangeText={(text) => updateFormState({name: text})}
+                                    placeholder="Enter your name"
+                                />
+                            ) : (
+                                <Text style={{fontSize: 16, color: '#000'}}>
+                                    {currentPlayer?.name || 'Not set'}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View style={{marginBottom: formState.isEditing ? 20 : 15}}>
+                            <Text style={{fontSize: 14, color: '#666', marginBottom: 8}}>Nickname</Text>
+                            {formState.isEditing ? (
+                                <TextInput
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: '#E5E5EA',
+                                        borderRadius: 8,
+                                        padding: 12,
+                                        fontSize: 16,
+                                        backgroundColor: '#F9F9F9'
+                                    }}
+                                    value={formState.nickname}
+                                    onChangeText={(text) => updateFormState({nickname: text})}
+                                    placeholder="Enter your nickname"
+                                />
+                            ) : (
+                                <Text style={{fontSize: 16, color: '#000'}}>
+                                    {currentPlayer?.nickname || 'Not set'}
+                                </Text>
+                            )}
+                        </View>
+
+                        {formState.isEditing && (
+                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
                                 <TouchableOpacity
-                                    style={styles.avatarButton}
-                                    onPress={pickImage}
-                                    disabled={uploadingImage}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: '#F2F2F7',
+                                        padding: 12,
+                                        borderRadius: 8,
+                                        alignItems: 'center',
+                                        marginRight: 10
+                                    }}
+                                    onPress={() => {
+                                        updateFormState({
+                                            isEditing: false,
+                                            name: currentPlayer?.name || '',
+                                            nickname: currentPlayer?.nickname || ''
+                                        });
+                                    }}
+                                    disabled={formState.isSaving}
                                 >
-                                    <ImageIcon size={18} color={colors.text}/>
+                                    <Text style={{color: '#666', fontSize: 16, fontWeight: '600'}}>
+                                        Cancel
+                                    </Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={styles.avatarButton}
-                                    onPress={takePhoto}
-                                    disabled={uploadingImage}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: '#007AFF',
+                                        padding: 12,
+                                        borderRadius: 8,
+                                        alignItems: 'center',
+                                        marginLeft: 10
+                                    }}
+                                    onPress={handleSave}
+                                    disabled={formState.isSaving || !formState.name.trim()}
                                 >
-                                    <Camera size={18} color={colors.text}/>
+                                    {formState.isSaving ? (
+                                        <ActivityIndicator color="white" size="small"/>
+                                    ) : (
+                                        <Text style={{color: 'white', fontSize: 16, fontWeight: '600'}}>
+                                            Save
+                                        </Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         )}
-                    </View>
-                    <Text style={styles.name}>{currentPlayer?.name || 'Player'}</Text>
-                    {currentPlayer?.nickname && (
-                        <Text style={styles.nickname}>"{currentPlayer.nickname}"</Text>
-                    )}
-                </View>
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Player Information</Text>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Name *</Text>
-                        {isEditing ? (
-                            <TextInput
-                                style={styles.input}
-                                value={name}
-                                onChangeText={setName}
-                                placeholder="Enter your name"
-                                autoCapitalize="words"
-                            />
-                        ) : (
-                            <Text style={styles.value}>{currentPlayer?.name || 'Not set'}</Text>
-                        )}
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Nickname (optional)</Text>
-                        {isEditing ? (
-                            <TextInput
-                                style={styles.input}
-                                value={nickname}
-                                onChangeText={setNickname}
-                                placeholder="Enter your nickname"
-                            />
-                        ) : (
-                            <Text style={styles.value}>{currentPlayer?.nickname || 'Not set'}</Text>
-                        )}
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Email</Text>
-                        <Text style={styles.value}>{user?.email || 'No email'}</Text>
-                    </View>
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Stats</Text>
-                    <View style={styles.statsRow}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{currentPlayer?.eloRating || 1200}</Text>
-                            <Text style={styles.statLabel}>ELO</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{currentPlayer?.wins || 0}</Text>
-                            <Text style={styles.statLabel}>Wins</Text>
-                        </View>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{currentPlayer?.losses || 0}</Text>
-                            <Text style={styles.statLabel}>Losses</Text>
+                        <View style={{marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#E5E5EA'}}>
+                            <Text style={{fontSize: 14, color: '#666', marginBottom: 8}}>Email</Text>
+                            <Text style={{fontSize: 16, color: '#000'}}>
+                                {user?.email || 'Not available'}
+                            </Text>
                         </View>
                     </View>
                 </View>
 
-                {isEditing ? (
-                    <View style={styles.buttonGroup}>
-                        <Button
-                            title={isNewUser ? "Create Profile" : "Save Changes"}
-                            onPress={handleSave}
-                            disabled={loadingProfile || !name || !name?.trim()}
-                            style={styles.button}
-                        />
-                        {!isNewUser && (
-                            <Button
-                                title="Cancel"
-                                onPress={() => {
-                                    setIsEditing(false);
-                                    setName(currentPlayer?.name || '');
-                                    setNickname(currentPlayer?.nickname || '');
-                                }}
-                                variant="outline"
-                                style={styles.button}
-                            />
-                        )}
+                {/* Sekcja "Ustawienia" tylko z wylogowaniem */}
+                <View style={{paddingHorizontal: 20, marginBottom: 30}}>
+                    <View style={{
+                        backgroundColor: 'white',
+                        borderRadius: 15,
+                        shadowColor: '#000',
+                        shadowOffset: {width: 0, height: 2},
+                        shadowOpacity: 0.1,
+                        shadowRadius: 8,
+                        elevation: 3
+                    }}>
+                        <TouchableOpacity
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                padding: 16
+                            }}
+                            onPress={handleLogout}
+                        >
+                            <Ionicons name="log-out-outline" size={20} color="#FF3B30"/>
+                            <Text style={{marginLeft: 12, fontSize: 16, color: '#FF3B30', flex: 1}}>
+                                Logout
+                            </Text>
+                        </TouchableOpacity>
                     </View>
-                ) : (
-                    <View style={styles.buttonGroup}>
-                        <Button
-                            title="Edit Profile"
-                            onPress={() => setIsEditing(true)}
-                            icon={<Pencil size={18} color="white"/>}
-                            style={styles.button}
-                        />
-                        <Button
-                            title={`Notifications ${unreadCount > 0 ? `(${unreadCount})` : ''}`}
-                            onPress={() => router.push('/notifications')}
-                            variant="secondary"
-                            icon={<Bell size={18} color="white"/>}
-                            style={styles.button}
-                        />
-                        <Button
-                            title="Sign Out"
-                            onPress={handleSignOut}
-                            variant="outline"
-                            icon={<LogOut size={18} color={colors.error}/>}
-                            style={[styles.button, styles.signOutButton]}
-                            textStyle={{color: colors.error}}
-                        />
-                    </View>
-                )}
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.background,
-    },
-    scrollContent: {
-        padding: 16,
-        paddingBottom: 32,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    avatarContainer: {
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    avatar: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: colors.card,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
-        borderWidth: 3,
-        borderColor: colors.primary,
-        overflow: 'hidden',
-    },
-    avatarImage: {
-        width: '100%',
-        height: '100%',
-    },
-    avatarButtons: {
-        flexDirection: 'row',
-        marginTop: -25,
-        zIndex: 10,
-    },
-    avatarButton: {
-        backgroundColor: colors.card,
-        padding: 8,
-        borderRadius: 20,
-        marginHorizontal: 5,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    name: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: colors.text,
-        textAlign: 'center',
-    },
-    nickname: {
-        fontSize: 18,
-        color: colors.textLight,
-        marginTop: 4,
-    },
-    section: {
-        backgroundColor: colors.card,
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.text,
-        marginBottom: 16,
-    },
-    inputGroup: {
-        marginBottom: 16,
-    },
-    label: {
-        fontSize: 14,
-        color: colors.textLight,
-        marginBottom: 4,
-    },
-    value: {
-        fontSize: 16,
-        color: colors.text,
-        paddingVertical: 8,
-    },
-    input: {
-        backgroundColor: colors.background,
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        color: colors.text,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    statsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    statItem: {
-        alignItems: 'center',
-        flex: 1,
-    },
-    statValue: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: colors.primary,
-        marginBottom: 4,
-    },
-    statLabel: {
-        fontSize: 14,
-        color: colors.textLight,
-    },
-    buttonGroup: {
-        marginBottom: 16,
-    },
-    button: {
-        marginBottom: 12,
-    },
-    signOutButton: {
-        marginTop: 8,
-        borderColor: colors.error,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: colors.textLight,
-    },
-    errorText: {
-        fontSize: 16,
-        color: colors.error,
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    welcomeContainer: {
-        backgroundColor: colors.primary + '15',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-    },
-    welcomeTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: colors.primary,
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    welcomeText: {
-        fontSize: 14,
-        color: colors.text,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-});

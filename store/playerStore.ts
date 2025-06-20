@@ -67,9 +67,7 @@ export const usePlayerStore = create<PlayerState>()(
                     players: [...state.players, newPlayer],
                     isLoading: false,
                 }));
-                await fetchPlayersFromSupabase();
 
-                // POPRAWKA: Wywołanie notyfikacji przez tRPC
                 try {
                     if (newPlayer) {
                         const metadata = {
@@ -236,12 +234,26 @@ export const usePlayerStore = create<PlayerState>()(
     }),
 );
 
-// Reszta pliku (fetchPlayersFromSupabase, usePlayersRealtime) bez zmian
 export const fetchPlayersFromSupabase = async () => {
+    console.log('🔍 Starting fetchPlayersFromSupabase...');
     usePlayerStore.setState({isLoading: true, error: null});
+
     try {
         const {data, error} = await supabase.from('players').select('*');
-        if (error) throw error;
+
+        if (error) {
+            console.error('🔍 Supabase query error:', error.message);
+            throw error;
+        }
+
+        if (!data) {
+            console.warn('🔍 No data returned from players query');
+            usePlayerStore.setState({players: [], isLoading: false});
+            return;
+        }
+
+        console.log(`🔍 Successfully fetched ${data.length} players`);
+
         const players: Player[] = data.map((item: any) => ({
             id: item.id,
             name: item.name,
@@ -255,12 +267,17 @@ export const fetchPlayersFromSupabase = async () => {
             updatedAt: item.updated_at,
             rank: getRankByWins(item.wins),
         }));
+
         usePlayerStore.setState({players, isLoading: false});
+
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch players";
+        console.error('🔍 fetchPlayersFromSupabase failed:', errorMessage);
         usePlayerStore.setState({
             isLoading: false,
-            error: error instanceof Error ? error.message : "Failed to fetch players"
+            error: errorMessage
         });
+        throw error;
     }
 };
 
