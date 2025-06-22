@@ -1,3 +1,4 @@
+//app/tournament/create.tsx
 import React, {useState} from "react";
 import {Alert, Platform, ScrollView, StyleSheet, Text, TextInput, View} from "react-native";
 import {Stack, useRouter} from "expo-router";

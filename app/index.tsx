@@ -1,3 +1,4 @@
+//app/index.tsx
 import {Redirect} from 'expo-router';
 import {useAuthStore} from '@/store/authStore';
 import {ActivityIndicator, View} from 'react-native';

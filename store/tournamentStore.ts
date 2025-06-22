@@ -1,3 +1,4 @@
+//store/tournamentStore.ts
 import {create} from 'zustand';
 import {supabase} from '@/backend/server/lib/supabase';
 import {v4 as uuidv4} from 'uuid';
