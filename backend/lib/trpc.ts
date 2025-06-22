@@ -20,7 +20,7 @@ const getAuthHeaders = async () => {
 
 const getApiUrl = () => {
     if (__DEV__) {
-        return Constants.expoConfig?.extra?.apiUrlDev || 'http://localhost:8081/api/trpc';
+        return Constants.expoConfig?.extra?.apiUrlDev || 'http://127.0.0.1:8081/api/trpc';
     }
     return Constants.expoConfig?.extra?.apiUrl || 'https://ping-pong-three-woad.vercel.app/api/trpc';
 };

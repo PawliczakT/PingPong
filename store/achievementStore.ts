@@ -1,5 +1,4 @@
-//store/achievementStore.ts
-import {create} from "zustand";
+import {create} from 'zustand';
 import {
     Achievement,
     AchievementProgress,
@@ -8,22 +7,21 @@ import {
     Match,
     Set as MatchSet,
     Tournament,
-    TournamentFormat
-} from "@/backend/types";
-import {usePlayerStore} from "./playerStore";
-import {useTournamentStore} from "./tournamentStore";
-import {achievements as allAchievementDefinitions} from "@/constants/achievements";
+    TournamentFormat,
+} from '@/backend/types';
+import {usePlayerStore} from './playerStore';
+import {useTournamentStore} from './tournamentStore';
+import {achievements as allAchievementDefinitions} from '@/constants/achievements';
 import {supabase} from '@/backend/server/lib/supabase';
-import {useEffect} from "react";
-import {useMatchStore} from "./matchStore";
+import {useEffect} from 'react';
+import {useMatchStore} from './matchStore';
+import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
 
 interface AchievementState {
     playerAchievements: Record<string, AchievementProgress[]>;
     isLoading: boolean;
     error: string | null;
-
-    initializePlayerAchievements: (playerId: string) => void;
-    updateAchievementProgress: (playerId: string, achievementType: AchievementType, progress: number) => void;
+    initializePlayerAchievements: (playerId: string) => Promise<void>;
     unlockAchievement: (playerId: string, achievementType: AchievementType) => Promise<Achievement | null>;
     getPlayerAchievements: (playerId: string) => AchievementProgress[];
     getUnlockedAchievements: (playerId: string) => Achievement[];
@@ -33,131 +31,123 @@ interface AchievementState {
 
 export const useAchievementStore = create<AchievementState>()(
     (set, get) => ({
-
         playerAchievements: {},
         isLoading: false,
         error: null,
 
-        initializePlayerAchievements: (playerId) => {
-            if (!get().playerAchievements[playerId]) {
+        initializePlayerAchievements: async (playerId: string) => {
+            if (get().playerAchievements[playerId]) return;
+
+            set({isLoading: true});
+            try {
+                const {data, error} = await supabase
+                    .from('achievements')
+                    .select('type, progress, unlocked, unlocked_at')
+                    .eq('player_id', playerId);
+                if (error) throw error;
+
+                const achievementsProgress = data.map((dbAchievement: any) => ({
+                    type: dbAchievement.type as AchievementType,
+                    progress: dbAchievement.progress,
+                    unlocked: dbAchievement.unlocked,
+                    unlockedAt: dbAchievement.unlocked_at,
+                }));
+
                 set((state) => ({
                     playerAchievements: {
                         ...state.playerAchievements,
-                        [playerId]: allAchievementDefinitions.map(achievement => ({
-                            type: achievement.type,
-                            progress: 0,
-                            unlocked: false,
-                            unlockedAt: null,
-                        })),
+                        [playerId]: achievementsProgress,
                     },
+                    isLoading: false,
                 }));
+            } catch (error) {
+                console.error('Failed to initialize achievements:', error);
+                set({isLoading: false, error: error instanceof Error ? error.message : "Unknown error"});
             }
-        },
-
-        updateAchievementProgress: (playerId, achievementType, progress) => {
-            set((state) => {
-                // Jeśli brak osiągnięć dla gracza, inicjalizujemy je
-                if (!state.playerAchievements[playerId]) {
-                    // Tworzymy nowe osiągnięcia zamiast wywołania initializePlayerAchievements
-                    // ponieważ to nie gwarantuje natychmiastowej aktualizacji stanu
-                    const initialAchievements = allAchievementDefinitions.map(achievement => ({
-                        type: achievement.type,
-                        progress: 0,
-                        unlocked: false,
-                        unlockedAt: null,
-                    }));
-
-                    // Aktualizujemy konkretne osiągnięcie
-                    const updatedInitialAchievements = initialAchievements.map(achievement => {
-                        if (achievement.type === achievementType && !achievement.unlocked) {
-                            return {
-                                ...achievement,
-                                progress: Math.max(achievement.progress, progress),
-                            };
-                        }
-                        return achievement;
-                    });
-
-                    return {
-                        playerAchievements: {
-                            ...state.playerAchievements,
-                            [playerId]: updatedInitialAchievements,
-                        },
-                    };
-                }
-
-                // Jeśli osiągnięcia istnieją, aktualizujemy je
-                const updatedAchievements = state.playerAchievements[playerId].map(achievement => {
-                    if (achievement.type === achievementType && !achievement.unlocked) {
-                        return {
-                            ...achievement,
-                            progress: Math.max(achievement.progress, progress),
-                        };
-                    }
-                    return achievement;
-                });
-
-                return {
-                    playerAchievements: {
-                        ...state.playerAchievements,
-                        [playerId]: updatedAchievements,
-                    },
-                };
-            });
         },
 
         unlockAchievement: async (playerId, achievementType) => {
             const achievementDef = allAchievementDefinitions.find(a => a.type === achievementType);
-            if (!achievementDef) return null;
+            if (!achievementDef) {
+                console.warn(`Attempted to unlock unknown achievement type: ${achievementType}`);
+                return null;
+            }
+
             set({isLoading: true, error: null});
+            let unlockedAchievementProgress: AchievementProgress | null = null;
+
             try {
-                const {error} = await supabase.from('achievements').upsert({
+                const achievementRecord = {
                     player_id: playerId,
                     type: achievementType,
                     progress: achievementDef.target,
                     unlocked: true,
                     unlocked_at: new Date().toISOString(),
-                }, {onConflict: 'player_id,type'});
-                if (error) throw error;
+                };
+
+                const {data: upsertData, error: upsertError} = await supabase
+                    .from('achievements')
+                    .upsert(achievementRecord, {onConflict: 'player_id,type'})
+                    .select()
+                    .single();
+
+                if (upsertError) {
+                    console.error('Error upserting achievement:', upsertError);
+                    throw upsertError;
+                }
+
+                unlockedAchievementProgress = {
+                    type: upsertData.type as AchievementType,
+                    progress: upsertData.progress,
+                    unlocked: upsertData.unlocked,
+                    unlockedAt: upsertData.unlocked_at,
+                };
+
                 set((state) => {
-                    const updatedAchievements = state.playerAchievements[playerId]?.map(achievement => {
-                        if (achievement.type === achievementType && !achievement.unlocked) {
-                            return {
-                                ...achievement,
-                                progress: achievementDef.target,
-                                unlocked: true,
-                                unlockedAt: new Date().toISOString(),
-                            };
-                        }
-                        return achievement;
-                    }) || [];
+                    const currentAchievements = state.playerAchievements[playerId] || [];
+                    const existingIndex = currentAchievements.findIndex(a => a.type === achievementType);
+                    const newAchievements = [...currentAchievements];
+                    if (existingIndex > -1) {
+                        newAchievements[existingIndex] = unlockedAchievementProgress!;
+                    } else {
+                        newAchievements.push(unlockedAchievementProgress!);
+                    }
                     return {
-                        playerAchievements: {
-                            ...state.playerAchievements,
-                            [playerId]: updatedAchievements,
-                        },
-                        isLoading: false,
+                        playerAchievements: {...state.playerAchievements, [playerId]: newAchievements},
                     };
                 });
+
+                try {
+                    const player = usePlayerStore.getState().getPlayerById(playerId);
+                    await dispatchSystemNotification(
+                        'achievement_unlocked',
+                        {
+                            notification_type: 'achievement_unlocked',
+                            achieverNickname: player?.nickname || player?.name || 'Player',
+                            achievementName: achievementDef.name,
+                            achievementId: achievementDef.id
+                        }
+                    );
+                } catch (notificationError) {
+                    console.error(`Failed to dispatch achievement notification for ${achievementType}:`, notificationError);
+                }
+
+                set({isLoading: false});
                 return achievementDef;
             } catch (error) {
+                console.error('Exception during achievement unlock (database operation failed):', error);
                 set({isLoading: false, error: error instanceof Error ? error.message : "Failed to unlock achievement"});
                 return null;
             }
         },
 
         getPlayerAchievements: (playerId) => {
-            // Zwracamy istniejące osiągnięcia bez automatycznej inicjalizacji
-            // Inicjalizacja powinna być wykonana w useEffect, a nie podczas renderowania
             return get().playerAchievements[playerId] || [];
         },
 
         getUnlockedAchievements: (playerId) => {
             const playerAchievements = get().getPlayerAchievements(playerId);
-            const unlockedTypes = playerAchievements
-                .filter(a => a.unlocked)
-                .map(a => a.type);
-
+            const unlockedTypes = playerAchievements.filter(a => a.unlocked).map(a => a.type);
             return allAchievementDefinitions.filter(a => unlockedTypes.includes(a.type));
         },
 
@@ -176,7 +166,7 @@ export const useAchievementStore = create<AchievementState>()(
 
         checkAndUpdateAchievements: async (playerId): Promise<Achievement[]> => {
             set({isLoading: true, error: null});
-            const {playerAchievements, updateAchievementProgress, unlockAchievement} = get();
+            const {unlockAchievement} = get();
             const playerStore = usePlayerStore.getState();
             const matchStore = useMatchStore.getState();
             const tournamentStore = useTournamentStore.getState();
@@ -184,49 +174,42 @@ export const useAchievementStore = create<AchievementState>()(
             const player = playerStore.getPlayerById(playerId);
             if (!player) {
                 set({isLoading: false, error: "Player not found"});
-                return []; // Corrected return for early exit
+                return [];
             }
 
-            const playerMatches = matchStore.getMatchesByPlayerId(playerId);
-            const allTournaments = tournamentStore.tournaments; // Reverted to direct property access
+            const {data: dbAchievements, error: dbError} = await supabase
+                .from('achievements')
+                .select('type')
+                .eq('player_id', playerId)
+                .eq('unlocked', true);
 
-            // --- Basic Stats ---
+            if (dbError) {
+                set({isLoading: false, error: "Failed to fetch achievements from DB"});
+                return [];
+            }
+            const unlockedAchievementTypes = new Set(dbAchievements.map((a) => a.type));
+
+            const playerMatches = matchStore.getMatchesByPlayerId(playerId);
+            const allTournaments = tournamentStore.tournaments;
+            const allPlayers = playerStore.players;
             const playerWins = player.wins;
             const totalMatchesPlayed = playerMatches.length;
+            const topPlayers = [...allPlayers].sort((a, b) => b.eloRating - a.eloRating).slice(0, 3).map(p => p.id).filter(id => id !== playerId);
 
-            // Get top players for TOP_PLAYER_DEFEAT achievement
-            const allPlayers = playerStore.players;
-            const topPlayers = [...allPlayers]
-                .sort((a, b) => b.eloRating - a.eloRating)
-                .slice(0, 3)
-                .map(p => p.id)
-                .filter(id => id !== playerId); // Exclude the current player
-
-            // --- Streaks (Current and Longest) ---
             const sortedMatches = [...playerMatches].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            let currentWinStreak = 0;
-            let longestWinStreak = 0;
-            let currentLossStreak = 0;
-            let longestLossStreak = 0;
-            let tempCurrentWins = 0;
-            let tempCurrentLosses = 0;
-
+            let currentWinStreak = 0, longestWinStreak = 0, currentLossStreak = 0, longestLossStreak = 0,
+                tempCurrentWins = 0, tempCurrentLosses = 0;
             for (const match of sortedMatches) {
                 if (match.winner === playerId) {
                     tempCurrentWins++;
-                    tempCurrentLosses = 0; // Reset loss streak on a win
-                    if (tempCurrentWins > longestWinStreak) {
-                        longestWinStreak = tempCurrentWins;
-                    }
+                    tempCurrentLosses = 0;
+                    if (tempCurrentWins > longestWinStreak) longestWinStreak = tempCurrentWins;
                 } else {
                     tempCurrentLosses++;
-                    tempCurrentWins = 0; // Reset win streak on a loss
-                    if (tempCurrentLosses > longestLossStreak) {
-                        longestLossStreak = tempCurrentLosses;
-                    }
+                    tempCurrentWins = 0;
+                    if (tempCurrentLosses > longestLossStreak) longestLossStreak = tempCurrentLosses;
                 }
             }
-            // Determine current streak based on the last match's outcome
             if (sortedMatches.length > 0) {
                 const lastMatch = sortedMatches[sortedMatches.length - 1];
                 if (lastMatch.winner === playerId) {
@@ -238,147 +221,69 @@ export const useAchievementStore = create<AchievementState>()(
                 }
             }
 
-            // --- Match Specifics ---
-            let cleanSweepsCount = 0;
-            let perfectSetsCount = 0;
-            let nearPerfectSetsCount = 0;
-            let deuceSetWinsCount = 0;
-            let comebackWinsCount = 0;
-            let marathonMatchesPlayedCount = 0;
-            let clutchPerformerCount = 0;
-            let strategistWinsCount = 0;
-            let heartbreakerLossesCount = 0;
-            let setComeback5PointsCount = 0;
-            let topPlayerDefeatsCount = 0;
-            let perfectGameCount = 0;
-
+            let cleanSweepsCount = 0, perfectSetsCount = 0, nearPerfectSetsCount = 0, deuceSetWinsCount = 0,
+                comebackWinsCount = 0, marathonMatchesPlayedCount = 0, clutchPerformerCount = 0,
+                strategistWinsCount = 0, heartbreakerLossesCount = 0, setComeback5PointsCount = 0,
+                topPlayerDefeatsCount = 0, perfectGameCount = 0;
             playerMatches.forEach((match: Match) => {
-                // Clean Sweeps (3-0 win)
+                const playerIsP1 = match.player1Id === playerId;
                 if (match.winner === playerId) {
-                    const playerIsP1 = match.player1Id === playerId;
-                    if (match.sets.length === 3 &&
-                        ((playerIsP1 && match.player1Score === 3 && match.player2Score === 0) ||
-                            (!playerIsP1 && match.player2Score === 3 && match.player1Score === 0))) {
-                        cleanSweepsCount++;
-                    }
-
-                    // Perfect Sets (11-0), Near Perfect (11-1), Deuce Wins, Clutch Performer, Strategist
-                    let setMarginsInMatch = new Set<number>();
-                    let allSetMarginsUnique = true;
+                    if (match.sets.length === 3 && ((playerIsP1 && match.player1Score === 3 && match.player2Score === 0) || (!playerIsP1 && match.player2Score === 3 && match.player1Score === 0))) cleanSweepsCount++;
+                    let setMarginsInMatch = new Set<number>(), allSetMarginsUnique = true;
                     match.sets.forEach((set: MatchSet, index: number) => {
-                        const p1WonSet = set.player1Score > set.player2Score;
-                        const p2WonSet = set.player2Score > set.player1Score;
+                        const p1WonSet = set.player1Score > set.player2Score,
+                            p2WonSet = set.player2Score > set.player1Score;
                         const playerWonThisSet = (playerIsP1 && p1WonSet) || (!playerIsP1 && p2WonSet);
-
                         if (playerWonThisSet) {
-                            const pScore = playerIsP1 ? set.player1Score : set.player2Score;
-                            const oScore = playerIsP1 ? set.player2Score : set.player1Score;
-
+                            const pScore = playerIsP1 ? set.player1Score : set.player2Score,
+                                oScore = playerIsP1 ? set.player2Score : set.player1Score;
                             if (pScore === 11 && oScore === 0) perfectSetsCount++;
                             if (pScore === 11 && oScore === 1) nearPerfectSetsCount++;
                             if (pScore >= 11 && oScore >= 10 && pScore - oScore === 2) deuceSetWinsCount++;
-
-                            // Clutch Performer: Won the deciding set
-                            // Best of 3: 2 sets to win, deciding is 3rd. Best of 5: 3 sets to win, deciding is 5th.
-                            const setsToWinMatch = (match.player1Score + match.player2Score) < 3 ? 2 : Math.ceil((match.player1Score + match.player2Score) / 2) + ((match.player1Score + match.player2Score) % 2 === 0 ? 1 : 0); // Simplified, assumes Bo3 or Bo5 based on total sets played
-                            // A more robust way for deciding set: if player won, and total sets played is odd (e.g. 2-1 in Bo3, 3-2 in Bo5)
-                            // And this is the last set of the match
                             if ((match.player1Score + match.player2Score) % 2 !== 0 && index === match.sets.length - 1) {
-                                if ((playerIsP1 && match.player1Score > match.player2Score) || (!playerIsP1 && match.player2Score > match.player1Score)) {
-                                    clutchPerformerCount++;
-                                }
+                                if ((playerIsP1 && match.player1Score > match.player2Score) || (!playerIsP1 && match.player2Score > match.player1Score)) clutchPerformerCount++;
                             }
                         }
-                        // Strategist Win: Check set margins
                         const margin = Math.abs(set.player1Score - set.player2Score);
-                        if (setMarginsInMatch.has(margin)) {
-                            allSetMarginsUnique = false;
-                        }
+                        if (setMarginsInMatch.has(margin)) allSetMarginsUnique = false;
                         setMarginsInMatch.add(margin);
                     });
-                    if (match.winner === playerId && allSetMarginsUnique && match.sets.length > 0) {
-                        strategistWinsCount++;
-                    }
-                }
-
-                // Comeback King (win after being 2 sets down - assumes best of 5 for simplicity)
-                if (match.winner === playerId && match.sets.length >= 3) { // Must win at least 3 sets
-                    let pSets = 0, oSets = 0;
-                    let wasTwoSetsDown = false;
-                    for (let i = 0; i < match.sets.length; i++) {
-                        const set = match.sets[i];
-                        const playerIsP1 = match.player1Id === playerId;
-                        if ((playerIsP1 && set.player1Score > set.player2Score) || (!playerIsP1 && set.player2Score > set.player1Score)) {
-                            pSets++;
-                        } else {
-                            oSets++;
+                    if (match.winner === playerId && allSetMarginsUnique && match.sets.length > 0) strategistWinsCount++;
+                    if (match.sets.length >= 3) {
+                        let pSets = 0, oSets = 0, wasTwoSetsDown = false;
+                        for (let i = 0; i < match.sets.length; i++) {
+                            const set = match.sets[i];
+                            if ((playerIsP1 && set.player1Score > set.player2Score) || (!playerIsP1 && set.player2Score > set.player1Score)) pSets++; else oSets++;
+                            if (i < match.sets.length - 1 && oSets - pSets >= 2) wasTwoSetsDown = true;
                         }
-                        if (i < match.sets.length - 1) { // Don't check after the last set that player won
-                            if (oSets - pSets >= 2) wasTwoSetsDown = true;
-                        }
+                        if (wasTwoSetsDown && pSets > oSets) comebackWinsCount++;
                     }
-                    if (wasTwoSetsDown && pSets > oSets) comebackWinsCount++;
-                }
-
-                // Marathon Match (5 sets played)
-                if (match.sets.length === 5) marathonMatchesPlayedCount++;
-
-                // Heartbreaker Loss (lose 10-12 in deciding set of a 5-set match)
-                if (match.winner !== playerId && match.sets.length === 5) {
-                    const lastSet = match.sets[4];
-                    const playerIsP1 = match.player1Id === playerId;
-                    const pScore = playerIsP1 ? lastSet.player1Score : lastSet.player2Score;
-                    const oScore = playerIsP1 ? lastSet.player2Score : lastSet.player1Score;
-                    if (pScore === 10 && oScore === 12) heartbreakerLossesCount++;
-                }
-
-                // SET_COMEBACK_5_POINTS: Check for comebacks within a set
-                // This is an approximation as we don't have point-by-point data
-                // Assumes if final score is 11-7 or better after being down, it was likely a comeback
-                if (match.winner === playerId) {
-                    const playerIsP1 = match.player1Id === playerId;
                     match.sets.forEach((set: MatchSet) => {
-                        const pScore = playerIsP1 ? set.player1Score : set.player2Score;
-                        const oScore = playerIsP1 ? set.player2Score : set.player1Score;
-                        if (pScore === 11 && oScore <= 7) {
-                            setComeback5PointsCount++;
-                        }
+                        if ((playerIsP1 ? set.player1Score : set.player2Score) === 11 && (playerIsP1 ? set.player2Score : set.player1Score) <= 7) setComeback5PointsCount++;
                     });
-                }
-
-                // TOP_PLAYER_DEFEAT: Check if defeated a top player
-                if (match.winner === playerId) {
-                    const opponentId = match.player1Id === playerId ? match.player2Id : match.player1Id;
-                    if (topPlayers.includes(opponentId)) {
-                        topPlayerDefeatsCount++;
-                    }
-                }
-
-                // PERFECT_GAME_FLAWLESS: Check if opponent scored 0 in all sets
-                if (match.winner === playerId) {
+                    const opponentId = playerIsP1 ? match.player2Id : match.player1Id;
+                    if (topPlayers.includes(opponentId)) topPlayerDefeatsCount++;
                     let perfectGame = match.sets.length > 0;
                     for (const set of match.sets) {
-                        const opponentScore = match.player1Id === playerId ? set.player2Score : set.player1Score;
-                        if (opponentScore > 0) {
+                        if ((playerIsP1 ? set.player2Score : set.player1Score) > 0) {
                             perfectGame = false;
                             break;
                         }
                     }
                     if (perfectGame) perfectGameCount++;
                 }
+                if (match.sets.length === 5) marathonMatchesPlayedCount++;
+                if (match.winner !== playerId && match.sets.length === 5) {
+                    const lastSet = match.sets[4], pScore = playerIsP1 ? lastSet.player1Score : lastSet.player2Score,
+                        oScore = playerIsP1 ? lastSet.player2Score : lastSet.player1Score;
+                    if (pScore === 10 && oScore === 12) heartbreakerLossesCount++;
+                }
             });
-
-            // Bounce Back Wins (win after a loss - use sortedMatches)
             let bounceBackWinsCount = 0;
             for (let i = 1; i < sortedMatches.length; i++) {
-                if (sortedMatches[i - 1].winner !== playerId && sortedMatches[i].winner === playerId) {
-                    bounceBackWinsCount++;
-                }
+                if (sortedMatches[i - 1].winner !== playerId && sortedMatches[i].winner === playerId) bounceBackWinsCount++;
             }
-
-            // --- Social & Engagement ---
-            const uniqueOpponents = new Set<string>();
-            const opponentPlayCounts: Record<string, number> = {};
+            const uniqueOpponents = new Set<string>(), opponentPlayCounts: Record<string, number> = {};
             playerMatches.forEach((match: Match) => {
                 const opponentId = match.player1Id === playerId ? match.player2Id : match.player1Id;
                 if (opponentId) {
@@ -386,79 +291,40 @@ export const useAchievementStore = create<AchievementState>()(
                     opponentPlayCounts[opponentId] = (opponentPlayCounts[opponentId] || 0) + 1;
                 }
             });
-            const uniqueOpponentsCount = uniqueOpponents.size;
-            const maxGamesAgainstOneOpponent = Math.max(0, ...Object.values(opponentPlayCounts));
-
-            // --- Activity ---
+            const uniqueOpponentsCount = uniqueOpponents.size,
+                maxGamesAgainstOneOpponent = Math.max(0, ...Object.values(opponentPlayCounts));
             const matchesPerDay: Record<string, number> = {};
             playerMatches.forEach((match: Match) => {
                 const matchDate = new Date(match.date).toISOString().split('T')[0];
                 matchesPerDay[matchDate] = (matchesPerDay[matchDate] || 0) + 1;
             });
             const maxMatchesInSingleDay = Math.max(0, ...Object.values(matchesPerDay));
-
-            // --- Tournament Stats ---
-            const tournamentWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId).length;
-            const tournamentsParticipatedCount = new Set(playerMatches.map((m: Match) => m.tournamentId).filter(Boolean)).size;
-            const knockoutWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.KNOCKOUT).length;
-            const roundRobinWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.ROUND_ROBIN).length;
-            const groupTournamentWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.GROUP).length;
-
-            let championNoLossesCount = 0;
-            let runnerUpFinishes = 0;
-            let tournamentFinalistCount = 0;
-            let quarterFinalistCount = 0;
-
+            const tournamentWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId).length,
+                tournamentsParticipatedCount = new Set(playerMatches.map((m: Match) => m.tournamentId).filter(Boolean)).size,
+                knockoutWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.KNOCKOUT).length,
+                roundRobinWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.ROUND_ROBIN).length,
+                groupTournamentWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.GROUP).length;
+            let championNoLossesCount = 0, runnerUpFinishes = 0, tournamentFinalistCount = 0, quarterFinalistCount = 0;
             allTournaments.forEach((tournament: Tournament) => {
                 if (tournament.participants.includes(playerId) && tournament.status === 'completed') {
-                    // Champion No Losses
                     if (tournament.winner === playerId) {
-                        const matchesInThisTournament = playerMatches.filter(m => m.tournamentId === tournament.id);
-                        if (matchesInThisTournament.every(m => m.winner === playerId)) {
-                            championNoLossesCount++;
-                        }
+                        if (playerMatches.filter(m => m.tournamentId === tournament.id).every(m => m.winner === playerId)) championNoLossesCount++;
                     }
-                    // Finalist & Runner-up (for Knockout/Group)
                     if (tournament.format === TournamentFormat.KNOCKOUT || tournament.format === TournamentFormat.GROUP) {
                         let maxRound = Math.max(...tournament.matches.map(m => m.round));
-
-                        // Check for finalist (final match)
-                        const finalMatches = tournament.matches.filter(m => m.round === maxRound && m.status === 'completed');
-                        const playerInFinal = finalMatches.some(m => m.player1Id === playerId || m.player2Id === playerId);
-                        if (playerInFinal) {
+                        if (tournament.matches.filter(m => m.round === maxRound && m.status === 'completed').some(m => m.player1Id === playerId || m.player2Id === playerId)) {
                             tournamentFinalistCount++;
-                            if (tournament.winner !== playerId) {
-                                runnerUpFinishes++;
-                            }
+                            if (tournament.winner !== playerId) runnerUpFinishes++;
                         }
-
-                        // Check for quarterfinalist (if tournament has enough rounds)
-                        if (maxRound >= 3) { // Assuming round 1 = quarters, 2 = semis, 3 = final in a large tournament
-                            const quarterFinalMatches = tournament.matches.filter(m => m.round === maxRound - 2 && m.status === 'completed');
-                            const playerInQuarters = quarterFinalMatches.some(m => m.player1Id === playerId || m.player2Id === playerId);
-                            if (playerInQuarters) {
-                                quarterFinalistCount++;
-                            }
-                        }
+                        if (maxRound >= 3 && tournament.matches.filter(m => m.round === maxRound - 2 && m.status === 'completed').some(m => m.player1Id === playerId || m.player2Id === playerId)) quarterFinalistCount++;
                     }
                 }
             });
-
-            // --- Meta Achievements ---
-            const currentPlayerAchievements = get().playerAchievements[playerId] || [];
-
-            const metaAchievementTypes = [
-                AchievementType.META_UNLOCK_5, AchievementType.META_UNLOCK_10, AchievementType.META_UNLOCK_15,
-                AchievementType.META_UNLOCK_20, AchievementType.META_UNLOCK_25, AchievementType.META_UNLOCK_35,
-                AchievementType.META_UNLOCK_40, AchievementType.META_UNLOCK_ALL,
-            ];
-            const unlockedNonMetaCount = currentPlayerAchievements.filter(p => p.unlocked && !metaAchievementTypes.includes(p.type)).length;
+            const metaAchievementTypes = [AchievementType.META_UNLOCK_5, AchievementType.META_UNLOCK_10, AchievementType.META_UNLOCK_15, AchievementType.META_UNLOCK_20, AchievementType.META_UNLOCK_25, AchievementType.META_UNLOCK_35, AchievementType.META_UNLOCK_40, AchievementType.META_UNLOCK_ALL];
+            const unlockedNonMetaCount = get().playerAchievements[playerId]?.filter(p => p.unlocked && !metaAchievementTypes.includes(p.type)).length || 0;
             const totalNonMetaAchievements = allAchievementDefinitions.filter(achDef => !metaAchievementTypes.includes(achDef.type)).length;
             const metaUnlockAllProgress = (unlockedNonMetaCount >= totalNonMetaAchievements) ? 1 : 0;
-
-            // --- Progress Updates Array ---
             const progressUpdates = [
-                // Basic
                 {type: AchievementType.FIRST_WIN, progress: playerWins > 0 ? 1 : 0},
                 {type: AchievementType.WINS_10, progress: playerWins},
                 {type: AchievementType.WINS_25, progress: playerWins},
@@ -469,41 +335,36 @@ export const useAchievementStore = create<AchievementState>()(
                 {type: AchievementType.MATCHES_50, progress: totalMatchesPlayed},
                 {type: AchievementType.MATCHES_75, progress: totalMatchesPlayed},
                 {type: AchievementType.MATCHES_100, progress: totalMatchesPlayed},
-                // Streaks
                 {type: AchievementType.WIN_STREAK_3, progress: currentWinStreak},
                 {type: AchievementType.WIN_STREAK_5, progress: currentWinStreak},
                 {type: AchievementType.WIN_STREAK_10, progress: currentWinStreak},
                 {type: AchievementType.LONGEST_STREAK_5, progress: longestWinStreak},
                 {type: AchievementType.LONGEST_STREAK_10, progress: longestWinStreak},
                 {type: AchievementType.LOSS_STREAK_3, progress: currentLossStreak},
-                // Match Specifics
-                {type: AchievementType.CLEAN_SWEEP, progress: cleanSweepsCount}, // For Flawless Victory
+                {type: AchievementType.CLEAN_SWEEP, progress: cleanSweepsCount},
                 {type: AchievementType.CLEAN_SWEEPS_5, progress: cleanSweepsCount},
                 {type: AchievementType.CLEAN_SWEEPS_10, progress: cleanSweepsCount},
                 {type: AchievementType.PERFECT_SET, progress: perfectSetsCount},
                 {type: AchievementType.NEAR_PERFECT_SET, progress: nearPerfectSetsCount},
-                {type: AchievementType.DEUCE_SET_WIN, progress: deuceSetWinsCount}, // For Deuce Master
+                {type: AchievementType.DEUCE_SET_WIN, progress: deuceSetWinsCount},
                 {type: AchievementType.COMEBACK_KING, progress: comebackWinsCount},
                 {type: AchievementType.MARATHON_MATCH, progress: marathonMatchesPlayedCount},
                 {type: AchievementType.CLUTCH_PERFORMER, progress: clutchPerformerCount},
-                {type: AchievementType.BOUNCE_BACK_WIN, progress: bounceBackWinsCount}, // For Bounce Back
+                {type: AchievementType.BOUNCE_BACK_WIN, progress: bounceBackWinsCount},
                 {type: AchievementType.STRATEGIST_WIN, progress: strategistWinsCount},
                 {type: AchievementType.HEARTBREAKER_LOSS, progress: heartbreakerLossesCount},
-                {type: AchievementType.GRINDING_IT_OUT_10, progress: marathonMatchesPlayedCount}, // Uses marathon match count
+                {type: AchievementType.GRINDING_IT_OUT_10, progress: marathonMatchesPlayedCount},
                 {type: AchievementType.SET_COMEBACK_5_POINTS, progress: setComeback5PointsCount},
                 {type: AchievementType.DEFEAT_TOP_PLAYER, progress: topPlayerDefeatsCount},
                 {type: AchievementType.DEFEAT_TOP_PLAYERS_5, progress: topPlayerDefeatsCount},
                 {type: AchievementType.DEFEAT_TOP_PLAYERS_10, progress: topPlayerDefeatsCount},
                 {type: AchievementType.PERFECT_GAME_FLAWLESS, progress: perfectGameCount},
-                // Social & Engagement
                 {type: AchievementType.SOCIAL_BUTTERFLY_5, progress: uniqueOpponentsCount},
                 {type: AchievementType.SOCIAL_BUTTERFLY_10, progress: uniqueOpponentsCount},
                 {type: AchievementType.SOCIAL_BUTTERFLY_15, progress: uniqueOpponentsCount},
                 {type: AchievementType.RIVALRY_STARTER_3, progress: maxGamesAgainstOneOpponent},
                 {type: AchievementType.RIVALRY_MASTER, progress: maxGamesAgainstOneOpponent},
-                // Activity
                 {type: AchievementType.DOUBLE_DUTY_MATCHES, progress: maxMatchesInSingleDay},
-                // Tournament
                 {type: AchievementType.TOURNAMENT_WIN, progress: tournamentWinsCount},
                 {type: AchievementType.TOURNAMENT_WINS_3, progress: tournamentWinsCount},
                 {type: AchievementType.TOURNAMENT_WINS_5, progress: tournamentWinsCount},
@@ -516,7 +377,6 @@ export const useAchievementStore = create<AchievementState>()(
                 {type: AchievementType.TOURNAMENT_FINALIST, progress: tournamentFinalistCount},
                 {type: AchievementType.ALWAYS_A_BRIDESMAID, progress: runnerUpFinishes},
                 {type: AchievementType.TOURNAMENT_QUARTERFINALIST_3, progress: quarterFinalistCount},
-                // Meta
                 {type: AchievementType.META_UNLOCK_5, progress: unlockedNonMetaCount},
                 {type: AchievementType.META_UNLOCK_10, progress: unlockedNonMetaCount},
                 {type: AchievementType.META_UNLOCK_15, progress: unlockedNonMetaCount},
@@ -527,48 +387,25 @@ export const useAchievementStore = create<AchievementState>()(
                 {type: AchievementType.META_UNLOCK_ALL, progress: metaUnlockAllProgress},
             ];
 
-            // Apply updates and unlock achievements
             const newlyUnlockedAchievements: Achievement[] = [];
-
             for (const update of progressUpdates) {
-                // Removed: const currentAchievementProgress = playerAchievements[playerId]?.find(p => p.type === update.type);
-                // Use currentPlayerAchievements from above
-                const currentAchievementProgress = currentPlayerAchievements.find(p => p.type === update.type);
                 const definition = allAchievementDefinitions.find(def => def.type === update.type);
-
-                if (definition && (!currentAchievementProgress || !currentAchievementProgress.unlocked)) {
-                    updateAchievementProgress(playerId, update.type, update.progress);
-                    // Check if this update unlocks the achievement
-                    if (update.progress >= definition.target) {
-                        const unlockedAchievement = await unlockAchievement(playerId, update.type);
-                        if (unlockedAchievement) {
-                            newlyUnlockedAchievements.push(unlockedAchievement);
-                        }
+                if (
+                    definition &&
+                    update.progress >= definition.target &&
+                    !unlockedAchievementTypes.has(update.type)
+                ) {
+                    const unlockedAchievement = await unlockAchievement(playerId, update.type);
+                    if (unlockedAchievement) {
+                        newlyUnlockedAchievements.push(unlockedAchievement);
+                        unlockedAchievementTypes.add(update.type);
                     }
                 }
             }
-
-            // Special handling for META_UNLOCK_ALL
-            // Removed: const currentPlayerAchievements = get().playerAchievements[playerId] || []; // Already declared
-            const unlockedCount = currentPlayerAchievements.filter(a => a.unlocked && a.type !== AchievementType.META_UNLOCK_ALL).length;
-            const metaAchievementDef = allAchievementDefinitions.find(def => def.type === AchievementType.META_UNLOCK_ALL);
-            if (metaAchievementDef) {
-                updateAchievementProgress(playerId, AchievementType.META_UNLOCK_ALL, unlockedCount);
-                // Use currentPlayerAchievements from above
-                const metaProgress = currentPlayerAchievements.find(p => p.type === AchievementType.META_UNLOCK_ALL);
-                if (metaProgress && !metaProgress.unlocked && unlockedCount >= metaAchievementDef.target) {
-                    const unlockedMeta = await unlockAchievement(playerId, AchievementType.META_UNLOCK_ALL);
-                    if (unlockedMeta) {
-                        newlyUnlockedAchievements.push(unlockedMeta);
-                    }
-                }
-            }
-
             set({isLoading: false});
             return newlyUnlockedAchievements;
         },
-    }),
-);
+    }));
 
 export const fetchAchievementsFromSupabase = async () => {
     useAchievementStore.setState({isLoading: true, error: null});
