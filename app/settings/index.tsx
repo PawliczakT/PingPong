@@ -1,3 +1,4 @@
+//app/settings/index.tsx
 import React from 'react';
 import {ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View} from 'react-native';
 import {useSettingsStore} from '@/store/settingsStore';

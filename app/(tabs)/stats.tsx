@@ -1,3 +1,4 @@
+//app/(tabs)/stats.tsx
 import React from "react";
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {useRouter} from "expo-router";

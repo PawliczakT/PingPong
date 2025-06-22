@@ -1,3 +1,4 @@
+//app/match/[id].tsx
 import React from "react";
 import {ScrollView, StyleSheet, Text, View} from "react-native";
 import {Stack, useLocalSearchParams, useRouter} from "expo-router";

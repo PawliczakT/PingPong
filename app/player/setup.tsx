@@ -1,3 +1,4 @@
+//app/player/setup.tsx
 import React, {useEffect, useState} from 'react';
 import {
     ActivityIndicator,

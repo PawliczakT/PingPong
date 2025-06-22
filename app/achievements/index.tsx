@@ -1,3 +1,4 @@
+//app/achievements/index.tsx
 import {Pressable, ScrollView, Text, TouchableWithoutFeedback, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Stack} from 'expo-router';

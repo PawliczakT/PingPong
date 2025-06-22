@@ -1,3 +1,4 @@
+//app/matches/index.tsx
 import React, {useState} from "react";
 import {FlatList, Pressable, StyleSheet, Text, TextInput, View} from "react-native";
 import {Stack, useRouter} from "expo-router";

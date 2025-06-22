@@ -1,3 +1,4 @@
+//app/(tabs)/_layout.tsx
 import React from 'react';
 import {Tabs} from 'expo-router';
 import {useColorScheme} from 'react-native';
@@ -29,43 +30,43 @@ export default function TabLayout() {
                 },
             }}
         >
-            <Tabs.Screen 
-                name="index" 
+            <Tabs.Screen
+                name="index"
                 options={{
                     title: 'Home',
                     tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
                 }}
             />
-            <Tabs.Screen 
-                name="players" 
+            <Tabs.Screen
+                name="players"
                 options={{
                     title: 'Players',
                     tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
                 }}
             />
-            <Tabs.Screen 
-                name="add-match" 
+            <Tabs.Screen
+                name="add-match"
                 options={{
                     title: 'Add Match',
                     tabBarIcon: ({ color, size }) => <PlusCircle size={size} color={color} />,
                 }}
             />
-            <Tabs.Screen 
-                name="tournaments" 
+            <Tabs.Screen
+                name="tournaments"
                 options={{
                     title: 'Tournaments',
                     tabBarIcon: ({ color, size }) => <Trophy size={size} color={color} />,
                 }}
             />
-            <Tabs.Screen 
-                name="stats" 
+            <Tabs.Screen
+                name="stats"
                 options={{
                     title: 'Stats',
                     tabBarIcon: ({ color, size }) => <BarChart size={size} color={color} />,
                 }}
             />
-            <Tabs.Screen 
-                name="profile" 
+            <Tabs.Screen
+                name="profile"
                 options={{
                     title: 'Profile',
                     tabBarIcon: ({ color, size }) => <User size={size} color={color} />,

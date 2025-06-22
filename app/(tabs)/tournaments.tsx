@@ -1,3 +1,4 @@
+//app/(tabs)/tournaments.tsx
 import React, {useState} from "react";
 import {FlatList, Pressable, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";

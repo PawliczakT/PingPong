@@ -1,3 +1,4 @@
+//app/player/edit/[id].tsx
 import React, {useEffect, useState} from "react";
 import {Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from "react-native";
 import {Stack, useLocalSearchParams, useRouter} from "expo-router";

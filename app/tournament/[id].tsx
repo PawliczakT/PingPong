@@ -1,3 +1,4 @@
+//app/tournament/[id].tsx
 import React, {useEffect, useState} from "react";
 import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View,} from "react-native";
 import {Stack, useLocalSearchParams, useRouter} from "expo-router";
