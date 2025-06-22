@@ -27,6 +27,7 @@ export default function RootLayout() {
     const [hasProfile, setHasProfile] = useState<boolean | null>(null);
     const [isCheckingProfile, setIsCheckingProfile] = useState(true);
 
+
     const checkProfile = useCallback(async () => {
         if (!user?.id) {
             console.log('🔍 No user ID available for profile check');
