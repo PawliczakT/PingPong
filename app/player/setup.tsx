@@ -10,18 +10,18 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import {useLocalSearchParams, useRouter} from 'expo-router';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useAuthStore} from '@/store/authStore';
 import {usePlayerStore} from '@/store/playerStore';
-import {supabase} from '@/backend/server/lib/supabase';
 import Button from '@/components/Button';
 import {colors} from '@/constants/colors';
 import {Camera, Image as ImageIcon} from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {manipulateAsync, SaveFormat} from 'expo-image-manipulator';
+import {useUploader} from '@/hooks/useUploader';
 
 const SetupProfileScreen = () => {
     const router = useRouter();
@@ -29,10 +29,11 @@ const SetupProfileScreen = () => {
     const {user} = useAuthStore();
     const {addPlayer} = usePlayerStore();
 
+    const {isUploading, upload} = useUploader('avatars');
+
     const [name, setName] = useState('');
     const [nickname, setNickname] = useState('');
-    const [image, setImage] = useState<string | undefined>(undefined);
-    const [isLoading, setIsLoading] = useState(false);
+    const [image, setImage] = useState<string | undefined>(undefined); // Używamy 'image' zamiast 'imageUri' dla spójności
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -46,10 +47,9 @@ const SetupProfileScreen = () => {
         }
     }, [user]);
 
-    // Handle back button if this is a new user (don't let them go back to login)
     useEffect(() => {
         if (isNewUser === 'true') {
-            const backHandler = () => true; // Prevent going back
+            const backHandler = () => true;
             BackHandler.addEventListener('hardwareBackPress', backHandler);
             return () => BackHandler.removeEventListener('hardwareBackPress', backHandler);
         }
@@ -64,7 +64,7 @@ const SetupProfileScreen = () => {
             }
 
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ["images"],
+                mediaTypes: ['images'],
                 allowsEditing: true,
                 aspect: [1, 1],
                 quality: 0.8,
@@ -117,7 +117,6 @@ const SetupProfileScreen = () => {
             Alert.alert('Error', 'Provide your full name');
             return;
         }
-
         if (!user) {
             Alert.alert('Error', 'User not found');
             router.replace('/(auth)/login');
@@ -129,53 +128,38 @@ const SetupProfileScreen = () => {
             let avatarUrl: string | undefined = undefined;
 
             if (image) {
-                setIsLoading(true);
-                const fileName = `avatars/${Date.now()}.jpg`;
-                const formData = new FormData();
+                const response = await fetch(image);
+                const blob = await response.blob();
 
-                // @ts-ignore
-                formData.append('file', {
-                    uri: image,
-                    name: fileName,
-                    type: 'image/jpeg',
-                });
+                const fileExt = image.split('.').pop() || 'jpg';
+                const fileName = `${user.id}-${Date.now()}.${fileExt}`;
 
-                const {data: uploadData, error: uploadError} = await supabase.storage
-                    .from('avatars')
-                    .upload(fileName, formData, {
-                        cacheControl: '3600',
-                        upsert: false,
-                    });
+                avatarUrl = await upload(blob, fileName);
 
-                if (uploadError) throw uploadError;
-
-                const {data: publicUrlData} = supabase.storage
-                    .from('avatars')
-                    .getPublicUrl(fileName);
-
-                avatarUrl = publicUrlData.publicUrl;
+                if (!avatarUrl) {
+                    Alert.alert('Error', 'Failed to upload avatar. Please try again.');
+                    setIsSubmitting(false);
+                    return;
+                }
             }
 
-            try {
-                await addPlayer(name, nickname, avatarUrl);
-                router.replace({
-                    pathname: '/(tabs)',
-                    params: {refresh: Date.now()}
-                });
-            } catch (error) {
-                console.error('Error creating player:', error);
-                Alert.alert('Error', 'Filed to create player.');
-            }
+            await addPlayer(name, nickname, avatarUrl);
+
+            router.replace({
+                pathname: '/(tabs)',
+                params: {refresh: Date.now()},
+            });
+
         } catch (error) {
             console.error('Error creating profile:', error);
-            Alert.alert('Error', 'Failed to create profile.');
+            // @ts-ignore
+            Alert.alert('Error', `Failed to create profile: ${error.message}`);
         } finally {
-            setIsLoading(false);
             setIsSubmitting(false);
         }
     };
 
-    if (isLoading) {
+    if (isUploading) {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
@@ -189,11 +173,8 @@ const SetupProfileScreen = () => {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-
-                {/* Header z avatarem */}
                 <View style={styles.header}>
                     <Text style={styles.title}>Create your profile</Text>
-
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatar}>
                             {image ? (
@@ -202,7 +183,6 @@ const SetupProfileScreen = () => {
                                 <Text style={styles.avatarText}>PHOTO</Text>
                             )}
                         </View>
-
                         <View style={styles.avatarButtons}>
                             <TouchableOpacity style={styles.avatarButton} onPress={pickImage}>
                                 <ImageIcon size={20} color={colors.primary}/>
@@ -214,10 +194,8 @@ const SetupProfileScreen = () => {
                     </View>
                 </View>
 
-                {/* Sekcja z informacjami */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Personal Information</Text>
-
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Full Name *</Text>
                         <TextInput
@@ -228,7 +206,6 @@ const SetupProfileScreen = () => {
                             placeholderTextColor={colors.textLight}
                         />
                     </View>
-
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Nick Name (optional)</Text>
                         <TextInput
@@ -241,7 +218,6 @@ const SetupProfileScreen = () => {
                     </View>
                 </View>
 
-                {/* Przycisk */}
                 <Button
                     title="Save Profile"
                     onPress={handleSubmit}

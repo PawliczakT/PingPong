@@ -1,3 +1,4 @@
+//utils/imageUpload.ts
 import * as ImagePicker from 'expo-image-picker';
 import {supabase} from '@/backend/server/lib/supabase';
 import {decode} from 'base64-arraybuffer';

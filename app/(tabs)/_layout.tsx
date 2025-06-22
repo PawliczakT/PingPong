@@ -2,8 +2,8 @@
 import React from 'react';
 import {Tabs} from 'expo-router';
 import {useColorScheme} from 'react-native';
-import { User, Home, Users, PlusCircle, Trophy, BarChart, MessageCircle } from 'lucide-react-native'; // Added MessageCircle
-import { colors } from '@/constants/colors';
+import {BarChart, Home, MessageCircle, PlusCircle, Trophy, User, Users} from 'lucide-react-native'; // Added MessageCircle
+import {colors} from '@/constants/colors';
 
 export default function TabLayout() {
     const colorScheme = useColorScheme();
@@ -34,49 +34,49 @@ export default function TabLayout() {
                 name="index"
                 options={{
                     title: 'Home',
-                    tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+                    tabBarIcon: ({color, size}) => <Home size={size} color={color}/>,
                 }}
             />
             <Tabs.Screen
                 name="players"
                 options={{
                     title: 'Players',
-                    tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+                    tabBarIcon: ({color, size}) => <Users size={size} color={color}/>,
                 }}
             />
             <Tabs.Screen
                 name="add-match"
                 options={{
                     title: 'Add Match',
-                    tabBarIcon: ({ color, size }) => <PlusCircle size={size} color={color} />,
+                    tabBarIcon: ({color, size}) => <PlusCircle size={size} color={color}/>,
                 }}
             />
             <Tabs.Screen
                 name="tournaments"
                 options={{
                     title: 'Tournaments',
-                    tabBarIcon: ({ color, size }) => <Trophy size={size} color={color} />,
+                    tabBarIcon: ({color, size}) => <Trophy size={size} color={color}/>,
                 }}
             />
             <Tabs.Screen
                 name="stats"
                 options={{
                     title: 'Stats',
-                    tabBarIcon: ({ color, size }) => <BarChart size={size} color={color} />,
+                    tabBarIcon: ({color, size}) => <BarChart size={size} color={color}/>,
                 }}
             />
             <Tabs.Screen
                 name="profile"
                 options={{
                     title: 'Profile',
-                    tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+                    tabBarIcon: ({color, size}) => <User size={size} color={color}/>,
                 }}
             />
             <Tabs.Screen
                 name="chat"
                 options={{
                     title: 'Chat',
-                    tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
+                    tabBarIcon: ({color, size}) => <MessageCircle size={size} color={color}/>,
                 }}
             />
         </Tabs>

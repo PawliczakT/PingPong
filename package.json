@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start --tunnel",
     "start-web": "expo start --web --tunnel",
+    "web": "expo start --web",
     "start-web-dev": "DEBUG=expo* expo start --web --tunnel",
     "build": "expo export -p web",
     "build:web": "expo export -p web",
