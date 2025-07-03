@@ -34,7 +34,6 @@ export default function EditPlayerScreen() {
         }
     }, [player]);
 
-    // Pick and process image with face detection
     const handlePickImage = async () => {
         try {
             setIsSubmitting(true);
@@ -45,10 +44,8 @@ export default function EditPlayerScreen() {
                 console.log('AWS recognition: result.uri', result.uri)
                 setSelectedImageUri(result.uri);
                 setSelectedImageBase64(result.base64);
-                // Set avatarUrl temporarily to show the image in the form
-                setAvatarUrl(result.uri); // result.uri jest tutaj string, więc jest zgodny z SetStateAction<string | undefined>
+                setAvatarUrl(result.uri);
 
-                // Inform the user that the image was processed using AWS
                 if (result.awsProcessed) {
                     Alert.alert(
                         'Success',
@@ -92,11 +89,9 @@ export default function EditPlayerScreen() {
         try {
             let finalAvatarUrl = avatarUrl;
 
-            // If a local image was selected, use it directly or attempt to upload
             if (selectedImageUri) {
                 setUploadingImage(true);
 
-                // Use the selected image URI directly or try to upload
                 const {url, error} = await uploadImageToSupabase(
                     selectedImageUri,
                     selectedImageBase64,

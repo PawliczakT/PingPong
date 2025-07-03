@@ -4,7 +4,7 @@ import {protectedProcedure} from '../../init';
 import {z} from 'zod';
 
 interface Player {
-    id: string;  // Zmieniono z bigint na string, aby pasowało do typu zwracanego z bazy
+    id: string;
     user_id: string;
     name: string;
     nickname?: string | null;
@@ -18,17 +18,16 @@ interface Player {
 }
 
 export const ensurePlayerProfileProcedure = protectedProcedure
-    .output(z.custom<Player>(data => typeof data === 'object' && data !== null && 'user_id' in data)) // Basic validation
+    .output(z.custom<Player>(data => typeof data === 'object' && data !== null && 'user_id' in data))
     .mutation(async ({ctx}) => {
         const {user, supabase} = ctx;
         const userId = user.id;
 
-        // 1. Query for existing player
         const {data: existingPlayer, error: fetchError} = await supabase
             .from('players')
             .select('*')
             .eq('user_id', userId)
-            .maybeSingle(); // Use maybeSingle to get one record or null
+            .maybeSingle();
 
         if (fetchError) {
             console.error('Error fetching player profile:', fetchError);
@@ -43,32 +42,28 @@ export const ensurePlayerProfileProcedure = protectedProcedure
             return existingPlayer as Player;
         }
 
-        // 2. If no player exists, create one
         const userName = user.user_metadata?.full_name || user.user_metadata?.name || 'Anonymous Player';
         const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.avatarUrl || null;
 
         const newPlayerData = {
             user_id: userId,
             name: userName,
-            avatar_url: avatarUrl,  // Zmieniono z avatarUrl na avatar_url
+            avatar_url: avatarUrl,
             elo_rating: 1200,
             wins: 0,
             losses: 0,
             active: true,
-            // nickname can be null/undefined
-            // created_at and updated_at will be set by default in the DB
         };
 
         const {data: newPlayer, error: insertError} = await supabase
             .from('players')
             .insert(newPlayerData)
             .select()
-            .single(); // Use single to get the inserted record
+            .single();
 
         if (insertError) {
             console.error('Error creating player profile:', insertError);
-            // Check for unique constraint violation on user_id, though maybeSingle should prevent this path if record exists
-            if (insertError.code === '23505') { // PostgreSQL unique violation
+            if (insertError.code === '23505') {
                 throw new TRPCError({
                     code: 'CONFLICT',
                     message: 'A player profile already exists for this user.',
@@ -83,7 +78,6 @@ export const ensurePlayerProfileProcedure = protectedProcedure
         }
 
         if (!newPlayer) {
-            // This case should ideally not be reached if insert was successful without error
             console.error('New player data is null after insert without error.');
             throw new TRPCError({
                 code: 'INTERNAL_SERVER_ERROR',
@@ -102,7 +96,7 @@ export const UpdateProfileInput = z.object({
 
 export const updateMyProfileProcedure = protectedProcedure
     .input(UpdateProfileInput)
-    .output(z.custom<Player>(data => typeof data === 'object' && data !== null && 'user_id' in data)) // Basic validation
+    .output(z.custom<Player>(data => typeof data === 'object' && data !== null && 'user_id' in data))
     .mutation(async ({ctx, input}) => {
         const {user, supabase} = ctx;
         const userId = user.id;
@@ -110,8 +104,8 @@ export const updateMyProfileProcedure = protectedProcedure
         const updateData: {
             name?: string;
             nickname?: string | null;
-            avatar_url?: string | null;  // Zmieniono z avatarUrl na avatar_url
-            updated_at?: string; // Keep updated_at for Supabase auto-update or manual set
+            avatar_url?: string | null;
+            updated_at?: string;
         } = {};
 
         if (input.name !== undefined) {
@@ -121,14 +115,10 @@ export const updateMyProfileProcedure = protectedProcedure
             updateData.nickname = input.nickname;
         }
         if (input.avatarUrl !== undefined) {
-            updateData.avatar_url = input.avatarUrl;  // Zmieniono z avatarUrl na avatar_url
+            updateData.avatar_url = input.avatarUrl;
         }
 
-        // If no fields are provided for update, we could return the existing profile or throw an error.
-        // For now, proceeding with update even if object is empty (Supabase might handle this or might error).
-        // A more robust way would be to check if Object.keys(updateData).length === 0.
         if (Object.keys(updateData).length === 0) {
-            // Fetch and return the current profile if no actual changes are requested.
             const {data: existingPlayer, error: fetchError} = await supabase
                 .from('players')
                 .select('*')
@@ -145,7 +135,6 @@ export const updateMyProfileProcedure = protectedProcedure
             return existingPlayer as Player;
         }
 
-        // Add updated_at to ensure it's refreshed
         updateData.updated_at = new Date().toISOString();
 
         const {data: updatedPlayer, error: updateError} = await supabase
@@ -165,8 +154,6 @@ export const updateMyProfileProcedure = protectedProcedure
         }
 
         if (!updatedPlayer) {
-            // This case implies the record to update was not found, which shouldn't happen for an authenticated user
-            // whose profile should have been ensured.
             throw new TRPCError({
                 code: 'NOT_FOUND',
                 message: 'Player profile not found to update.',
@@ -176,14 +163,12 @@ export const updateMyProfileProcedure = protectedProcedure
         return updatedPlayer as Player;
     });
 
-// Get the current user's profile
 export const getMyProfileProcedure = protectedProcedure
-    .output(z.custom<Player>(data => typeof data === 'object' && data !== null && 'user_id' in data)) // Basic validation
+    .output(z.custom<Player>(data => typeof data === 'object' && data !== null && 'user_id' in data))
     .query(async ({ctx}) => {
         const {user, supabase} = ctx;
         const userId = user.id;
 
-        // Query for existing player
         const {data: playerProfile, error: fetchError} = await supabase
             .from('players')
             .select('*')
@@ -192,14 +177,12 @@ export const getMyProfileProcedure = protectedProcedure
 
         if (fetchError) {
             if (fetchError.code === 'PGRST116') {
-                // No rows found
                 throw new TRPCError({
                     code: 'NOT_FOUND',
                     message: `Player profile not found for user ${userId}. It should have been created automatically.`,
                     cause: fetchError,
                 });
             }
-            // For other types of database errors
             throw new TRPCError({
                 code: 'INTERNAL_SERVER_ERROR',
                 message: 'Failed to fetch player profile due to a database error.',
@@ -208,7 +191,6 @@ export const getMyProfileProcedure = protectedProcedure
         }
 
         if (!playerProfile) {
-            // This is a fallback
             throw new TRPCError({
                 code: 'NOT_FOUND',
                 message: `Player profile not found for user ${userId}.`,

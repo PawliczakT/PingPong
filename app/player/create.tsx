@@ -22,7 +22,6 @@ export default function CreatePlayerScreen() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
 
-    // Pick and process image with face detection
     const handlePickImage = async () => {
         try {
             setIsSubmitting(true);
@@ -31,10 +30,8 @@ export default function CreatePlayerScreen() {
             if (!result.canceled && result.uri) {
                 setSelectedImageUri(result.uri);
                 setSelectedImageBase64(result.base64);
-                // Set avatarUrl temporarily to show the image in the form
                 setAvatarUrl(result.uri);
 
-                // Inform the user that AWS was used for face detection
                 if (result.awsProcessed) {
                     Alert.alert(
                         'Success',
@@ -60,7 +57,6 @@ export default function CreatePlayerScreen() {
         setIsSubmitting(true);
 
         try {
-            // Pobierz aktualnego użytkownika
             const {data: {user}} = await supabase.auth.getUser();
 
             if (!user) {
@@ -69,7 +65,6 @@ export default function CreatePlayerScreen() {
                 return;
             }
 
-            // BŁĄD: Tutaj tworzony jest obiekt player z nazwą i innymi polami
             const player = {
                 user_id: user.id,
                 name: name.trim(),
@@ -81,7 +76,6 @@ export default function CreatePlayerScreen() {
                 active: true,
             };
 
-            // Utworzenie profilu gracza
             const {data: createdPlayer, error} = await supabase
                 .from('players')
                 .insert(player)
@@ -95,14 +89,12 @@ export default function CreatePlayerScreen() {
                 return;
             }
 
-            // Ustaw profil w store
             await addPlayer(
                 createdPlayer.name,
                 createdPlayer.nickname,
                 createdPlayer.avatar_url
             );
 
-            // Przekieruj na stronę główną
             router.replace("/(tabs)");
 
         } catch (error) {

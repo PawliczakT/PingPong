@@ -17,15 +17,12 @@ const useChatRealtime = () => {
     const isInitializedRef = useRef(false);
 
     const setupSubscription = useCallback(async () => {
-        // Zmieniono warunek, aby nie polegać na user.id, jeśli chcemy, aby niezalogowani też widzieli czat.
-        // Jeśli tylko zalogowani mogą widzieć, dodaj warunek: if (!user?.id || channelRef.current) return;
         if (channelRef.current) return;
 
         console.log(`🔗 Setting up chat subscription to channel: ${CHAT_CHANNEL_NAME}...`);
         setConnectionStatus('connecting');
 
         try {
-            // Zmieniono nazwę kanału na stałą dla wszystkich użytkowników
             const channel = supabaseAsAdmin.channel(CHAT_CHANNEL_NAME);
 
             channel
@@ -99,4 +96,4 @@ const useChatRealtime = () => {
     };
 };
 
-export { useChatRealtime };
+export {useChatRealtime};

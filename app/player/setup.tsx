@@ -33,7 +33,7 @@ const SetupProfileScreen = () => {
 
     const [name, setName] = useState('');
     const [nickname, setNickname] = useState('');
-    const [image, setImage] = useState<string | undefined>(undefined); // Używamy 'image' zamiast 'imageUri' dla spójności
+    const [image, setImage] = useState<string | undefined>(undefined);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {

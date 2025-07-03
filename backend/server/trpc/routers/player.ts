@@ -1,5 +1,5 @@
 //backend/server/trpc/routers/player.ts
-import { router } from '../init';
+import {router} from '../init';
 import {
     ensurePlayerProfileProcedure,
     getMyProfileProcedure,

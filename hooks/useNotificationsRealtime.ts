@@ -1,11 +1,11 @@
 // hooks/useNotificationsRealtime.ts
-import { useCallback, useEffect, useRef } from "react";
-import { useAuthStore } from "@/store/authStore";
-import { supabase } from '@/backend/server/lib/supabase';
-import { useNotificationStore } from "@/store/notificationStore";
+import {useCallback, useEffect, useRef} from "react";
+import {useAuthStore} from "@/store/authStore";
+import {supabase} from '@/backend/server/lib/supabase';
+import {useNotificationStore} from "@/store/notificationStore";
 
 export const useNotificationsRealtime = () => {
-    const { user } = useAuthStore();
+    const {user} = useAuthStore();
     const channelRef = useRef<any>(null);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isMountedRef = useRef(true);
@@ -27,8 +27,8 @@ export const useNotificationsRealtime = () => {
         channelRef.current = supabase
             .channel(`notifications-realtime-${user.id}`, {
                 config: {
-                    broadcast: { ack: true },
-                    presence: { key: `notifications-${user.id}` }
+                    broadcast: {ack: true},
+                    presence: {key: `notifications-${user.id}`}
                 }
             })
             .on('postgres_changes', {

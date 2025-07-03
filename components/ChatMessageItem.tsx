@@ -31,7 +31,7 @@ interface ChatMessageItemProps {
     currentUserId?: string | null;
 }
 
-const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId /*, onToggleReaction */}) => {
+const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId}) => {
     const {colors} = useTheme();
     const router = useRouter();
 

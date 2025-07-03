@@ -5,12 +5,6 @@ import {supabase} from '@/backend/server/lib/supabase';
 export const useUploader = (bucketName: string) => {
     const [isUploading, setIsUploading] = useState(false);
 
-    /**
-     * Funkcja, która wgrywa plik (jako Blob) do Supabase Storage.
-     * @param file - Plik do wgrania w formacie Blob.
-     * @param filePath - Ścieżka, pod którą plik ma być zapisany w buckecie.
-     * @returns Publiczny URL do wgranego pliku lub undefined w przypadku błędu.
-     */
     const upload = async (file: Blob, filePath: string): Promise<string | undefined> => {
         setIsUploading(true);
         try {

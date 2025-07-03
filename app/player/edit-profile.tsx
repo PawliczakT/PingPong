@@ -12,13 +12,11 @@ export default function EditProfileScreen() {
         error: profileError,
         refetch
     } = trpc.player.getMyProfile.useQuery(undefined, {
-        // Dodajemy opcje obsługi błędów dla braku profilu
         retry: (failureCount, error) => {
-            // Jeśli błąd dotyczy braku profilu, nie próbujemy ponownie
             if (error.message?.includes("PGRST116") || error.message?.includes("no rows")) {
                 return false;
             }
-            return failureCount < 3; // w innych przypadkach spróbuj do 3 razy
+            return failureCount < 3;
         },
     });
 
@@ -44,13 +42,11 @@ export default function EditProfileScreen() {
     const handleUpdateProfile = async () => {
         setSuccessMessage(null);
 
-        // Podstawowa walidacja
         if (!name.trim()) {
             Alert.alert("Validation error", "Name is required.");
             return;
         }
 
-        // Walidacja URL avatara
         if (avatarUrl && avatarUrl.trim() !== '') {
             try {
                 new URL(avatarUrl);
@@ -66,7 +62,6 @@ export default function EditProfileScreen() {
             avatarUrl: avatarUrl.trim() || null
         };
 
-        // Sprawdzamy zmiany tylko dla istniejącego profilu
         if (profile && Object.keys(input).every(key => {
             const profileKey = key as keyof typeof profile;
             return input[key as keyof typeof input] === (profile[profileKey] || null);
@@ -103,12 +98,10 @@ export default function EditProfileScreen() {
         );
     }
 
-    // Sprawdzamy czy błąd dotyczy braku profilu
     const isProfileNotFoundError = profileError?.message?.includes("PGRST116") ||
         profileError?.message?.includes("no rows") ||
         profileError?.message?.includes("User not found");
 
-    // Jeśli to inny błąd niż brak profilu, pokazujemy komunikat
     if (profileError && !isProfileNotFoundError) {
         return (
             <View style={styles.centered}>
@@ -118,7 +111,6 @@ export default function EditProfileScreen() {
         );
     }
 
-    // Jeśli profil nie istnieje lub mamy błąd braku profilu, pokazujemy formularz rejestracji
     if (!profile || isProfileNotFoundError) {
         return (
             <ScrollView style={styles.scrollView} contentContainerStyle={[styles.container, styles.centered]}>

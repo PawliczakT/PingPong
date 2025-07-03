@@ -81,7 +81,14 @@ const styles = StyleSheet.create({
     card: {padding: 12, margin: 8, borderWidth: 1, borderRadius: 8, borderColor: colors.border},
     matchTitle: {fontSize: 16, fontWeight: "500", marginBottom: 8},
     inputRow: {flexDirection: "row", alignItems: "center", marginVertical: 8},
-    input: {borderWidth: 1, borderRadius: 4, width: 40, marginHorizontal: 4, textAlign: "center", borderColor: colors.border},
+    input: {
+        borderWidth: 1,
+        borderRadius: 4,
+        width: 40,
+        marginHorizontal: 4,
+        textAlign: "center",
+        borderColor: colors.border
+    },
     resultRow: {flexDirection: "row", alignItems: "center", marginTop: 8},
     scoreText: {fontWeight: "bold", fontSize: 16, marginHorizontal: 4},
     setsContainer: {marginTop: 8},

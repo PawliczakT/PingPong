@@ -10,7 +10,6 @@ import {
     SystemNotificationType
 } from '@/backend/server/trpc/services/notificationService';
 
-// --- Zod Schemas and Types ---
 const sendMessageInputSchema = z.object({
     message_content: z.string().min(1).max(1000),
 });
@@ -35,7 +34,7 @@ const getPlayersForMentionInputSchema = z.object({
 });
 
 const sendSystemNotificationInputSchema = z.object({
-    type: z.string(), // Używamy string, walidacja konkretnych typów w serwisie
+    type: z.string(),
     metadata: z.record(z.any()),
 });
 
@@ -61,15 +60,12 @@ export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatMessageWithProfile = z.infer<typeof ChatMessageWithProfileSchema>;
 
 
-// --- Chat Router Definition ---
 export const chatRouter = router({
-    // Test endpoint
     test: publicProcedure.query(async () => {
         console.log('🧪 Test endpoint called');
         return {success: true, message: 'Backend working!', timestamp: new Date().toISOString()};
     }),
 
-    // Get chat messages with pagination
     getMessages: publicProcedure
         .input(getMessagesInputSchema)
         .output(
@@ -118,7 +114,6 @@ export const chatRouter = router({
             };
         }),
 
-    // Send a new chat message
     sendMessage: protectedProcedure
         .input(sendMessageInputSchema)
         .output(ChatMessageWithProfileSchema)
@@ -136,7 +131,6 @@ export const chatRouter = router({
                 throw new TRPCError({code: 'INTERNAL_SERVER_ERROR', message: `Database error: ${error.message}`});
             }
 
-            // This assumes 'players' table has a 'user_id' column that is a foreign key to 'auth.users.id'
             const {data: userProfile} = await supabaseAsAdmin
                 .from('players')
                 .select('id, nickname, avatar_url')
@@ -155,10 +149,8 @@ export const chatRouter = router({
             };
         }),
 
-    // Add a reaction to a message
     addReaction: protectedProcedure
         .input(addReactionInputSchema)
-        // Zmieniono output na pełny profil, aby klient mógł go poprawnie zaktualizować
         .output(ChatMessageWithProfileSchema)
         .mutation(async ({ctx, input}) => {
             const {user} = ctx;
@@ -182,7 +174,6 @@ export const chatRouter = router({
 
     removeReaction: protectedProcedure
         .input(removeReactionInputSchema)
-        // Zmieniono output na pełny profil
         .output(ChatMessageWithProfileSchema)
         .mutation(async ({ctx, input}) => {
             const {user} = ctx;
@@ -229,17 +220,14 @@ export const chatRouter = router({
             }));
         }),
 
-    // NOWA PROCEDURA DO WYSYŁANIA POWIADOMIEŃ SYSTEMOWYCH
     sendSystemNotification: protectedProcedure
         .input(sendSystemNotificationInputSchema)
         .mutation(async ({input}) => {
             const {type, metadata} = input;
             try {
-                // Walidacja i rzutowanie typów, aby upewnić się, że dane są poprawne
                 const validatedType = type as SystemNotificationType;
                 const validatedMetadata = metadata as SystemNotificationMetadata;
 
-                // Sprawdzenie, czy typ metadanych zgadza się z typem głównym
                 if (validatedMetadata.notification_type !== validatedType) {
                     throw new TRPCError({
                         code: 'BAD_REQUEST',

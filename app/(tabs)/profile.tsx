@@ -459,7 +459,12 @@ export default function ProfileScreen() {
                             </Text>
                         )}
                         {playerStats && (
-                            <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 8}}>
+                            <View style={{
+                                flexDirection: 'row',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                marginTop: 8
+                            }}>
                                 {playerStats.rank.name && (
                                     <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.9)'}}>
                                         {playerStats.rank.name}

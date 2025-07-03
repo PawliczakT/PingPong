@@ -452,7 +452,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         });
     },
     handleMatchUpdate: (payload) => {
-        const { eventType, new: newRecord, old } = payload;
+        const {eventType, new: newRecord, old} = payload;
         set(state => {
             const tournaments = state.tournaments.map(t => {
                 if (t.id === newRecord.tournament_id) {
@@ -472,11 +472,11 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                             matches.splice(matchIndex, 1);
                         }
                     }
-                    return { ...t, matches };
+                    return {...t, matches};
                 }
                 return t;
             });
-            return { tournaments };
+            return {tournaments};
         });
     },
     generateTournamentMatches: async (tournamentId: string) => {
@@ -974,7 +974,11 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             if (match.nextMatchId) {
                 const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
                 if (nextMatch) {
-                    const nextMatchUpdate: { player1_id?: string; player2_id?: string; status?: TournamentMatch['status'] } = {};
+                    const nextMatchUpdate: {
+                        player1_id?: string;
+                        player2_id?: string;
+                        status?: TournamentMatch['status']
+                    } = {};
                     if (nextMatch.player1Id === null) nextMatchUpdate.player1_id = winnerId;
                     else if (nextMatch.player2Id === null) nextMatchUpdate.player2_id = winnerId;
 

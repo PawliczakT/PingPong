@@ -67,6 +67,7 @@ class MessageCache {
             }
         }
     }
+
     get(id: string): ChatMessage | undefined {
         const message = this.cache.get(id);
         if (message) {
@@ -78,11 +79,25 @@ class MessageCache {
         }
         return message;
     }
-    has(id: string): boolean { return this.cache.has(id); }
-    clear(): void { this.cache.clear(); this.accessOrder = []; }
-    size(): number { return this.cache.size; }
-    getAll(): ChatMessage[] { return this.accessOrder.map(id => this.cache.get(id)).filter(Boolean) as ChatMessage[]; }
+
+    has(id: string): boolean {
+        return this.cache.has(id);
+    }
+
+    clear(): void {
+        this.cache.clear();
+        this.accessOrder = [];
+    }
+
+    size(): number {
+        return this.cache.size;
+    }
+
+    getAll(): ChatMessage[] {
+        return this.accessOrder.map(id => this.cache.get(id)).filter(Boolean) as ChatMessage[];
+    }
 }
+
 const messageCache = new MessageCache(300);
 
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): ((...args: Parameters<T>) => void) => {
@@ -110,7 +125,8 @@ class MessageBatcher {
     private readonly batchSize = 10;
     private readonly batchDelay = 100;
 
-    constructor(private onBatch: (messages: ChatMessage[]) => void) {}
+    constructor(private onBatch: (messages: ChatMessage[]) => void) {
+    }
 
     add(message: ChatMessage): void {
         this.pendingMessages.push(message);
@@ -148,7 +164,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     }, [] as ChatMessage[])
                     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                     .slice(0, 100);
-                return { ...state, messages: combinedMessages };
+                return {...state, messages: combinedMessages};
             });
         });
 
@@ -190,15 +206,24 @@ export const useChatStore = create<ChatState & ChatActions>()(
                 set({isLoading: true, error: null});
                 try {
                     console.log('📚 Fetching initial messages...');
-                    const result = await trpcClient.chat.getMessages.query({limit: 20}) as { messages: ChatMessage[], nextCursor?: string };
+                    const result = await trpcClient.chat.getMessages.query({limit: 20}) as {
+                        messages: ChatMessage[],
+                        nextCursor?: string
+                    };
                     if (!result) throw new Error('No response from server');
                     const sortedMessages = [...(result.messages || [])].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                     sortedMessages.forEach(msg => messageCache.set(msg.id, msg));
-                    set({ messages: sortedMessages, hasMoreMessages: !!result.nextCursor, isLoading: false, isInitialized: true, lastFetchTime: Date.now() });
+                    set({
+                        messages: sortedMessages,
+                        hasMoreMessages: !!result.nextCursor,
+                        isLoading: false,
+                        isInitialized: true,
+                        lastFetchTime: Date.now()
+                    });
                     console.log('✅ Successfully fetched', sortedMessages.length, 'messages');
                 } catch (error: any) {
                     console.error('❌ Failed to fetch initial messages:', error);
-                    set({ isLoading: false, error: error?.message || 'Failed to fetch messages', isInitialized: true });
+                    set({isLoading: false, error: error?.message || 'Failed to fetch messages', isInitialized: true});
                 }
             },
 
@@ -210,7 +235,10 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     const oldestMessage = state.messages[state.messages.length - 1];
                     if (!oldestMessage) return;
                     console.log('📚 Fetching older messages...');
-                    const result = await trpcClient.chat.getMessages.query({ cursor: oldestMessage.created_at, limit: 20 }) as { messages: ChatMessage[], nextCursor?: string };
+                    const result = await trpcClient.chat.getMessages.query({
+                        cursor: oldestMessage.created_at,
+                        limit: 20
+                    }) as { messages: ChatMessage[], nextCursor?: string };
                     if (!result) throw new Error('No response from server');
                     const newMessages = result.messages.filter(msg => !messageCache.has(msg.id));
                     newMessages.forEach(msg => messageCache.set(msg.id, msg));
@@ -223,7 +251,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     console.log('✅ Fetched', newMessages.length, 'older messages');
                 } catch (error: any) {
                     console.error('❌ Failed to fetch older messages:', error);
-                    set({ isLoading: false, error: error.message || 'Failed to fetch older messages' });
+                    set({isLoading: false, error: error.message || 'Failed to fetch older messages'});
                 }
             },
 
@@ -240,9 +268,9 @@ export const useChatStore = create<ChatState & ChatActions>()(
                         metadata: null,
                         reactions: null,
                     };
-                    set(state => ({ messages: [tempMessage, ...state.messages.filter(m => !m.id.startsWith('temp-'))] }));
-                    const sentMessage = await trpcClient.chat.sendMessage.mutate({ message_content: content }) as ChatMessage;
-                    set(state => ({ messages: state.messages.map(msg => msg.id === tempMessage.id ? sentMessage : msg) }));
+                    set(state => ({messages: [tempMessage, ...state.messages.filter(m => !m.id.startsWith('temp-'))]}));
+                    const sentMessage = await trpcClient.chat.sendMessage.mutate({message_content: content}) as ChatMessage;
+                    set(state => ({messages: state.messages.map(msg => msg.id === tempMessage.id ? sentMessage : msg)}));
                     messageCache.set(sentMessage.id, sentMessage);
                     console.log('✅ Message sent successfully:', sentMessage.id);
                 } catch (error: any) {
@@ -276,7 +304,10 @@ export const useChatStore = create<ChatState & ChatActions>()(
                         })
                     }));
 
-                    const updatedMessage = await trpcClient.chat.addReaction.mutate({ message_id: messageId, emoji: emoji }) as ChatMessage;
+                    const updatedMessage = await trpcClient.chat.addReaction.mutate({
+                        message_id: messageId,
+                        emoji: emoji
+                    }) as ChatMessage;
                     get().updateMessage(updatedMessage);
                     messageCache.set(updatedMessage.id, updatedMessage);
                 } catch (error: any) {
@@ -302,7 +333,10 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
             removeReaction: async (messageId: string, emoji: string) => {
                 try {
-                    const updatedMessage = await trpcClient.chat.removeReaction.mutate({ message_id: messageId, emoji: emoji }) as ChatMessage;
+                    const updatedMessage = await trpcClient.chat.removeReaction.mutate({
+                        message_id: messageId,
+                        emoji: emoji
+                    }) as ChatMessage;
                     get().updateMessage(updatedMessage);
                     messageCache.set(updatedMessage.id, updatedMessage);
                 } catch (error: any) {
@@ -361,7 +395,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     const optimizedMessages = state.messages.slice(0, 100);
                     messageCache.clear();
                     optimizedMessages.forEach(msg => messageCache.set(msg.id, msg));
-                    return { messages: optimizedMessages };
+                    return {messages: optimizedMessages};
                 });
             },
             preloadOlderMessages: async () => {
@@ -370,7 +404,10 @@ export const useChatStore = create<ChatState & ChatActions>()(
                 try {
                     const oldestMessage = state.messages[state.messages.length - 1];
                     if (!oldestMessage) return;
-                    const result = await trpcClient.chat.getMessages.query({ cursor: oldestMessage.created_at, limit: 10 }) as { messages: ChatMessage[], nextCursor?: string };
+                    const result = await trpcClient.chat.getMessages.query({
+                        cursor: oldestMessage.created_at,
+                        limit: 10
+                    }) as { messages: ChatMessage[], nextCursor?: string };
                     if (result?.messages) {
                         result.messages.forEach(msg => messageCache.set(msg.id, msg));
                     }

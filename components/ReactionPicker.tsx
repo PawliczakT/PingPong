@@ -1,4 +1,4 @@
-import React, {useRef} from 'react'; // Import useRef
+import React, {useRef} from 'react';
 import {Animated, StyleSheet, Text, TouchableOpacity} from 'react-native';
 import {useTheme} from '@react-navigation/native';
 
@@ -13,13 +13,12 @@ interface PositionStyle {
 interface ReactionPickerProps {
     isVisible: boolean;
     onSelectEmoji: (emoji: string) => void;
-    onDismiss: () => void; // Optional: if clicking outside or a dismiss button is added
-    position?: PositionStyle; // For absolute positioning
+    onDismiss: () => void;
+    position?: PositionStyle;
 }
 
-const PREDEFINED_EMOJIS = ['👍', '❤️', '😂', '🎉', '😮', '😢']; // Example set
+const PREDEFINED_EMOJIS = ['👍', '❤️', '😂', '🎉', '😮', '😢'];
 
-// Sub-component for individual animated emoji button
 const AnimatedEmojiButton = ({emoji, onSelectEmoji}: { emoji: string, onSelectEmoji: (emoji: string) => void }) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -51,14 +50,14 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({
                                                            position
                                                        }) => {
     const {colors} = useTheme();
-    const containerScaleAnim = useRef(new Animated.Value(0)).current; // For entry/exit of the container
+    const containerScaleAnim = useRef(new Animated.Value(0)).current;
 
     React.useEffect(() => {
         if (isVisible) {
             Animated.spring(containerScaleAnim, {
                 toValue: 1,
-                friction: 7, // Adjusted friction
-                tension: 100, // Adjusted tension for a bit quicker spring
+                friction: 7,
+                tension: 100,
                 useNativeDriver: true,
             }).start();
         } else {
@@ -70,15 +69,6 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({
         }
     }, [isVisible, containerScaleAnim]);
 
-    // Optimization: If not visible and animation is complete, don't render
-    // This requires checking if the animation value is actually 0.
-    // A simpler way is to conditionally render based on isVisible and let animation handle visual appearance.
-    // if (!isVisible && containerScaleAnim === new Animated.Value(0)) { // This comparison is tricky due to Animated.Value being an object.
-    //    return null;
-    // }
-    // The effect of the above is that it will render one last time with scale 0.
-    // For true unmounting, a wrapper component managing isVisible state for mounting/unmounting ReactionPicker can be used.
-
     return (
         <Animated.View
             style={[
@@ -87,11 +77,10 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({
                     backgroundColor: colors.card,
                     borderColor: colors.border,
                     transform: [{scale: containerScaleAnim}],
-                    opacity: containerScaleAnim, // Fade effect along with scale
+                    opacity: containerScaleAnim,
                 },
                 position ? {...styles.positioned, ...position} : {}
             ]}
-            // pointerEvents={!isVisible ? 'none' : 'auto'} // Prevent interaction when invisible
         >
             {PREDEFINED_EMOJIS.map((emoji) => (
                 <AnimatedEmojiButton key={emoji} emoji={emoji} onSelectEmoji={onSelectEmoji}/>
@@ -107,23 +96,22 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 20,
         borderWidth: 1,
-        elevation: 5, // Android shadow
-        shadowColor: '#000', // iOS shadow
+        elevation: 5,
+        shadowColor: '#000',
         shadowOffset: {width: 0, height: 2},
         shadowOpacity: 0.15,
         shadowRadius: 3,
-        alignSelf: 'flex-start', // So it doesn't take full width if not positioned
+        alignSelf: 'flex-start',
     },
-    positioned: { // For when used with absolute positioning near a message item
+    positioned: {
         position: 'absolute',
-        // Example: top: -40, left: 10 (adjust based on message item layout)
     },
     emojiButton: {
         paddingHorizontal: 8,
         paddingVertical: 6,
     },
     emojiText: {
-        fontSize: 20, // Larger emojis for easier tapping
+        fontSize: 20,
     },
 });
 

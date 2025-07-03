@@ -1,26 +1,26 @@
 import {
     Award,
+    Award as Award2,
+    Bolt,
+    Crosshair,
     Crown,
     Flame,
     Gem,
+    Heart,
     Medal,
+    Moon,
     Shield,
+    Shield as Shield2,
+    Sparkles,
     Star,
+    Star as Star2,
+    Sun,
     Sword,
     Swords,
     Target,
+    Target as Target2,
     Trophy,
-    Zap,
-    Sparkles,
-    Award as Award2,
-    Crosshair,
-    Heart,
-    Moon,
-    Sun,
-    Bolt,
-    Shield as Shield2,
-    Star as Star2,
-    Target as Target2
+    Zap
 } from "lucide-react-native";
 
 export interface Rank {

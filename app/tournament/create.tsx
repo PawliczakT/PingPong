@@ -53,7 +53,7 @@ export default function CreateTournamentScreen() {
 
         try {
             await createTournament(
-                name.trim(), // Może być puste - nazwa zostanie wygenerowana w store
+                name.trim(),
                 new Date(date).toISOString(),
                 format,
                 selectedPlayerIds

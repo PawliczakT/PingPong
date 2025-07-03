@@ -2,7 +2,6 @@ import {supabaseAsAdmin} from '@/backend/server/lib/supabaseAdmin';
 
 export const ensurePlayerProfile = async (userId: string) => {
     try {
-        // Check if player exists
         const {data: existingPlayer, error: fetchError} = await supabaseAsAdmin
             .from('players')
             .select('*')
@@ -27,7 +26,6 @@ export const ensurePlayerProfile = async (userId: string) => {
             return {success: false, error: new Error('User not found or mismatch')};
         }
 
-        // Create new player profile
         const userName = user.user_metadata?.full_name || user.user_metadata?.name || 'Anonymous Player';
         const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.avatarUrl || null;
 
