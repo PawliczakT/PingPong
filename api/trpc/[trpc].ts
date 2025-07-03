@@ -15,7 +15,6 @@ const allowedOrigins = [
     "http://127.0.0.1:54323"
 ];
 
-
 /**
  * The main handler for all tRPC requests.
  * It uses the fetchRequestHandler from tRPC to process requests.
