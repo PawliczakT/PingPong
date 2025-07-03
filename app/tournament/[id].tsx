@@ -25,46 +25,33 @@ export default function TournamentDetailScreen() {
         "bracket"
     );
 
-    // Activate real-time listening for changes from Supabase
     useTournamentsRealtime();
 
     const tournamentStore = useTournamentStore();
     const playerStore = usePlayerStore();
 
     const tournament = tournamentStore.getTournamentById(id as string);
-    const getTournamentMatches = tournamentStore.getTournamentMatches;
-    const tournamentMatches = tournament ? getTournamentMatches(tournament.id) : [];
-    // Get the winner object based on ID
+    const tournamentMatches = tournament?.matches || [];
     const winner = tournament?.winner ? playerStore.getPlayerById(tournament.winner) : null;
 
     useEffect(() => {
-        if (!tournament) return;
-        if (tournament.status === 'completed') {
+        if (tournament?.status === 'completed') {
             tournamentStore.fetchTournaments();
         }
     }, [tournament?.status]);
 
     useEffect(() => {
-        if (!tournament) return;
-        if (tournament.status === 'completed') {
-            console.log(`[TournamentDetailScreen] useEffect: Tournament ${tournament.id} is COMPLETED, no further progression logic needed.`);
-            return;
-        }
-
-        console.log(`[TournamentDetailScreen] useEffect: Processing tournament ${tournament.id} with status ${tournament.status} and format ${tournament.format}`);
+        if (!tournament || tournament.status === 'completed') return;
 
         const groupMatches = tournamentMatches.filter(m => m.round === 1);
         const allGroupCompleted = groupMatches.length > 0 && groupMatches.every(m => m.status === 'completed');
         const hasKnockout = tournamentMatches.some(m => m.round > 1);
-
-        console.log('[KO] allGroupCompleted:', allGroupCompleted, 'hasKnockout:', hasKnockout, 'tournamentId:', tournament.id);
 
         if (allGroupCompleted && !hasKnockout) {
             (async () => {
                 try {
                     await tournamentStore.generateTournamentMatches(tournament.id);
                     await tournamentStore.fetchTournaments();
-                    console.log('[KO] Knockout phase generated and tournaments refreshed');
                     Alert.alert('Knockout Phase', 'Knockout phase has been automatically created!');
                 } catch (err) {
                     console.error('[KO] Error generating knockout:', err);
@@ -94,7 +81,7 @@ export default function TournamentDetailScreen() {
         );
     }
 
-    const participants = tournament.participants
+    const participants = (tournament.participants || [])
         .map((pId) => playerStore.getPlayerById(pId))
         .filter((player): player is Player => player !== undefined);
 
@@ -116,76 +103,63 @@ export default function TournamentDetailScreen() {
                 console.error("Failed to complete tournament:", error);
                 Alert.alert("Error", "Failed to complete tournament. Please try again.");
             }
-        } else {
-            console.warn("handleCompleteTournament called unexpectedly when showConfirmComplete is false");
         }
     };
 
     const toggleWinnerSelection = () => {
         if (Platform.OS !== "web") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch((e) =>
-                console.error("Haptics error:", e));
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(e => console.error("Haptics error:", e));
         }
-        const allMatchesCompleted = tournamentMatches.every(match => (match.status as 'completed' | 'pending' | 'scheduled') === 'completed');
+        const allMatchesCompleted = tournamentMatches.every(match => match.status === 'completed');
         const hasKnockout = tournamentMatches.some(m => m.round > 1);
         const allGroupCompleted = tournamentMatches.filter(m => m.round === 1).every(m => m.status === 'completed');
 
-        // Check if all matches are finished - separate logic for each format
         if (tournament.format === TournamentFormat.ROUND_ROBIN) {
-            // In ROUND_ROBIN format, all matches must be played
             if (!allMatchesCompleted) {
                 Alert.alert("Tournament incomplete", "All matches must be played before selecting a winner.");
                 return;
             }
         } else if (tournament.format === TournamentFormat.GROUP) {
-            // In GROUP format, all group matches must be played and the knockout phase generated
             if (!allGroupCompleted) {
                 Alert.alert("Group stage incomplete", "All group matches must be played before selecting a winner.");
                 return;
             }
-
             if (!hasKnockout) {
                 Alert.alert("Knockout phase not generated", "You must generate the knockout phase before selecting a winner.");
                 return;
             }
-
             if (!allMatchesCompleted) {
                 Alert.alert("Tournament incomplete", "All matches must be played before selecting a winner.");
                 return;
             }
         } else {
-            // Knockout format
             const finalMatch = tournamentMatches.find(match => {
                 const maxRound = Math.max(...tournamentMatches.map(m => m.round));
                 return match.round === maxRound;
             });
-
             if (finalMatch && finalMatch.status !== 'completed') {
                 Alert.alert("Final not played", "The final match must be played before selecting a winner.");
                 return;
             }
         }
 
-        if (showConfirmComplete) {
-            setShowConfirmComplete(false);
-        } else {
-            setShowConfirmComplete(true);
+        setShowConfirmComplete(!showConfirmComplete);
+        if (!showConfirmComplete) {
             setActiveTab("players");
             setSelectedWinnerId(null);
         }
     };
 
     const handleMatchPress = (match: TournamentMatch) => {
-        if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed') {
-            Alert.alert('Match finished', 'You can no longer play or edit this match.');
+        if (match.status === 'completed') {
+            if (match.matchId) router.push(`/match/${match.matchId}`);
+            else Alert.alert('Match finished', 'You can no longer play or edit this match.');
             return;
         }
-
-        if (tournament?.status !== 'active') {
+        if (tournament.status !== 'active') {
             Alert.alert('Tournament inactive', 'The tournament must be started to play matches.');
             return;
         }
-
         if (match.status === "scheduled" && match.player1Id && match.player2Id) {
             router.push({
                 pathname: "/tournament/record-match",
@@ -198,47 +172,28 @@ export default function TournamentDetailScreen() {
             });
             return;
         }
-        if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.matchId) {
-            router.push(`/match/${match.matchId}`);
-            return;
-        }
-        let message = "This match cannot be played or viewed yet.";
-        if (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) {
-            message = "Waiting for players from previous rounds.";
-        }
-
-        Alert.alert("Match Info", message);
+        Alert.alert("Match Info", "Waiting for players from previous rounds.");
     };
 
     const getStatusColor = () => {
         switch (tournament.status) {
-            case 'pending':
-                return colors.primary;
-            case 'active':
-                return colors.warning;
-            case 'completed':
-                return colors.success;
-            default:
-                return colors.textLight;
+            case 'pending': return colors.primary;
+            case 'active': return colors.warning;
+            case 'completed': return colors.success;
+            default: return colors.textLight;
         }
     };
 
     const getStatusText = () => {
         switch (tournament.status) {
-            case 'pending':
-                return "Upcoming";
-            case 'active':
-                return "In Progress";
-            case 'completed':
-                return "Completed";
-            default:
-                return "Unknown";
+            case 'pending': return "Upcoming";
+            case 'active': return "In Progress";
+            case 'completed': return "Completed";
+            default: return "Unknown";
         }
     };
 
-    // Helper function for round robin standings
     function calculateRoundRobinStandings(participants: Player[], matches: TournamentMatch[]) {
-        // Initialize player stats
         const standings = participants.map(player => ({
             player,
             matches: 0,
@@ -249,26 +204,21 @@ export default function TournamentDetailScreen() {
             pointsDiff: 0
         }));
 
-        // Calculate stats from matches
         matches.forEach(match => {
             if (match.status !== 'completed' || !match.player1Id || !match.player2Id) return;
-
             const player1Index = standings.findIndex(s => s.player.id === match.player1Id);
             const player2Index = standings.findIndex(s => s.player.id === match.player2Id);
             if (player1Index === -1 || player2Index === -1) return;
 
-            // Increment match count
             standings[player1Index].matches++;
             standings[player2Index].matches++;
 
             if (match.player1Score !== null && match.player2Score !== null) {
-                // Add points
                 standings[player1Index].points += match.player1Score;
                 standings[player2Index].points += match.player2Score;
                 standings[player1Index].pointsAgainst += match.player2Score;
                 standings[player2Index].pointsAgainst += match.player1Score;
 
-                // Determine winner and loser
                 if (match.player1Score > match.player2Score) {
                     standings[player1Index].wins++;
                     standings[player2Index].losses++;
@@ -279,12 +229,8 @@ export default function TournamentDetailScreen() {
             }
         });
 
-        // Calculate point differential
-        standings.forEach(standing => {
-            standing.pointsDiff = standing.points - standing.pointsAgainst;
-        });
+        standings.forEach(s => s.pointsDiff = s.points - s.pointsAgainst);
 
-        // Sort by wins, then by point differential
         return standings.sort((a, b) => {
             if (a.wins !== b.wins) return b.wins - a.wins;
             if (a.pointsDiff !== b.pointsDiff) return b.pointsDiff - a.pointsDiff;
@@ -292,104 +238,19 @@ export default function TournamentDetailScreen() {
         });
     }
 
-    // Helper function for group standings
     function calculateGroupStandings(participants: Player[], matches: TournamentMatch[]) {
-        // Get all group numbers
-        const groupNumbers = Array.from(new Set(matches.filter(m => m.group !== undefined).map(m => m.group)));
+        const groupNumbers = Array.from(new Set(matches.filter(m => m.group != null).map(m => m.group!)));
+        const groupStandings: Record<number, ReturnType<typeof calculateRoundRobinStandings>> = {};
 
-        // Create a map of group standings
-        const groupStandings: Record<number, {
-            player: Player,
-            matches: number,
-            wins: number,
-            losses: number,
-            points: number,
-            pointsAgainst: number,
-            pointsDiff: number
-        }[]> = {};
-
-        // Initialize groups
         groupNumbers.forEach(groupNum => {
-            if (groupNum === undefined) return;
-
-            // Get all players in this group
             const groupMatches = matches.filter(m => m.group === groupNum);
             const playerIds = new Set<string>();
-
             groupMatches.forEach(match => {
                 if (match.player1Id) playerIds.add(match.player1Id);
                 if (match.player2Id) playerIds.add(match.player2Id);
             });
-
-            // Initialize standings for this group
-            groupStandings[groupNum] = Array.from(playerIds)
-                .map(playerId => {
-                    const player = participants.find(p => p.id === playerId);
-                    if (!player) return null;
-
-                    return {
-                        player,
-                        matches: 0,
-                        wins: 0,
-                        losses: 0,
-                        points: 0,
-                        pointsAgainst: 0,
-                        pointsDiff: 0
-                    };
-                })
-                .filter(Boolean) as {
-                player: Player,
-                matches: number,
-                wins: number,
-                losses: number,
-                points: number,
-                pointsAgainst: number,
-                pointsDiff: number
-            }[];
-        });
-
-        // Calculate statistics based on completed matches
-        const completedMatches = matches.filter(m => m.status === 'completed' && m.group !== undefined);
-        completedMatches.forEach(match => {
-            if (!match.player1Id || !match.player2Id || match.player1Score === null || match.player2Score === null || match.group === undefined) return;
-
-            // Find the players in the group standings
-            const player1Standing = groupStandings[match.group]?.find(s => s.player.id === match.player1Id);
-            const player2Standing = groupStandings[match.group]?.find(s => s.player.id === match.player2Id);
-
-            if (!player1Standing || !player2Standing) return;
-
-            // Update matches played
-            player1Standing.matches++;
-            player2Standing.matches++;
-
-            // Update points
-            player1Standing.points += match.player1Score;
-            player2Standing.points += match.player2Score;
-            player1Standing.pointsAgainst += match.player2Score;
-            player2Standing.pointsAgainst += match.player1Score;
-
-            // Update wins/losses
-            if (match.player1Score > match.player2Score) {
-                player1Standing.wins++;
-                player2Standing.losses++;
-            } else {
-                player1Standing.losses++;
-                player2Standing.wins++;
-            }
-
-            // Update point difference
-            player1Standing.pointsDiff = player1Standing.points - player1Standing.pointsAgainst;
-            player2Standing.pointsDiff = player2Standing.points - player2Standing.pointsAgainst;
-        });
-
-        // Sort standings in each group by wins (desc), then by point differential (desc)
-        Object.keys(groupStandings).forEach(groupKey => {
-            const groupNum = parseInt(groupKey);
-            groupStandings[groupNum].sort((a, b) => {
-                if (a.wins !== b.wins) return b.wins - a.wins;
-                return b.pointsDiff - a.pointsDiff;
-            });
+            const groupParticipants = Array.from(playerIds).map(id => participants.find(p => p.id === id)).filter((p): p is Player => !!p);
+            groupStandings[groupNum] = calculateRoundRobinStandings(groupParticipants, groupMatches);
         });
 
         return groupStandings;
@@ -407,16 +268,6 @@ export default function TournamentDetailScreen() {
             .map(round => grouped[Number(round)]);
     }
 
-    function getUniqueMatches(matches: TournamentMatch[]): TournamentMatch[] {
-        const seen = new Set();
-        return matches.filter(match => {
-            if (!match.matchId) return false;
-            if (seen.has(match.matchId)) return false;
-            seen.add(match.matchId);
-            return true;
-        });
-    }
-
     const bracketRounds = groupMatchesByRound(tournamentMatches);
 
     return (
@@ -425,18 +276,13 @@ export default function TournamentDetailScreen() {
                 options={{
                     title: tournament.name,
                     headerShadowVisible: false,
-                    headerStyle: {
-                        backgroundColor: colors.card,
-                    },
-                    headerTitleStyle: {
-                        color: colors.text,
-                    },
+                    headerStyle: {backgroundColor: colors.card},
+                    headerTitleStyle: {color: colors.text},
                     headerTintColor: colors.primary,
                 }}
             />
 
             <ScrollView>
-                {/* Header Section */}
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{tournament.name}</Text>
@@ -446,41 +292,25 @@ export default function TournamentDetailScreen() {
                     </View>
 
                     <View style={styles.infoContainer}>
-                        <View style={styles.infoItem}>
-                            <Calendar size={16} color={colors.textLight}/>
-                            <Text style={styles.infoText}>{formatDate(tournament.date)}</Text>
-                        </View>
-                        <View style={styles.infoItem}>
-                            <Users size={16} color={colors.textLight}/>
-                            <Text style={styles.infoText}>{participants.length} players</Text>
-                        </View>
-                        <View style={styles.infoItem}>
-                            <Trophy size={16} color={colors.textLight}/>
-                            <Text style={styles.infoText}>{tournament.format}</Text>
-                        </View>
+                        <View style={styles.infoItem}><Calendar size={16} color={colors.textLight}/><Text style={styles.infoText}>{formatDate(tournament.date)}</Text></View>
+                        <View style={styles.infoItem}><Users size={16} color={colors.textLight}/><Text style={styles.infoText}>{participants.length} players</Text></View>
+                        <View style={styles.infoItem}><Trophy size={16} color={colors.textLight}/><Text style={styles.infoText}>{tournament.format}</Text></View>
                     </View>
 
-                    {/* Winner Display - Only if completed and winner exists */}
                     {tournament.status === 'completed' && winner && (
                         <View style={styles.winnerContainer}>
                             <Text style={styles.winnerLabel}>Tournament Winner</Text>
                             <View style={styles.winnerContent}>
                                 <Trophy size={24} color={colors.success}/>
-                                <Text style={styles.winnerName}>
-                                    {winner.name || "Unknown"}
-                                </Text>
+                                <Text style={styles.winnerName}>{winner.name || "Unknown"}</Text>
                             </View>
                         </View>
                     )}
 
-                    {/* Action Buttons */}
                     {tournament.status === 'pending' && (
                         <Button
                             title="Start Tournament"
-                            onPress={async () => {
-                                if (!tournament) return;
-                                await tournamentStore.generateAndStartTournament(tournament.id);
-                            }}
+                            onPress={() => tournamentStore.generateAndStartTournament(tournament.id)}
                             disabled={tournamentStore.loading}
                             style={styles.startButton}
                         />
@@ -497,49 +327,28 @@ export default function TournamentDetailScreen() {
                     )}
                 </View>
 
-                {/* Tab Navigation */}
                 <View style={styles.tabs}>
-                    <Pressable
-                        style={[styles.tab, activeTab === "bracket" && styles.activeTab]}
-                        onPress={() => setActiveTab("bracket")}
-                    >
-                        <Text style={[styles.tabText, activeTab === "bracket" && styles.activeTabText]}>
-                            Bracket
-                        </Text>
+                    <Pressable style={[styles.tab, activeTab === "bracket" && styles.activeTab]} onPress={() => setActiveTab("bracket")}>
+                        <Text style={[styles.tabText, activeTab === "bracket" && styles.activeTabText]}>Bracket</Text>
                     </Pressable>
-                    <Pressable
-                        style={[styles.tab, activeTab === "matches" && styles.activeTab]}
-                        onPress={() => setActiveTab("matches")}
-                    >
-                        <Text style={[styles.tabText, activeTab === "matches" && styles.activeTabText]}>
-                            Matches
-                        </Text>
+                    <Pressable style={[styles.tab, activeTab === "matches" && styles.activeTab]} onPress={() => setActiveTab("matches")}>
+                        <Text style={[styles.tabText, activeTab === "matches" && styles.activeTabText]}>Matches</Text>
                     </Pressable>
-                    <Pressable
-                        style={[styles.tab, activeTab === "players" && styles.activeTab]}
-                        onPress={() => setActiveTab("players")}
-                    >
-                        <Text style={[styles.tabText, activeTab === "players" && styles.activeTabText]}>
-                            Players
-                        </Text>
+                    <Pressable style={[styles.tab, activeTab === "players" && styles.activeTab]} onPress={() => setActiveTab("players")}>
+                        <Text style={[styles.tabText, activeTab === "players" && styles.activeTabText]}>Players</Text>
                     </Pressable>
                 </View>
 
-                {/* Tab Content */}
                 {activeTab === "bracket" && (
                     <View style={styles.section}>
                         {(() => {
                             if (tournament.format === TournamentFormat.ROUND_ROBIN) {
-                                // Round Robin format - show standings table
                                 const standings = calculateRoundRobinStandings(participants, tournamentMatches);
                                 return (
                                     <View style={styles.roundRobinContainer}>
                                         <Text style={styles.standingsTitle}>Standings</Text>
-
-                                        {/* Header row */}
                                         <View style={styles.standingsHeader}>
-                                            <Text
-                                                style={[styles.standingsHeaderCell, styles.playerNameColumn]}>Player</Text>
+                                            <Text style={[styles.standingsHeaderCell, styles.playerNameColumn]}>Player</Text>
                                             <Text style={styles.standingsHeaderCell}>P</Text>
                                             <Text style={styles.standingsHeaderCell}>W</Text>
                                             <Text style={styles.standingsHeaderCell}>L</Text>
@@ -547,19 +356,11 @@ export default function TournamentDetailScreen() {
                                             <Text style={styles.standingsHeaderCell}>Pts-</Text>
                                             <Text style={styles.standingsHeaderCell}>Diff</Text>
                                         </View>
-
-                                        {/* Player rows */}
                                         {standings.map((standing, index) => (
-                                            <View key={standing.player.id}
-                                                  style={[styles.standingsRow, index % 2 === 0 ? styles.standingsRowEven : styles.standingsRowOdd]}>
-                                                <View
-                                                    style={[styles.standingsCell, styles.playerNameColumn, styles.playerNameCell]}>
-                                                    <PlayerAvatar name={standing.player.name} player={standing.player}
-                                                                  size={24}/>
-                                                    <Text style={styles.standingsPlayerName} numberOfLines={1}
-                                                          ellipsizeMode="tail">
-                                                        {standing.player.name}
-                                                    </Text>
+                                            <View key={standing.player.id} style={[styles.standingsRow, index % 2 === 0 ? styles.standingsRowEven : styles.standingsRowOdd]}>
+                                                <View style={[styles.standingsCell, styles.playerNameColumn, styles.playerNameCell]}>
+                                                    <PlayerAvatar name={standing.player.name} player={standing.player} size={24}/>
+                                                    <Text style={styles.standingsPlayerName} numberOfLines={1} ellipsizeMode="tail">{standing.player.name}</Text>
                                                 </View>
                                                 <Text style={styles.standingsCell}>{standing.matches}</Text>
                                                 <Text style={styles.standingsCell}>{standing.wins}</Text>
@@ -572,41 +373,25 @@ export default function TournamentDetailScreen() {
                                     </View>
                                 );
                             } else if (tournament.format === TournamentFormat.GROUP) {
-                                // Group format - show group standings and generate knockout phase button
                                 const groupStandings = calculateGroupStandings(participants, tournamentMatches);
                                 const allGroupMatchesCompleted = tournamentMatches.filter(m => m.round === 1).every(m => m.status === 'completed');
                                 const hasKnockout = tournamentMatches.some(m => m.round > 1);
                                 return (
                                     <View style={styles.groupStandingsContainer}>
                                         <Text style={styles.standingsTitle}>Group Standings</Text>
-
-                                        {/* Generate knockout phase button */}
                                         {allGroupMatchesCompleted && !hasKnockout && (
                                             <Button
                                                 title="Generate Knockout Phase"
-                                                onPress={async () => {
-                                                    try {
-                                                        await tournamentStore.generateTournamentMatches(tournament.id);
-                                                        Alert.alert("Success", "Knockout phase generated successfully");
-                                                    } catch (error) {
-                                                        console.error("Failed to generate knockout phase:", error);
-                                                        Alert.alert("Error", "Failed to generate knockout phase. Please try again.");
-                                                    }
-                                                }}
+                                                onPress={() => tournamentStore.generateTournamentMatches(tournament.id)}
                                                 style={styles.generateKnockoutButton}
                                             />
                                         )}
-
-                                        {/* Display each group */}
                                         {Object.entries(groupStandings).map(([groupNum, groupStanding]) => (
                                             <View key={`group-${groupNum}`} style={styles.groupSection}>
                                                 <Text style={styles.groupTitle}>Group {groupNum}</Text>
-
                                                 <View style={styles.standingsTable}>
-                                                    {/* Header row */}
                                                     <View style={styles.standingsHeader}>
-                                                        <Text
-                                                            style={[styles.standingsHeaderCell, styles.playerNameColumn]}>Player</Text>
+                                                        <Text style={[styles.standingsHeaderCell, styles.playerNameColumn]}>Player</Text>
                                                         <Text style={styles.standingsHeaderCell}>P</Text>
                                                         <Text style={styles.standingsHeaderCell}>W</Text>
                                                         <Text style={styles.standingsHeaderCell}>L</Text>
@@ -614,28 +399,18 @@ export default function TournamentDetailScreen() {
                                                         <Text style={styles.standingsHeaderCell}>Pts-</Text>
                                                         <Text style={styles.standingsHeaderCell}>Diff</Text>
                                                     </View>
-
-                                                    {/* Player rows */}
                                                     {groupStanding.map((standing, index) => (
-                                                        <View key={standing.player.id}
-                                                              style={[styles.standingsRow, index % 2 === 0 ? styles.standingsRowEven : styles.standingsRowOdd]}>
-                                                            <View
-                                                                style={[styles.standingsCell, styles.playerNameColumn, styles.playerNameCell]}>
-                                                                <PlayerAvatar name={standing.player.name}
-                                                                              player={standing.player} size={24}/>
-                                                                <Text style={styles.standingsPlayerName}
-                                                                      numberOfLines={1} ellipsizeMode="tail">
-                                                                    {standing.player.name}
-                                                                </Text>
+                                                        <View key={standing.player.id} style={[styles.standingsRow, index % 2 === 0 ? styles.standingsRowEven : styles.standingsRowOdd]}>
+                                                            <View style={[styles.standingsCell, styles.playerNameColumn, styles.playerNameCell]}>
+                                                                <PlayerAvatar name={standing.player.name} player={standing.player} size={24}/>
+                                                                <Text style={styles.standingsPlayerName} numberOfLines={1} ellipsizeMode="tail">{standing.player.name}</Text>
                                                             </View>
                                                             <Text style={styles.standingsCell}>{standing.matches}</Text>
                                                             <Text style={styles.standingsCell}>{standing.wins}</Text>
                                                             <Text style={styles.standingsCell}>{standing.losses}</Text>
                                                             <Text style={styles.standingsCell}>{standing.points}</Text>
-                                                            <Text
-                                                                style={styles.standingsCell}>{standing.pointsAgainst}</Text>
-                                                            <Text
-                                                                style={styles.standingsCell}>{standing.pointsDiff}</Text>
+                                                            <Text style={styles.standingsCell}>{standing.pointsAgainst}</Text>
+                                                            <Text style={styles.standingsCell}>{standing.pointsDiff}</Text>
                                                         </View>
                                                     ))}
                                                 </View>
@@ -644,22 +419,13 @@ export default function TournamentDetailScreen() {
                                     </View>
                                 );
                             } else {
-                                // Knockout format - show bracket
-                                const flatMatches = bracketRounds.flat();
                                 if (bracketRounds.length > 0) {
-                                    return (
-                                        <TournamentBracket
-                                            matches={flatMatches}
-                                            onMatchPress={handleMatchPress}
-                                        />
-                                    );
+                                    return <TournamentBracket matches={bracketRounds.flat()} onMatchPress={handleMatchPress}/>;
                                 } else {
                                     return (
                                         <View style={[styles.emptyStateContainer, styles.emptyBracket]}>
                                             <Ionicons name="trophy-outline" size={48} color={colors.textLight}/>
-                                            <Text style={styles.emptyText}>
-                                                {tournament.status === 'pending' ? 'Start the tournament to generate the bracket.' : 'No matches generated yet.'}
-                                            </Text>
+                                            <Text style={styles.emptyText}>{tournament.status === 'pending' ? 'Start the tournament to generate the bracket.' : 'No matches generated yet.'}</Text>
                                         </View>
                                     );
                                 }
@@ -674,161 +440,36 @@ export default function TournamentDetailScreen() {
                         {tournamentMatches.length === 0 ? (
                             <View style={styles.emptyMatches}>
                                 <Users size={40} color={colors.textLight}/>
-                                <Text style={styles.emptyText}>
-                                    {tournament.status === 'pending' ? "Matches will appear here once the tournament starts." : "No matches available for this tournament."}
-                                </Text>
+                                <Text style={styles.emptyText}>{tournament.status === 'pending' ? "Matches will appear here once the tournament starts." : "No matches available for this tournament."}</Text>
                             </View>
                         ) : (
                             <View style={styles.roundMatches}>
-                                {/* Group matches by group for GROUP format in round 1 */}
-                                {tournament.format === TournamentFormat.GROUP && bracketRounds[0] ? (
-                                    // First identify all groups
-                                    Array.from(new Set(bracketRounds[0].map(m => m.group).filter(Boolean)))
-                                        .map(groupNum => {
-                                            // Get matches for this group
-                                            const groupMatches = bracketRounds[0]
-                                                .filter(m => m.group === groupNum);
-
-                                            if (groupMatches.length === 0) return null;
-
-                                            return (
-                                                <View key={`group-${groupNum}`} style={{marginBottom: 16}}>
-                                                    <Text style={{
-                                                        fontSize: 14,
-                                                        fontWeight: 'bold',
-                                                        marginBottom: 4,
-                                                        color: colors.text
-                                                    }}>
-                                                        Group {groupNum}
-                                                    </Text>
-                                                    {groupMatches.map(match => (
-                                                        <Pressable
-                                                            key={match.id}
-                                                            style={[
-                                                                styles.matchListItem,
-                                                                (match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && styles.matchListItemCompleted,
-                                                                (match.status === "scheduled" && match.player1Id && match.player2Id) && styles.matchListItemPlayable,
-                                                                (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) && styles.matchListItemTBD,
-                                                            ]}
-                                                            onPress={() => {
-                                                                if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed') {
-                                                                    if (match.matchId) {
-                                                                        router.push(`/match/${match.matchId}`);
-                                                                    } else {
-                                                                        Alert.alert('Match finished', 'You can no longer play or edit this match.');
-                                                                    }
-                                                                    return;
-                                                                }
-                                                                if (match.status === "scheduled" && match.player1Id && match.player2Id) {
-                                                                    handleMatchPress(match);
-                                                                    return;
-                                                                }
-                                                                if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.matchId) {
-                                                                    router.push(`/match/${match.matchId}`);
-                                                                    return;
-                                                                }
-                                                                let message = "This match cannot be played or viewed yet.";
-                                                                if (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) {
-                                                                    message = "Waiting for players from previous rounds.";
-                                                                }
-
-                                                                Alert.alert("Match Info", message);
-                                                            }}
-                                                            disabled={(match.status as 'completed' | 'pending' | 'scheduled') === 'completed'}
-                                                        >
-                                                            <Text
-                                                                style={[styles.matchListText, (match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && {opacity: 0.7}]}
-                                                                numberOfLines={1} ellipsizeMode="tail">
-                                                                {`Round ${match.round}: ${match.player1Id ? playerStore.getPlayerById(match.player1Id)?.name : 'TBD'} vs ${match.player2Id ? playerStore.getPlayerById(match.player2Id)?.name : 'TBD'}`}
-                                                            </Text>
-                                                            <View style={styles.matchListIcons}>
-                                                                {(match.status === "scheduled" && match.player1Id && match.player2Id) &&
-                                                                    <Play size={18} color={colors.primary}
-                                                                          style={{marginLeft: 8}}/>}
-                                                                {(match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.player1Score !== null && match.player2Score !== null ? (
-                                                                    <Text
-                                                                        style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
-                                                                ) : (
-                                                                    <Text style={styles.viewDetailsText}>Result</Text>
-                                                                )}
-                                                                {(match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) &&
-                                                                    <Text style={styles.tbdText}>TBD</Text>}
-                                                            </View>
-                                                        </Pressable>
-                                                    ))}
+                                {bracketRounds.map((roundMatches, roundIndex) => (
+                                    <View key={`round-${roundIndex}`} style={{marginBottom: 16}}>
+                                        <Text style={{fontSize: 14, fontWeight: 'bold', marginBottom: 4, color: colors.text}}>Round {roundIndex + 1}</Text>
+                                        {roundMatches.map(match => (
+                                            <Pressable
+                                                key={match.id}
+                                                style={[styles.matchListItem, match.status === 'completed' && styles.matchListItemCompleted, match.status === "scheduled" && match.player1Id && match.player2Id && styles.matchListItemPlayable, match.status === 'scheduled' && (!match.player1Id || !match.player2Id) && styles.matchListItemTBD]}
+                                                onPress={() => handleMatchPress(match)}
+                                                disabled={match.status === 'completed'}
+                                            >
+                                                <Text style={[styles.matchListText, match.status === 'completed' && {opacity: 0.7}]} numberOfLines={1} ellipsizeMode="tail">
+                                                    {`Round ${match.round}: ${match.player1Id ? playerStore.getPlayerById(match.player1Id)?.name : 'TBD'} vs ${match.player2Id ? playerStore.getPlayerById(match.player2Id)?.name : 'TBD'}`}
+                                                </Text>
+                                                <View style={styles.matchListIcons}>
+                                                    {match.status === "scheduled" && match.player1Id && match.player2Id && <Play size={18} color={colors.primary} style={{marginLeft: 8}}/>}
+                                                    {match.status === 'completed' && match.player1Score != null && match.player2Score != null ? (
+                                                        <Text style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
+                                                    ) : (
+                                                        <Text style={styles.viewDetailsText}>Result</Text>
+                                                    )}
+                                                    {match.status === 'scheduled' && (!match.player1Id || !match.player2Id) && <Text style={styles.tbdText}>TBD</Text>}
                                                 </View>
-                                            );
-                                        })
-                                ) : (
-                                    // Normal display for other rounds or tournament formats
-                                    bracketRounds.map((roundMatches, roundIndex) => (
-                                        <View key={`round-${roundIndex}`} style={{marginBottom: 16}}>
-                                            <Text style={{
-                                                fontSize: 14,
-                                                fontWeight: 'bold',
-                                                marginBottom: 4,
-                                                color: colors.text
-                                            }}>
-                                                Round {roundIndex + 1}
-                                            </Text>
-                                            {roundMatches.map(match => (
-                                                <Pressable
-                                                    key={match.id}
-                                                    style={[
-                                                        styles.matchListItem,
-                                                        (match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && styles.matchListItemCompleted,
-                                                        (match.status === "scheduled" && match.player1Id && match.player2Id) && styles.matchListItemPlayable,
-                                                        (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) && styles.matchListItemTBD,
-                                                    ]}
-                                                    onPress={() => {
-                                                        if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed') {
-                                                            if (match.matchId) {
-                                                                router.push(`/match/${match.matchId}`);
-                                                            } else {
-                                                                Alert.alert('Match finished', 'You can no longer play or edit this match.');
-                                                            }
-                                                            return;
-                                                        }
-                                                        if (match.status === "scheduled" && match.player1Id && match.player2Id) {
-                                                            handleMatchPress(match);
-                                                            return;
-                                                        }
-                                                        if ((match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.matchId) {
-                                                            router.push(`/match/${match.matchId}`);
-                                                            return;
-                                                        }
-                                                        let message = "This match cannot be played or viewed yet.";
-                                                        if (match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) {
-                                                            message = "Waiting for players from previous rounds.";
-                                                        }
-
-                                                        Alert.alert("Match Info", message);
-                                                    }}
-                                                    disabled={(match.status as 'completed' | 'pending' | 'scheduled') === 'completed'}
-                                                >
-                                                    <Text
-                                                        style={[styles.matchListText, (match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && {opacity: 0.7}]}
-                                                        numberOfLines={1} ellipsizeMode="tail">
-                                                        {`Round ${match.round}: ${match.player1Id ? playerStore.getPlayerById(match.player1Id)?.name : 'TBD'} vs ${match.player2Id ? playerStore.getPlayerById(match.player2Id)?.name : 'TBD'}`}
-                                                    </Text>
-                                                    <View style={styles.matchListIcons}>
-                                                        {(match.status === "scheduled" && match.player1Id && match.player2Id) &&
-                                                            <Play size={18} color={colors.primary}
-                                                                  style={{marginLeft: 8}}/>}
-                                                        {(match.status as 'completed' | 'pending' | 'scheduled') === 'completed' && match.player1Score !== null && match.player2Score !== null ? (
-                                                            <Text
-                                                                style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
-                                                        ) : (
-                                                            <Text style={styles.viewDetailsText}>Result</Text>
-                                                        )}
-                                                        {(match.status === 'scheduled' && (!match.player1Id || !match.player2Id)) &&
-                                                            <Text style={styles.tbdText}>TBD</Text>}
-                                                    </View>
-                                                </Pressable>
-                                            ))}
-                                        </View>
-                                    ))
-                                )}
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                ))}
                             </View>
                         )}
                     </View>
@@ -842,26 +483,18 @@ export default function TournamentDetailScreen() {
                                 {participants.map((player) => (
                                     <View key={player.id} style={styles.participantItem}>
                                         <PlayerAvatar player={player} name={player.name} size={60}/>
-                                        <Text style={styles.participantName} numberOfLines={2}>
-                                            {player.name}
-                                        </Text>
+                                        <Text style={styles.participantName} numberOfLines={2}>{player.name}</Text>
                                     </View>
                                 ))}
                             </View>
                         ) : (
                             <View style={styles.emptyMatches}>
                                 <Users size={40} color={colors.textLight}/>
-                                <Text style={styles.emptyText}>No participants have been added to this tournament
-                                    yet.</Text>
-                                {tournament.status === 'pending' && (
-                                    <Button title="Add Participants"
-                                            onPress={() => router.push(`/tournament/edit/${tournament.id}`)}
-                                            variant="outline" style={{marginTop: 16}}/>
-                                )}
+                                <Text style={styles.emptyText}>No participants have been added to this tournament yet.</Text>
+                                {tournament.status === 'pending' && <Button title="Add Participants" onPress={() => router.push(`/tournament/edit/${tournament.id}`)} variant="outline" style={{marginTop: 16}}/>}
                             </View>
                         )}
 
-                        {/* Winner Selection - Shown when Complete button is pressed */}
                         {showConfirmComplete && tournament.status === 'active' && (
                             <View style={styles.winnerSelectionContainer}>
                                 <Text style={styles.sectionTitle}>Select Tournament Winner</Text>
@@ -870,22 +503,11 @@ export default function TournamentDetailScreen() {
                                         {participants.map((player) => (
                                             <Pressable
                                                 key={player.id}
-                                                style={[
-                                                    styles.winnerOption,
-                                                    selectedWinnerId === player.id && styles.winnerOptionSelected,
-                                                ]}
+                                                style={[styles.winnerOption, selectedWinnerId === player.id && styles.winnerOptionSelected]}
                                                 onPress={() => setSelectedWinnerId(player.id)}
                                             >
                                                 <PlayerAvatar player={player} name={player.name} size={50}/>
-                                                <Text
-                                                    style={[
-                                                        styles.winnerOptionName,
-                                                        selectedWinnerId === player.id && styles.winnerOptionNameSelected,
-                                                    ]}
-                                                    numberOfLines={2}
-                                                >
-                                                    {player.name}
-                                                </Text>
+                                                <Text style={[styles.winnerOptionName, selectedWinnerId === player.id && styles.winnerOptionNameSelected]} numberOfLines={2}>{player.name}</Text>
                                             </Pressable>
                                         ))}
                                     </View>

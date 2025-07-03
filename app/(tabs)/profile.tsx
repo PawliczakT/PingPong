@@ -459,22 +459,23 @@ export default function ProfileScreen() {
                             </Text>
                         )}
                         {playerStats && (
-                            <View style={{
-                                flexDirection: 'row',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                marginTop: 8
-                            }}>
-                                <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.9)'}}>
-                                    {playerStats.rank.name}
-                                </Text>
-                                <Text
-                                    style={{fontSize: 14, color: 'rgba(255,255,255,0.9)', marginHorizontal: 4}}>•</Text>
+                            <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 8}}>
+                                {playerStats.rank.name && (
+                                    <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.9)'}}>
+                                        {playerStats.rank.name}
+                                    </Text>
+                                )}
+                                {playerStats.rank.name && (
+                                    <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.9)', marginHorizontal: 4}}>
+                                        •
+                                    </Text>
+                                )}
                                 <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.9)'}}>
                                     {playerStats.totalGames} games
                                 </Text>
-                                <Text
-                                    style={{fontSize: 14, color: 'rgba(255,255,255,0.9)', marginHorizontal: 4}}>•</Text>
+                                <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.9)', marginHorizontal: 4}}>
+                                    •
+                                </Text>
                                 <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.9)'}}>
                                     {`${playerStats.winRate}% win rate`}
                                 </Text>

@@ -43,37 +43,31 @@ export default function PlayerCard({
             ]}
             onPress={handlePress}
         >
-            {rank && (
+            {rank !== undefined && (
                 <View style={styles.rankContainer}>
                     <Text style={styles.rankText}>{rank}</Text>
                 </View>
             )}
-
             <PlayerAvatar name={player.name} avatarUrl={player.avatarUrl} size={50}/>
-
             <View style={styles.infoContainer}>
                 <Text style={styles.name}>{player.name}</Text>
-                {player.nickname && (
+                {player.nickname ? (
                     <Text style={styles.nickname}>"{player.nickname}"</Text>
-                )}
-
+                ) : null}
                 {showStats && !statValue && (
                     <View style={styles.statsContainer}>
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>{player.eloRating}</Text>
                             <Text style={styles.statLabel}>ELO</Text>
                         </View>
-
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>{player.wins}</Text>
                             <Text style={styles.statLabel}>Wins</Text>
                         </View>
-
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>{player.losses}</Text>
                             <Text style={styles.statLabel}>Losses</Text>
                         </View>
-
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>
                                 {formatWinRate(player.wins, player.losses)}
@@ -82,15 +76,13 @@ export default function PlayerCard({
                         </View>
                     </View>
                 )}
-
-                {statLabel && (
+                {statLabel && statValue !== undefined && statValue !== null && (
                     <View style={styles.customStatContainer}>
-                        <Text style={styles.customStatValue}>{statValue || ''}</Text>
+                        <Text style={styles.customStatValue}>{String(statValue)}</Text>
                         <Text style={styles.customStatLabel}>{statLabel}</Text>
                     </View>
                 )}
             </View>
-
             <ArrowRight size={20} color={colors.textLight}/>
         </Pressable>
     );

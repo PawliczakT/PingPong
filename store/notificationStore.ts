@@ -1,6 +1,5 @@
 //store/notificationStore.ts
 import {create} from "zustand";
-import {useEffect} from "react";
 import {Platform} from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from "expo-notifications";
@@ -300,95 +299,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
     },
 }));
-
-export const useNotificationsRealtime = () => {
-    const {user} = useAuthStore();
-
-    useEffect(() => {
-        if (!user?.id) {
-            console.log('🔔 🔴 No user ID for realtime subscription');
-            return;
-        }
-
-        console.log('🔔 🔴 Setting up realtime subscription for user:', user.id);
-
-        const channel = supabase
-            .channel(`notifications-realtime-${user.id}`)
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'notifications',
-                filter: `user_id=eq.${user.id}`
-            }, (payload) => {
-                console.log('🔔 🔴 REALTIME INSERT RECEIVED:', payload);
-                console.log('🔔 🔴 NEW NOTIFICATION:', payload.new);
-
-                const newNotification = payload.new as NotificationRecord;
-
-                useNotificationStore.setState(state => {
-                    const updated = [newNotification, ...state.notificationHistory];
-                    console.log('🔔 🔴 Updated notification count:', updated.length);
-                    return {
-                        notificationHistory: updated
-                    };
-                });
-
-                console.log('🔔 ✅ Added notification to store via realtime');
-            })
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'notifications',
-                filter: `user_id=eq.${user.id}`
-            }, (payload) => {
-                console.log('🔔 🔴 REALTIME UPDATE RECEIVED:', payload);
-
-                const updatedNotification = payload.new as NotificationRecord;
-                useNotificationStore.setState(state => ({
-                    notificationHistory: state.notificationHistory.map(n =>
-                        n.id === updatedNotification.id ? updatedNotification : n
-                    )
-                }));
-
-                console.log('🔔 ✅ Updated notification via realtime');
-            })
-            .on('postgres_changes', {
-                event: 'DELETE',
-                schema: 'public',
-                table: 'notifications'
-            }, (payload) => {
-                console.log('🔔 🔴 REALTIME DELETE RECEIVED:', payload);
-
-                const deletedId = payload.old.id as string;
-                useNotificationStore.setState(state => ({
-                    notificationHistory: state.notificationHistory.filter(n => n.id !== deletedId)
-                }));
-
-                console.log('🔔 ✅ Deleted notification via realtime');
-            })
-            .subscribe((status, err) => {
-                console.log('🔔 🔴 REALTIME SUBSCRIPTION STATUS:', status);
-                if (err) {
-                    console.error('🔔 🔴 REALTIME SUBSCRIPTION ERROR:', err);
-                }
-
-                if (status === 'SUBSCRIBED') {
-                    console.log('🔔 ✅ REALTIME SUBSCRIPTION ACTIVE FOR USER:', user.id);
-                } else if (status === 'CHANNEL_ERROR') {
-                    console.error('🔔 ❌ REALTIME SUBSCRIPTION CHANNEL ERROR');
-                } else if (status === 'TIMED_OUT') {
-                    console.error('🔔 ⏰ REALTIME SUBSCRIPTION TIMEOUT');
-                } else if (status === 'CLOSED') {
-                    console.log('🔔 🔴 REALTIME SUBSCRIPTION CLOSED');
-                }
-            });
-
-        return () => {
-            console.log('🔔 🧹 Cleaning up realtime subscription for user:', user.id);
-            supabase.removeChannel(channel);
-        };
-    }, [user?.id]);
-};
 
 export const sendMatchResultNotification = async (match: Match, player1: Player, player2: Player) => {
     const winner = match.winner === player1.id ? player1 : player2;

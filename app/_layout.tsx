@@ -14,7 +14,8 @@ import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore"
 import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
 import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
-import {useNotificationsRealtime, useNotificationStore} from "@/store/notificationStore";
+import {useNotificationStore} from "@/store/notificationStore";
+import {useNotificationsRealtime} from "@hooks/useNotificationsRealtime";
 
 const queryClient = new QueryClient();
 SplashScreen.preventAutoHideAsync().catch((e) => console.warn("SplashScreen error:", e));

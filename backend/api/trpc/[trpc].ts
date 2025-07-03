@@ -7,6 +7,10 @@ const allowedOrigins = [
     'http://localhost:8081',
     'http://127.0.0.1:8081',
     'https://ping-pong-three-woad.vercel.app',
+    "http://localhost:19006",
+    "http://localhost:3000",
+    "http://localhost:54323",
+    "http://127.0.0.1:54323"
 ];
 
 export default async function handler(req: Request) {

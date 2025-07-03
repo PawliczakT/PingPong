@@ -31,6 +31,11 @@ class SupabaseClient {
                     persistSession: true,
                     detectSessionInUrl: Platform.OS === 'web',
                 },
+                realtime: {
+                    params: {
+                        eventsPerSecond: 10,
+                    },
+                }
             });
         } else {
             console.log('🔄 Reusing existing Supabase instance');

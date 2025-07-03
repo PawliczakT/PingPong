@@ -1,28 +1,30 @@
 // app/notifications/index.tsx
-import React, {useCallback} from "react"; // ✅ Dodaj useCallback
+import React, {useCallback} from "react";
 import {ActivityIndicator, StyleSheet, Text, View} from "react-native";
 import {Stack, useRouter} from "expo-router";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {useNotificationStore} from "@/store/notificationStore";
-import {useAuth} from "@/store/authStore"; // ✅ Dodaj import useAuth
+import {useAuth} from "@/store/authStore";
 import NotificationsList from "@/components/NotificationsList";
 import {Notification} from "@/backend/types";
 
 export default function NotificationsScreen() {
     const router = useRouter();
-    const {user} = useAuth(); // ✅ Dodaj user z useAuth
+    const {user} = useAuth();
     const isLoading = useNotificationStore(state => state.isLoading);
     const notificationHistory = useNotificationStore(state => state.notificationHistory);
     const clearHistory = useNotificationStore(state => state.clearHistory);
 
     React.useEffect(() => {
-        console.log('🔔 NotificationsScreen render:', {
-            isLoading,
-            notificationCount: notificationHistory.length,
-            userId: user?.id,
-            hasUser: !!user
-        });
+        if (user?.id) {
+            console.log('🔔 NotificationsScreen render:', {
+                isLoading,
+                notificationCount: notificationHistory.length,
+                userId: user?.id,
+                hasUser: !!user
+            });
+        }
     }, [isLoading, notificationHistory.length, user?.id]);
 
     const notificationsToDisplay: Notification[] = notificationHistory.map(notification => ({

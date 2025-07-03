@@ -51,6 +51,8 @@ export default function TournamentCard({tournament, onPress}: TournamentCardProp
         }
     };
 
+    const participantsCount = tournament.participants?.length || 0;
+
     return (
         <Pressable
             style={({pressed}) => [
@@ -74,7 +76,7 @@ export default function TournamentCard({tournament, onPress}: TournamentCardProp
 
                 <View style={styles.infoItem}>
                     <Users size={16} color={colors.textLight}/>
-                    <Text style={styles.infoText}>{tournament.participants.length} players</Text>
+                    <Text style={styles.infoText}>{participantsCount} players</Text>
                 </View>
 
                 {tournament.winner && (
