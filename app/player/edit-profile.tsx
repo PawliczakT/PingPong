@@ -1,7 +1,7 @@
 //app/player/edit-profile.tsx
 import React, {useEffect, useState} from 'react';
 import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, View,} from 'react-native';
-import {trpc} from '@/backend/lib/trpc';
+import {trpc} from '@/backend/api/lib/trpc';
 import Button from '@/components/Button';
 import PlayerAvatar from '@/components/PlayerAvatar';
 

@@ -1,16 +1,16 @@
-//backend/lib/trpc.ts
+//backend/api/lib/trpc.ts
 import {createTRPCReact} from '@trpc/react-query';
 import {createTRPCClient, httpBatchLink} from '@trpc/client';
 import Constants from 'expo-constants';
-import {supabaseAsAdmin} from '../server/lib/supabaseAdmin';
-import type {AppRouter} from '../server/trpc/index';
+import {supabase} from '../../server/lib/supabase';
+import type {AppRouter} from '../../server/trpc';
 
 export const trpc = createTRPCReact<AppRouter>();
 
 const getAuthHeaders = async () => {
     try {
-        const {data} = await supabaseAsAdmin.auth.getSession();
-        const token = data?.session?.access_token;
+        const {data: {session}} = await supabase.auth.getSession();
+        const token = session?.access_token;
         return token ? {Authorization: `Bearer ${token}`} : {};
     } catch (error) {
         console.error('Error getting auth headers:', error);
@@ -30,6 +30,17 @@ export const trpcClient = createTRPCClient<AppRouter>({
         httpBatchLink({
             url: getApiUrl(),
             headers: getAuthHeaders,
+            fetch: async (url, options) => {
+                console.log('🚀 Fetching:', url, options);
+                const headers = await getAuthHeaders();
+                return fetch(url, {
+                    ...options,
+                    headers: {
+                        ...options?.headers,
+                        ...headers,
+                    },
+                });
+            },
         }),
     ],
 });

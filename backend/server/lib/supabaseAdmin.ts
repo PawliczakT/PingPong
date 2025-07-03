@@ -1,4 +1,4 @@
-// backend/server/lib/supabaseAdmin.ts
+//backend/server/lib/supabaseAdmin.ts
 import {createClient} from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import {Database} from '../../types/supabase';

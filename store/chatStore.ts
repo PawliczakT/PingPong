@@ -2,7 +2,7 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {LayoutAnimation, Platform, UIManager} from 'react-native';
-import {trpcClient} from '@/backend/lib/trpc';
+import {trpcClient} from '@/backend/api/lib/trpc';
 import type {ChatMessage} from '@/components/ChatMessageItem';
 import {useAuthStore} from './authStore';
 

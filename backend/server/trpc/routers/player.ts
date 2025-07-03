@@ -4,7 +4,7 @@ import {
     ensurePlayerProfileProcedure,
     getMyProfileProcedure,
     updateMyProfileProcedure,
-} from '@/backend/server/trpc/routers/player/profile';
+} from '../../../../backend/server/trpc/routers/player/profile';
 
 export const playerRouter = router({
     ensureProfile: ensurePlayerProfileProcedure,

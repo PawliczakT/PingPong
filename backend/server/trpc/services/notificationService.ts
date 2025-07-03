@@ -1,5 +1,5 @@
 //backend/server/trpc/services/notificationService.ts
-import {supabaseAsAdmin} from '../../lib/supabaseAdmin';
+import {supabase} from '../../lib/supabase';
 import {z} from 'zod'
 import {Json} from '../../../types/supabase';
 
@@ -96,7 +96,7 @@ export async function dispatchSystemNotification<T extends SystemNotificationTyp
             metadata: validatedMetadata,
         });
 
-        const {error} = await supabaseAsAdmin
+        const {error} = await supabase
             .from('chat_messages')
             .insert({
                 user_id: null,

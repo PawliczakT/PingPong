@@ -7,7 +7,7 @@ import React, {useCallback, useEffect, useState} from "react";
 import {Linking, Platform} from "react-native";
 import {ErrorBoundary} from "./error-boundary";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
-import {trpc, trpcClient} from "@/backend/lib/trpc";
+import {trpc, trpcClient} from "@/backend/api/lib/trpc";
 import {supabase} from '@/backend/server/lib/supabase';
 import {useAuth} from "@/store/authStore";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";

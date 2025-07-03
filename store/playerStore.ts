@@ -5,7 +5,7 @@ import {getInitialEloRating} from "@/utils/elo";
 import {supabase} from '@/backend/server/lib/supabase';
 import {useEffect} from "react";
 import {getRankByWins, Rank} from "@/constants/ranks";
-import {trpcClient} from '@/backend/lib/trpc';
+import {trpcClient} from '@/backend/api/lib/trpc';
 
 interface PlayerState {
     players: Player[];
