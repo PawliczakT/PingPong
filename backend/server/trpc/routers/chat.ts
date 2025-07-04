@@ -8,7 +8,7 @@ import {
     dispatchSystemNotification,
     SystemNotificationMetadata,
     SystemNotificationType
-} from '@/backend/server/trpc/services/notificationService';
+} from '../../../server/trpc/services/notificationService';
 
 const sendMessageInputSchema = z.object({
     message_content: z.string().min(1).max(1000),

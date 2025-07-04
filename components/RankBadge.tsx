@@ -1,6 +1,7 @@
 import React from "react";
 import {StyleSheet, View} from "react-native";
-import {getRankIcon, Rank} from "@/constants/ranks";
+import {Rank} from "@/constants/achievements";
+import {getRankIcon} from "@utils/iconHelpers";
 
 type RankBadgeProps = {
     rank: Rank;

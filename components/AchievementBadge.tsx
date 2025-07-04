@@ -2,7 +2,7 @@ import React from "react";
 import {StyleSheet, Text, View} from "react-native";
 import {colors} from "@/constants/colors";
 import {Achievement} from "@/backend/types";
-import {getAchievementIcon} from "@/constants/achievements";
+import {getAchievementIcon} from "@utils/iconHelpers";
 
 type AchievementBadgeProps = {
     achievement: Achievement;

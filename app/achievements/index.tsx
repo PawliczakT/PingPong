@@ -5,9 +5,9 @@ import {Stack} from 'expo-router';
 import {useAchievementStore} from '@/store/achievementStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useEffect, useRef, useState} from 'react';
-import {getAchievementIcon} from '@/constants/achievements';
 import {AchievementType} from '@/backend/types';
 import {ChevronDown, LucideIcon, User} from 'lucide-react-native';
+import {getAchievementIcon} from "@utils/iconHelpers";
 
 type DisplayAchievement = {
     type: AchievementType;

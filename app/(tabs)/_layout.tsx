@@ -3,7 +3,7 @@ import React from 'react';
 import {Tabs} from 'expo-router';
 import {useColorScheme} from 'react-native';
 import {BarChart, Home, MessageCircle, PlusCircle, Trophy, User, Users} from 'lucide-react-native';
-import {colors} from '@/constants/colors';
+import {colors} from '@/constants';
 
 export default function TabLayout() {
     const colorScheme = useColorScheme();

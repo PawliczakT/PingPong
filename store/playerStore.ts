@@ -4,7 +4,7 @@ import {Player} from "@/backend/types";
 import {getInitialEloRating} from "@/utils/elo";
 import {supabase} from '@/backend/server/lib/supabase';
 import {useEffect} from "react";
-import {getRankByWins, Rank} from "@/constants/ranks";
+import {getRankByWins, Rank} from "@/constants/achievements";
 import {trpcClient} from '@/backend/api/lib/trpc';
 
 interface PlayerState {

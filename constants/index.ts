@@ -1,7 +1,6 @@
 //constants/index.ts
 export * from './achievements';
 export * from './colors';
-export * from './ranks';
 export * from './chat';
 
 export const CHAT_MESSAGE_PAGE_SIZE = 20;

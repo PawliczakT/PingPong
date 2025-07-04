@@ -1,9 +1,8 @@
 //backend/api/lib/trpc.ts
 import {createTRPCReact} from '@trpc/react-query';
 import {createTRPCClient, httpBatchLink} from '@trpc/client';
-import Constants from 'expo-constants';
-import {supabase} from '../../server/lib/supabase';
 import type {AppRouter} from '../../server/trpc';
+import {supabase} from "@/app/lib/supabase";
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -19,10 +18,13 @@ const getAuthHeaders = async () => {
 };
 
 const getApiUrl = () => {
-    if (__DEV__) {
-        return Constants.expoConfig?.extra?.apiUrlDev || 'http://127.0.0.1:8081/api/trpc';
+    const isDev = process.env.NODE_ENV === 'development' ||
+        process.env.EXPO_PUBLIC_ENV === 'development';
+
+    if (isDev) {
+        return process.env.EXPO_PUBLIC_API_URL_DEV || 'http://127.0.0.1:8081/api/trpc';
     }
-    return Constants.expoConfig?.extra?.apiUrl || 'https://ping-pong-three-woad.vercel.app/api/trpc';
+    return process.env.EXPO_PUBLIC_API_URL || 'https://ping-pong-three-woad.vercel.app/api/trpc';
 };
 
 export const trpcClient = createTRPCClient<AppRouter>({

@@ -9,7 +9,9 @@
       "@store/*": ["./store/*"],
       "@constants/*": ["./constants/*"],
       "@hooks/*": ["./hooks/*"],
-      "@types/*": ["./types/*"]
+      "@types/*": ["./types/*"],
+      "@screens/*": ["./screens/*"],
+      "@utils/*": ["./utils/*"]
     }
   },
   "include": [

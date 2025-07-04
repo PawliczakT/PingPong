@@ -17,7 +17,7 @@ import StreakDisplay from "@/components/StreakDisplay";
 import AchievementBadge from "@/components/AchievementBadge";
 import RankBadge from "@/components/RankBadge";
 import * as Haptics from "expo-haptics";
-import {Rank} from "@/constants/ranks";
+import {Rank} from "@/constants/achievements";
 
 export default function PlayerDetailScreen() {
     const {id} = useLocalSearchParams();
@@ -295,7 +295,7 @@ export default function PlayerDetailScreen() {
                             </Text>
 
                             {/* Import ranks from constants and map through them */}
-                            {require('@/constants/ranks').ranks.map((rank: Rank) => (
+                            {require('@/constants/achievements').ranks.map((rank: Rank) => (
                                 <View key={rank.id} style={styles.rankItem}>
                                     <RankBadge rank={rank} size="medium"/>
                                     <View style={styles.rankInfo}>

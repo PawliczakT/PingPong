@@ -1,9 +1,9 @@
 //store/authStore.ts
 import {create} from 'zustand';
 import {Session, User} from '@supabase/supabase-js';
-import {signInWithGoogle, signOut as supabaseSignOut, supabase} from '@/backend/server/lib/supabase';
 import {Platform} from 'react-native';
 import React from "react";
+import {signInWithGoogle, signOut, supabase} from "@/app/lib/supabase";
 
 interface AuthState {
     user: User | null;
@@ -185,7 +185,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
                     }
                 }
 
-                const {error} = await supabaseSignOut();
+                const {error} = await signOut();
 
                 if (error) {
                     console.error('🔐 Supabase signOut error:', error);

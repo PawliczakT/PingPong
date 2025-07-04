@@ -2,7 +2,7 @@
 import React from 'react';
 import {ActivityIndicator, SafeAreaView, StyleSheet, Text, View} from 'react-native';
 import Button from '../../components/Button';
-import {useAuthStore} from '@/store/authStore';
+import {useAuthStore} from '@store/authStore';
 
 export default function LoginScreen() {
     const {loginWithGoogle, isLoading, error, clearError} = useAuthStore();
