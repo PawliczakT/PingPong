@@ -303,7 +303,7 @@ const ChatScreen = () => {
     if (!isInitialized && isLoadingMessages) {
         return (
             <SafeAreaView style={[styles.container, styles.centerContent, {backgroundColor: colors.background}]}>
-                <Stack.Screen options={{title: 'Community Chat'}}/>
+                <Stack.Screen options={{title: 'Chat'}}/>
                 <ActivityIndicator size="large" color={colors.primary}/>
                 <Text style={[styles.loadingText, {color: colors.text}]}>
                     Connecting to chat...
@@ -315,7 +315,7 @@ const ChatScreen = () => {
     return (
         <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
             <Stack.Screen options={{
-                title: 'Community Chat',
+                title: 'Chat',
                 headerRight: () => showTestButton ? (
                     <TouchableOpacity onPress={testBackend} style={styles.testHeaderButton}>
                         <Text style={styles.testHeaderButtonText}>🧪</Text>
@@ -325,7 +325,7 @@ const ChatScreen = () => {
 
             <View style={[styles.header, {borderBottomColor: colors.border}]}>
                 <Text style={[styles.headerTitle, {color: colors.text}]}>
-                    Community Chat
+                    Chat
                 </Text>
                 <View style={styles.statusContainer}>
                     <View style={[

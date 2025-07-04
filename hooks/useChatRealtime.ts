@@ -28,25 +28,43 @@ const useChatRealtime = () => {
             channel
                 .on('postgres_changes',
                     {event: 'INSERT', schema: 'public', table: 'chat_messages'},
-                    (payload) => addMessage(payload.new as ChatMessage)
+                    (payload) => {
+                        console.log('📨 Received new chat message:', {
+                            id: payload.new.id,
+                            type: payload.new.message_type,
+                            content: payload.new.message_content?.substring(0, 50) + (payload.new.message_content && payload.new.message_content.length > 50 ? '...' : ''),
+                            metadata: payload.new.metadata
+                        });
+                        addMessage(payload.new as ChatMessage);
+                    }
                 )
                 .on('postgres_changes',
                     {event: 'UPDATE', schema: 'public', table: 'chat_messages'},
-                    (payload) => updateMessage(payload.new as Partial<ChatMessage> & { id: string })
+                    (payload) => {
+                        console.log('🔄 Updated chat message:', {
+                            id: payload.new.id,
+                            type: payload.new.message_type,
+                            content: payload.new.message_content?.substring(0, 50) + (payload.new.message_content && payload.new.message_content.length > 50 ? '...' : '')
+                        });
+                        updateMessage(payload.new as Partial<ChatMessage> & { id: string });
+                    }
                 )
                 .subscribe((status, err) => {
                     console.log(`🔗 Subscription status: ${status}`, err || '');
 
                     if (status === 'SUBSCRIBED') {
+                        console.log('✅ Successfully subscribed to chat channel');
                         setConnectionStatus('connected');
                         if (!isInitializedRef.current) {
                             fetchInitialMessages();
                             isInitializedRef.current = true;
                         }
-                    } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
-                        setConnectionStatus('error');
-                    } else if (status === 'CLOSED') {
+                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                        console.error('❌ Chat subscription error:', {status, error: err});
                         setConnectionStatus('disconnected');
+                    } else {
+                        console.log('🔄 Chat subscription status:', status);
+                        setConnectionStatus('connecting');
                     }
                 });
 

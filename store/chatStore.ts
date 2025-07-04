@@ -131,14 +131,26 @@ class MessageBatcher {
     private readonly batchDelay = 100;
 
     constructor(private onBatch: (messages: ChatMessage[]) => void) {
+        console.log('🔄 MessageBatcher initialized');
     }
 
     add(message: ChatMessage): void {
+        console.log('➕ Adding message to batch:', {
+            id: message.id,
+            type: message.message_type,
+            currentBatchSize: this.pendingMessages.length + 1
+        });
+
         this.pendingMessages.push(message);
         if (this.pendingMessages.length >= this.batchSize) {
+            console.log(`🔄 Batch size reached (${this.batchSize}), flushing...`);
             this.flush();
         } else if (!this.batchTimeout) {
-            this.batchTimeout = setTimeout(() => this.flush(), this.batchDelay);
+            console.log(`⏳ Scheduling batch flush in ${this.batchDelay}ms`);
+            this.batchTimeout = setTimeout(() => {
+                console.log('⏰ Batch timeout reached, flushing...');
+                this.flush();
+            }, this.batchDelay);
         }
     }
 
@@ -148,13 +160,15 @@ class MessageBatcher {
             this.batchTimeout = null;
         }
         if (this.pendingMessages.length > 0) {
+            console.log(`🚀 Flushing batch of ${this.pendingMessages.length} messages`);
             this.onBatch([...this.pendingMessages]);
             this.pendingMessages = [];
+        } else {
+            console.log('ℹ️ Nothing to flush - batch is empty');
         }
     }
 }
 
-// Helper function for error handling
 const handleError = (error: any, type: ChatState['error']['type']): ChatState['error'] => {
     console.error(`❌ ${type} error:`, error);
     return {
@@ -206,7 +220,6 @@ export const useChatStore = create<ChatState & ChatActions>()(
         }, 100);
 
         return {
-            // ✅ Poprawiony stan początkowy - zgodny z interface
             messages: [],
             isLoadingMessages: false,
             isSendingMessage: false,
@@ -224,7 +237,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
                 const state = get();
                 if (state.isLoadingMessages || state.isInitialized) return;
 
-                set({isLoadingMessages: true, error: null}); // ✅ Używa isLoadingMessages
+                set({isLoadingMessages: true, error: null});
 
                 try {
                     console.log('📚 Fetching initial messages...');
@@ -244,7 +257,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     set({
                         messages: sortedMessages,
                         hasMoreMessages: !!result.nextCursor,
-                        isLoadingMessages: false, // ✅ Reset isLoadingMessages
+                        isLoadingMessages: false,
                         isInitialized: true,
                         lastFetchTime: Date.now()
                     });
@@ -252,7 +265,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     console.log('✅ Successfully fetched', sortedMessages.length, 'messages');
                 } catch (error: any) {
                     set({
-                        isLoadingMessages: false, // ✅ Reset loading po błędzie
+                        isLoadingMessages: false,
                         error: handleError(error, 'fetch'),
                         isInitialized: true
                     });
@@ -263,7 +276,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
                 const state = get();
                 if (state.isLoadingOlder || !state.hasMoreMessages) return;
 
-                set({isLoadingOlder: true, error: null}); // ✅ Używa isLoadingOlder
+                set({isLoadingOlder: true, error: null});
 
                 try {
                     const oldestMessage = state.messages[state.messages.length - 1];
@@ -288,21 +301,21 @@ export const useChatStore = create<ChatState & ChatActions>()(
                             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
                         )],
                         hasMoreMessages: !!result.nextCursor,
-                        isLoadingOlder: false, // ✅ Reset isLoadingOlder
+                        isLoadingOlder: false,
                         lastFetchTime: Date.now(),
                     }));
 
                     console.log('✅ Fetched', newMessages.length, 'older messages');
                 } catch (error: any) {
                     set({
-                        isLoadingOlder: false, // ✅ Reset loading po błędzie
+                        isLoadingOlder: false,
                         error: handleError(error, 'fetch')
                     });
                 }
             },
 
             sendMessage: async (content: string, currentUserId: string, profile: ChatMessage['profile']) => {
-                set({isSendingMessage: true, error: null}); // ✅ Używa isSendingMessage
+                set({isSendingMessage: true, error: null});
 
                 try {
                     console.log('🚀 Sending message:', {content, currentUserId});
@@ -318,22 +331,19 @@ export const useChatStore = create<ChatState & ChatActions>()(
                         reactions: null,
                     };
 
-                    // Dodaj temporary message
                     set(state => ({
                         messages: [tempMessage, ...state.messages.filter(m => !m.id.startsWith('temp-'))]
                     }));
 
-                    // Wyślij wiadomość
                     const sentMessage = await trpcClient.chat.sendMessage.mutate({
                         message_content: content
                     }) as ChatMessage;
 
-                    // Zastąp temporary message prawdziwą wiadomością
                     set(state => ({
                         messages: state.messages.map(msg =>
                             msg.id === tempMessage.id ? sentMessage : msg
                         ),
-                        isSendingMessage: false // ✅ Reset isSendingMessage po sukcesie
+                        isSendingMessage: false
                     }));
 
                     messageCache.set(sentMessage.id, sentMessage);
@@ -342,9 +352,9 @@ export const useChatStore = create<ChatState & ChatActions>()(
                 } catch (error: any) {
                     console.error('❌ Failed to send message:', error);
                     set(state => ({
-                        messages: state.messages.filter(m => !m.id.startsWith('temp-')), // Usuń temp message
+                        messages: state.messages.filter(m => !m.id.startsWith('temp-')),
                         error: handleError(error, 'send'),
-                        isSendingMessage: false // ✅ Reset isSendingMessage po błędzie
+                        isSendingMessage: false
                     }));
                     throw error;
                 }
@@ -356,7 +366,6 @@ export const useChatStore = create<ChatState & ChatActions>()(
                 if (!currentUserId) return;
 
                 try {
-                    // Optimistic update
                     set(state => ({
                         messages: state.messages.map(msg => {
                             if (msg.id === messageId) {
@@ -380,7 +389,6 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     messageCache.set(updatedMessage.id, updatedMessage);
 
                 } catch (error: any) {
-                    // Revert optimistic update
                     set(state => ({
                         messages: state.messages.map(msg => {
                             if (msg.id === messageId) {
@@ -407,7 +415,6 @@ export const useChatStore = create<ChatState & ChatActions>()(
                 if (!currentUserId) return;
 
                 try {
-                    // Optimistic update
                     set(state => ({
                         messages: state.messages.map(msg => {
                             if (msg.id === messageId) {
@@ -434,7 +441,6 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     messageCache.set(updatedMessage.id, updatedMessage);
 
                 } catch (error: any) {
-                    // Revert optimistic update
                     set(state => ({
                         messages: state.messages.map(msg => {
                             if (msg.id === messageId) {
@@ -466,12 +472,23 @@ export const useChatStore = create<ChatState & ChatActions>()(
             setConnectionStatus: (status: ConnectionStatus) => set({connectionStatus: status}),
 
             addMessage: (message: ChatMessage, isNew = true) => {
+                console.log('📩 Adding message to chat store:', {
+                    id: message.id,
+                    type: message.message_type,
+                    content: message.message_content?.substring(0, 50) + (message.message_content && message.message_content.length > 50 ? '...' : ''),
+                    metadata: message.metadata
+                });
+
                 if (messageCache.has(message.id)) {
                     const cachedMessage = messageCache.get(message.id);
-                    if (cachedMessage && JSON.stringify(cachedMessage) === JSON.stringify(message)) return;
+                    if (cachedMessage && JSON.stringify(cachedMessage) === JSON.stringify(message)) {
+                        console.log('📭 Message already in cache, skipping');
+                        return;
+                    }
                 }
                 if (isNew) throttledLayoutAnimation();
                 messageBatcher.add(message);
+                console.log('✅ Message added to batch');
             },
 
             updateMessage: (updatedMessage: Partial<ChatMessage> & { id: string }) => {
@@ -542,14 +559,11 @@ export const useChatStore = create<ChatState & ChatActions>()(
     })
 );
 
-// Performance monitoring
 if (__DEV__) {
-    // Monitor cache performance
     setInterval(() => {
         console.log(`💾 Message cache: ${messageCache.size()} messages cached`);
     }, 30000);
 
-    // Monitor store subscriptions
     useChatStore.subscribe(
         (state) => state.messages.length,
         (messageCount) => {
@@ -558,7 +572,6 @@ if (__DEV__) {
     );
 }
 
-// Export cache for debugging
 export const getCacheStats = () => ({
     size: messageCache.size(),
     messages: messageCache.getAll().length,

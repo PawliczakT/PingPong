@@ -117,7 +117,6 @@ export const useMatchStore = create<MatchState>()(
                 const updatedPlayer1 = playerStore.getPlayerById(player1Id) || player1;
                 const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
 
-                // Dispatch system notification for chat
                 try {
                     if (newMatch && updatedPlayer1 && updatedPlayer2) {
                         const winnerNickname =
@@ -195,7 +194,6 @@ export const useMatchStore = create<MatchState>()(
                     if (Array.isArray(player2Achievements)) {
                         player2Achievements.forEach((achievement: Achievement) => {
                             sendAchievementNotification(updatedPlayer2, achievement);
-                            // Dispatch system notification for chat
                             dispatchSystemNotification('achievement_unlocked', {
                                 notification_type: 'achievement_unlocked',
                                 achieverNickname: updatedPlayer2.nickname,

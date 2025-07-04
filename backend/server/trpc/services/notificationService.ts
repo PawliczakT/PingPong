@@ -90,11 +90,17 @@ export async function dispatchSystemNotification<T extends SystemNotificationTyp
 ): Promise<void> {
     try {
         const messageToSend = message || generateMessage(type, metadata);
-        const validatedMetadata = {...metadata};
+        const {notification_type, ...cleanMetadata} = metadata as any;
         const input = SendNotificationInputSchema.parse({
             notification_type: type,
             message_content: messageToSend,
-            metadata: validatedMetadata,
+            metadata: cleanMetadata,
+        });
+
+        console.log('📤 Dispatching system notification:', {
+            type,
+            message: messageToSend,
+            metadata: cleanMetadata
         });
 
         const {error} = await supabase
@@ -103,13 +109,14 @@ export async function dispatchSystemNotification<T extends SystemNotificationTyp
                 user_id: null,
                 message_content: input.message_content,
                 message_type: 'system_notification',
-                metadata: validatedMetadata as unknown as Json,
+                metadata: cleanMetadata as Json,
             });
 
         if (error) {
-            console.error(`Failed to dispatch system notification [${type}]:`, error);
+            console.error(`❌ Failed to dispatch system notification [${type}]:`, error);
+            throw error;
         } else {
-            console.log(`System notification [${type}] dispatched successfully.`);
+            console.log(`✅ System notification [${type}] dispatched successfully`);
         }
     } catch (error) {
         console.error('Error in dispatchSystemNotification:', error);

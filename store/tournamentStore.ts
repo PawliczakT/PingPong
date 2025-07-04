@@ -4,8 +4,9 @@ import {supabase} from '@/app/lib/supabase';
 import {v4 as uuidv4} from 'uuid';
 import type {Set as MatchSet} from '@/backend/types';
 import {Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
+import type {TournamentWonMetadata} from '../backend/server/trpc/services/notificationService';
+import {dispatchSystemNotification} from '../backend/server/trpc/services/notificationService';
 import {useEffect} from "react";
-import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
 import {usePlayerStore} from './playerStore';
 import {useMatchStore} from "@/store/matchStore";
 import {RealtimeChannel, RealtimePostgresChangesPayload} from "@supabase/supabase-js";
@@ -399,6 +400,28 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
                 console.error(`Error updating tournament winner:`, error);
                 return null;
             } else {
+                try {
+                    const playerStore = usePlayerStore.getState();
+                    const winnerPlayer = playerStore.getPlayerById(winner.playerId);
+                    const tournamentStore = useTournamentStore.getState();
+                    const tournament = tournamentStore.getTournamentById(tournamentId);
+
+                    if (winnerPlayer && tournament) {
+                        const winnerNickname = winnerPlayer.nickname || 'Unknown Player';
+                        const metadata: TournamentWonMetadata = {
+                            notification_type: 'tournament_won',
+                            winnerNickname: winnerNickname,
+                            tournamentName: tournament.name,
+                            tournamentId: tournament.id,
+                        };
+                        console.log('📤 Attempting to dispatch tournament_won notification from autoSelectRoundRobinWinner', {metadata});
+                        await dispatchSystemNotification('tournament_won', metadata);
+                        console.log('✅ Tournament won notification dispatched successfully from autoSelectRoundRobinWinner');
+                    }
+                } catch (e) {
+                    console.warn("Failed to dispatch tournament_won notification from autoSelectRoundRobinWinner", e);
+                }
+
                 return winner.playerId;
             }
         } else {
@@ -1068,12 +1091,14 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         }));
         const {error} = await supabase.from('tournaments').update({status}).eq('id', tournamentId);
         if (error) {
-            get().fetchTournaments();
+            await get().fetchTournaments();
         }
     },
 
     setTournamentWinner: async (tournamentId: string, winnerId: string) => {
+        console.log('🔄 setTournamentWinner called with:', {tournamentId, winnerId});
         if (!winnerId) {
+            console.error('❌ No winnerId provided to setTournamentWinner');
             return;
         }
 
@@ -1098,15 +1123,55 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             try {
                 const tournament = get().getTournamentById(tournamentId);
+                console.log('🔍 Tournament data:', tournament ? 'Found' : 'Not found');
+
                 const playerStore = usePlayerStore.getState();
                 const winner = playerStore.getPlayerById(winnerId);
+                console.log('🔍 Player data:', winner ? 'Found' : 'Not found', {winnerId});
+
+                console.log('🏆 Tournament winner data:', {
+                    tournamentId,
+                    winnerId,
+                    tournamentName: tournament?.name,
+                    tournamentStatus: tournament?.status,
+                    winnerNickname: winner?.nickname,
+                    winnerExists: !!winner,
+                    tournamentExists: !!tournament
+                });
+
                 if (tournament && winner) {
-                    await dispatchSystemNotification('tournament_won', {
-                        notification_type: 'tournament_won',
-                        winnerNickname: winner.nickname,
+                    const winnerNickname = winner.nickname || 'Unknown Player';
+
+                    console.log('🚀 Dispatching tournament_won notification', {
+                        winnerNickname,
                         tournamentName: tournament.name,
                         tournamentId: tournament.id,
                     });
+
+                    try {
+                        console.log('📤 Attempting to dispatch tournament_won notification with:', {
+                            winnerNickname,
+                            tournamentName: tournament.name,
+                            tournamentId: tournament.id
+                        });
+
+                        await dispatchSystemNotification('tournament_won', {
+                            notification_type: 'tournament_won',
+                            winnerNickname: winnerNickname,
+                            tournamentName: tournament.name,
+                            tournamentId: tournament.id,
+                        });
+
+                        console.log('✅ Tournament won notification dispatched successfully');
+                    } catch (e) {
+                        console.error('❌ Failed to dispatch tournament won notification:', e);
+                        console.error('Error details:', {
+                            message: e.message,
+                            stack: e.stack,
+                            name: e.name
+                        });
+                        throw e;
+                    }
                 }
             } catch (e) {
                 console.warn("Failed to dispatch tournament_won system notification", e);

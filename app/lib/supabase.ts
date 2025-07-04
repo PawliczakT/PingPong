@@ -4,6 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import {Platform} from 'react-native';
+import {makeRedirectUri} from 'expo-auth-session';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -45,56 +46,35 @@ class SupabaseClient {
 
 export const supabase = SupabaseClient.getInstance();
 
+const redirectUri = makeRedirectUri({
+    scheme: 'pingpong',
+    path: 'auth/callback',
+});
+
 export const signInWithGoogle = async () => {
-    try {
-        const {data, error} = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: Platform.OS === 'web'
-                    ? window.location.origin
-                    : Linking.createURL('auth/callback'),
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'select_account',
-                },
-                skipBrowserRedirect: Platform.OS !== 'web',
-            },
-        });
+    const {data, error} = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+            redirectTo: redirectUri,
+            queryParams: {access_type: 'offline', prompt: 'select_account'},
+            skipBrowserRedirect: Platform.OS !== 'web',
+        },
+    });
+    if (error) throw error;
 
-        if (error) throw error;
-
-        if (Platform.OS !== 'web') {
-            if (!data?.url) throw new Error('No auth URL returned for mobile');
-
-            const result = await WebBrowser.openAuthSessionAsync(
-                data.url,
-                Linking.createURL('auth/callback'),
-                {showInRecents: true}
-            );
-
-            if (result.type === 'success' && result.url) {
-                const url = new URL(result.url);
-                const accessToken = new URLSearchParams(url.hash.substring(1)).get('access_token');
-                const refreshToken = new URLSearchParams(url.hash.substring(1)).get('refresh_token');
-
-                if (!accessToken || !refreshToken) {
-                    throw new Error('Tokens not found in mobile redirect URL');
-                }
-
-                const {error: sessionError} = await supabase.auth.setSession({
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                });
-
-                if (sessionError) throw sessionError;
-            } else if (result.type !== 'cancel') {
-                throw new Error(`Authentication failed or was canceled: ${result.type}`);
-            }
+    if (Platform.OS !== 'web' && data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(
+            data.url,
+            Linking.createURL('auth/callback'),
+            {showInRecents: true},
+        );
+        if (result.type === 'success' && result.url) {
+            const params = new URL(result.url).hash.substring(1);
+            await supabase.auth.setSession({
+                access_token: new URLSearchParams(params).get('access_token') ?? '',
+                refresh_token: new URLSearchParams(params).get('refresh_token') ?? '',
+            });
         }
-
-    } catch (error) {
-        console.error('Error during Google sign in:', error);
-        throw error;
     }
 };
 

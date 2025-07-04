@@ -45,7 +45,15 @@ const ChatMessageItem = memo<ChatMessageItemProps>(({message, currentUserId}) =>
     };
 
     const renderSystemNotificationContent = () => {
+        console.log('📨 Rendering system notification:', {
+            messageId: message.id,
+            messageType: message.message_type,
+            metadata: message.metadata,
+            content: message.message_content
+        });
+
         if (!message.metadata || !message.metadata.notification_type) {
+            console.log('⚠️ No notification type in metadata, falling back to default message');
             return <Text style={{color: colors.text}}>{message.message_content || 'System notification'}</Text>;
         }
 
@@ -75,11 +83,20 @@ const ChatMessageItem = memo<ChatMessageItemProps>(({message, currentUserId}) =>
                 );
                 break;
             case 'tournament_won':
+                console.log('🏆 Rendering tournament_won notification with metadata:', metadata);
+                if (!metadata.winnerNickname || !metadata.tournamentName) {
+                    console.error('❌ Missing required fields in tournament_won notification', {
+                        hasWinnerNickname: !!metadata.winnerNickname,
+                        hasTournamentName: !!metadata.tournamentName,
+                        metadata
+                    });
+                }
                 icon = <Award size={16} color={colors.primary}/>;
                 content = (
                     <Text>
-                        <Text style={styles.bold}>👑 {metadata.winnerNickname}</Text> won the tournament <Text
-                        style={styles.bold}>{metadata.tournamentName}</Text>!
+                        <Text style={styles.bold}>👑 {metadata.winnerNickname || 'Someone'}</Text> won the
+                        tournament <Text
+                        style={styles.bold}>{metadata.tournamentName || 'the tournament'}</Text>!
                     </Text>
                 );
                 break;
