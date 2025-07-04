@@ -2,7 +2,7 @@
 import {create} from "zustand";
 import {Player} from "@/backend/types";
 import {getInitialEloRating} from "@/utils/elo";
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 import {useEffect} from "react";
 import {getRankByWins, Rank} from "@/constants/achievements";
 import {trpcClient} from '@/backend/api/lib/trpc';

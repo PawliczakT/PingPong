@@ -8,7 +8,7 @@ import {usePlayerStore} from "@/store/playerStore";
 import Button from "@/components/Button";
 import {pickAndProcessAvatarWithAWS} from "@/utils/imageUpload";
 import {Image as ExpoImage} from "expo-image";
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 
 export default function CreatePlayerScreen() {
     const router = useRouter();

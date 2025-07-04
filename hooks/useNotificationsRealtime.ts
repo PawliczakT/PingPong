@@ -1,7 +1,7 @@
 // hooks/useNotificationsRealtime.ts
 import {useCallback, useEffect, useRef} from "react";
 import {useAuthStore} from "@/store/authStore";
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 import {useNotificationStore} from "@/store/notificationStore";
 
 export const useNotificationsRealtime = () => {

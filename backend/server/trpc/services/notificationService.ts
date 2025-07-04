@@ -10,8 +10,9 @@ interface BaseMetadata {
 export interface MatchWonMetadata extends BaseMetadata {
     notification_type: 'match_won';
     winnerNickname: string;
-    opponentNickname: string;
+    loserNickname: string;
     matchId: string;
+    score?: string;
 }
 
 export interface TournamentWonMetadata extends BaseMetadata {
@@ -59,7 +60,7 @@ function generateMessage(type: SystemNotificationType, metadata: SystemNotificat
     switch (type) {
         case 'match_won': {
             const matchMetadata = metadata as MatchWonMetadata;
-            return `🏆 ${matchMetadata.winnerNickname} just won the match against ${matchMetadata.opponentNickname}!`;
+            return `🏆 ${matchMetadata.winnerNickname} just won the match against ${matchMetadata.loserNickname}!`;
         }
         case 'tournament_won': {
             const tournamentMetadata = metadata as TournamentWonMetadata;
@@ -123,7 +124,7 @@ async function exampleUsage() {
     await dispatchSystemNotification('match_won', {
         notification_type: 'match_won',
         winnerNickname: "PlayerA",
-        opponentNickname: "PlayerB",
+        loserNickname: "PlayerB",
         matchId: "uuid-match-123"
     });
 

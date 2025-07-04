@@ -12,7 +12,7 @@ import {
 import {usePlayerStore} from './playerStore';
 import {useTournamentStore} from './tournamentStore';
 import {achievements as allAchievementDefinitions} from '@/constants/achievements';
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 import {useEffect} from 'react';
 import {useMatchStore} from './matchStore';
 import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';

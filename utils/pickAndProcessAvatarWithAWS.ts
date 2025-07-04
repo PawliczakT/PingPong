@@ -1,7 +1,7 @@
 //utils/pickAndProcessAvatarWithAWS.ts
 import * as ImagePicker from 'expo-image-picker';
 import {Alert, Platform} from 'react-native';
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 
 interface ProcessAvatarResult {
     canceled: boolean;

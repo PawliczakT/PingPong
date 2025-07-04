@@ -72,7 +72,7 @@ describe('ChatMessageItem', () => {
     metadata: {
       notification_type: 'match_won',
       winnerNickname: 'PlayerX',
-      opponentNickname: 'PlayerY',
+      loserNickname: 'PlayerY',
       matchId: 'match123',
     },
     created_at: new Date().toISOString(),

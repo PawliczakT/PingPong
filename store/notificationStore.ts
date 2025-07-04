@@ -3,7 +3,7 @@ import {create} from "zustand";
 import {Platform} from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from "expo-notifications";
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 import {Achievement, Match, Player, Tournament} from "@/backend/types";
 import {usePlayerStore} from "./playerStore";
 import {useAuthStore} from "./authStore";

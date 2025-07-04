@@ -1,6 +1,6 @@
 //utils/imageUpload.ts
 import * as ImagePicker from 'expo-image-picker';
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 import {decode} from 'base64-arraybuffer';
 import {manipulateAsync, SaveFormat} from 'expo-image-manipulator';
 import {Platform} from 'react-native';

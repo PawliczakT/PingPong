@@ -1,6 +1,6 @@
 // hooks/usePlayerProfile.ts
 import {useCallback, useEffect, useState} from 'react';
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 import {Player} from '@/backend/types';
 import {User} from '@supabase/supabase-js';
 

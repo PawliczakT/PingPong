@@ -1,6 +1,6 @@
 // hooks/useUploader.ts
 import {useState} from 'react';
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 
 export const useUploader = (bucketName: string) => {
     const [isUploading, setIsUploading] = useState(false);

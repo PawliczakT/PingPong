@@ -1,9 +1,9 @@
 //backend/server/trpc/services/playerService.ts
-import {supabase} from '../../../../backend/server/lib/supabase';
+import {supabaseAsAdmin} from "@/backend/server/lib/supabaseAdmin";
 
 export const ensurePlayerProfile = async (userId: string) => {
     try {
-        const {data: existingPlayer, error: fetchError} = await supabase
+        const {data: existingPlayer, error: fetchError} = await supabaseAsAdmin
             .from('players')
             .select('*')
             .eq('user_id', userId)
@@ -19,7 +19,7 @@ export const ensurePlayerProfile = async (userId: string) => {
             return {success: true, player: existingPlayer};
         }
 
-        const {data: userData} = await supabase.auth.getUser();
+        const {data: userData} = await supabaseAsAdmin.auth.getUser();
         const user = userData?.user;
 
         if (!user || user.id !== userId) {
@@ -40,7 +40,7 @@ export const ensurePlayerProfile = async (userId: string) => {
             active: true,
         };
 
-        const {data: newPlayer, error: insertError} = await supabase
+        const {data: newPlayer, error: insertError} = await supabaseAsAdmin
             .from('players')
             .insert(newPlayerData)
             .select()

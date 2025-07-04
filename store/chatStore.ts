@@ -16,13 +16,18 @@ export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'er
 
 interface ChatState {
     messages: ChatMessage[];
-    isLoading: boolean;
+    isLoadingMessages: boolean;
+    isSendingMessage: boolean;
+    isLoadingOlder: boolean;
     hasMoreMessages: boolean;
     connectionStatus: ConnectionStatus;
     mentionSuggestions: MentionPlayer[];
     currentMentionQuery: number | null;
     activeReactionMessageId: string | null;
-    error: string | null;
+    error: {
+        type: 'connection' | 'send' | 'fetch' | 'reaction';
+        message: string;
+    } | null;
     lastFetchTime: number;
     isInitialized: boolean;
 }
@@ -149,6 +154,14 @@ class MessageBatcher {
     }
 }
 
+// Helper function for error handling
+const handleError = (error: any, type: ChatState['error']['type']): ChatState['error'] => {
+    console.error(`❌ ${type} error:`, error);
+    return {
+        type,
+        message: error?.message || `Failed: ${type}`
+    };
+};
 
 export const useChatStore = create<ChatState & ChatActions>()(
     subscribeWithSelector((set, get) => {
@@ -172,10 +185,14 @@ export const useChatStore = create<ChatState & ChatActions>()(
             if (get().currentMentionQuery !== queryId) return;
             try {
                 const players = await trpcClient.chat.getPlayersForMention.query({query});
-                if (get().currentMentionQuery === queryId) set({mentionSuggestions: players as MentionPlayer[]});
+                if (get().currentMentionQuery === queryId) {
+                    set({mentionSuggestions: players as MentionPlayer[]});
+                }
             } catch (error: any) {
                 console.error('Failed to fetch mention suggestions:', error);
-                if (get().currentMentionQuery === queryId) set({mentionSuggestions: [], currentMentionQuery: null});
+                if (get().currentMentionQuery === queryId) {
+                    set({mentionSuggestions: [], currentMentionQuery: null});
+                }
             }
         }, 300);
 
@@ -189,8 +206,11 @@ export const useChatStore = create<ChatState & ChatActions>()(
         }, 100);
 
         return {
+            // ✅ Poprawiony stan początkowy - zgodny z interface
             messages: [],
-            isLoading: false,
+            isLoadingMessages: false,
+            isSendingMessage: false,
+            isLoadingOlder: false,
             hasMoreMessages: true,
             connectionStatus: 'connecting',
             mentionSuggestions: [],
@@ -202,62 +222,91 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
             fetchInitialMessages: async () => {
                 const state = get();
-                if (state.isLoading || state.isInitialized) return;
-                set({isLoading: true, error: null});
+                if (state.isLoadingMessages || state.isInitialized) return;
+
+                set({isLoadingMessages: true, error: null}); // ✅ Używa isLoadingMessages
+
                 try {
                     console.log('📚 Fetching initial messages...');
                     const result = await trpcClient.chat.getMessages.query({limit: 20}) as {
                         messages: ChatMessage[],
                         nextCursor?: string
                     };
+
                     if (!result) throw new Error('No response from server');
-                    const sortedMessages = [...(result.messages || [])].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+                    const sortedMessages = [...(result.messages || [])].sort((a, b) =>
+                        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                    );
+
                     sortedMessages.forEach(msg => messageCache.set(msg.id, msg));
+
                     set({
                         messages: sortedMessages,
                         hasMoreMessages: !!result.nextCursor,
-                        isLoading: false,
+                        isLoadingMessages: false, // ✅ Reset isLoadingMessages
                         isInitialized: true,
                         lastFetchTime: Date.now()
                     });
+
                     console.log('✅ Successfully fetched', sortedMessages.length, 'messages');
                 } catch (error: any) {
-                    console.error('❌ Failed to fetch initial messages:', error);
-                    set({isLoading: false, error: error?.message || 'Failed to fetch messages', isInitialized: true});
+                    set({
+                        isLoadingMessages: false, // ✅ Reset loading po błędzie
+                        error: handleError(error, 'fetch'),
+                        isInitialized: true
+                    });
                 }
             },
 
             fetchOlderMessages: async () => {
                 const state = get();
-                if (state.isLoading || !state.hasMoreMessages) return;
-                set({isLoading: true, error: null});
+                if (state.isLoadingOlder || !state.hasMoreMessages) return;
+
+                set({isLoadingOlder: true, error: null}); // ✅ Używa isLoadingOlder
+
                 try {
                     const oldestMessage = state.messages[state.messages.length - 1];
-                    if (!oldestMessage) return;
+                    if (!oldestMessage) {
+                        set({isLoadingOlder: false});
+                        return;
+                    }
+
                     console.log('📚 Fetching older messages...');
                     const result = await trpcClient.chat.getMessages.query({
                         cursor: oldestMessage.created_at,
                         limit: 20
                     }) as { messages: ChatMessage[], nextCursor?: string };
+
                     if (!result) throw new Error('No response from server');
+
                     const newMessages = result.messages.filter(msg => !messageCache.has(msg.id));
                     newMessages.forEach(msg => messageCache.set(msg.id, msg));
+
                     set(currentState => ({
-                        messages: [...currentState.messages, ...newMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())],
+                        messages: [...currentState.messages, ...newMessages.sort((a, b) =>
+                            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                        )],
                         hasMoreMessages: !!result.nextCursor,
-                        isLoading: false,
+                        isLoadingOlder: false, // ✅ Reset isLoadingOlder
                         lastFetchTime: Date.now(),
                     }));
+
                     console.log('✅ Fetched', newMessages.length, 'older messages');
                 } catch (error: any) {
-                    console.error('❌ Failed to fetch older messages:', error);
-                    set({isLoading: false, error: error.message || 'Failed to fetch older messages'});
+                    set({
+                        isLoadingOlder: false, // ✅ Reset loading po błędzie
+                        error: handleError(error, 'fetch')
+                    });
                 }
             },
 
             sendMessage: async (content: string, currentUserId: string, profile: ChatMessage['profile']) => {
+                set({isSendingMessage: true, error: null}); // ✅ Używa isSendingMessage
+
                 try {
                     console.log('🚀 Sending message:', {content, currentUserId});
+
                     const tempMessage: ChatMessage = {
                         id: `temp-${Date.now()}`,
                         user_id: currentUserId,
@@ -268,24 +317,43 @@ export const useChatStore = create<ChatState & ChatActions>()(
                         metadata: null,
                         reactions: null,
                     };
-                    set(state => ({messages: [tempMessage, ...state.messages.filter(m => !m.id.startsWith('temp-'))]}));
-                    const sentMessage = await trpcClient.chat.sendMessage.mutate({message_content: content}) as ChatMessage;
-                    set(state => ({messages: state.messages.map(msg => msg.id === tempMessage.id ? sentMessage : msg)}));
+
+                    // Dodaj temporary message
+                    set(state => ({
+                        messages: [tempMessage, ...state.messages.filter(m => !m.id.startsWith('temp-'))]
+                    }));
+
+                    // Wyślij wiadomość
+                    const sentMessage = await trpcClient.chat.sendMessage.mutate({
+                        message_content: content
+                    }) as ChatMessage;
+
+                    // Zastąp temporary message prawdziwą wiadomością
+                    set(state => ({
+                        messages: state.messages.map(msg =>
+                            msg.id === tempMessage.id ? sentMessage : msg
+                        ),
+                        isSendingMessage: false // ✅ Reset isSendingMessage po sukcesie
+                    }));
+
                     messageCache.set(sentMessage.id, sentMessage);
                     console.log('✅ Message sent successfully:', sentMessage.id);
+
                 } catch (error: any) {
                     console.error('❌ Failed to send message:', error);
                     set(state => ({
-                        messages: state.messages.filter(m => !m.id.startsWith('temp-')),
-                        error: error?.message || 'Failed to send message'
+                        messages: state.messages.filter(m => !m.id.startsWith('temp-')), // Usuń temp message
+                        error: handleError(error, 'send'),
+                        isSendingMessage: false // ✅ Reset isSendingMessage po błędzie
                     }));
                     throw error;
                 }
             },
 
             addReaction: async (messageId: string, emoji: string) => {
-                const currentUserId = useAuthStore.getState().user?.id;
-                if (!currentUserId) return; // Zabezpieczenie
+                const {user} = useAuthStore.getState();
+                const currentUserId = user?.id;
+                if (!currentUserId) return;
 
                 try {
                     // Optimistic update
@@ -294,7 +362,6 @@ export const useChatStore = create<ChatState & ChatActions>()(
                             if (msg.id === messageId) {
                                 const reactions = {...(msg.reactions || {})};
                                 const users = reactions[emoji] || [];
-                                // Poprawka: użyj `currentUserId`
                                 if (!users.includes(currentUserId)) {
                                     reactions[emoji] = [...users, currentUserId];
                                 }
@@ -308,40 +375,80 @@ export const useChatStore = create<ChatState & ChatActions>()(
                         message_id: messageId,
                         emoji: emoji
                     }) as ChatMessage;
+
                     get().updateMessage(updatedMessage);
                     messageCache.set(updatedMessage.id, updatedMessage);
+
                 } catch (error: any) {
-                    console.error('❌ Failed to add reaction:', error);
                     // Revert optimistic update
                     set(state => ({
                         messages: state.messages.map(msg => {
                             if (msg.id === messageId) {
                                 const reactions = {...(msg.reactions || {})};
                                 const users = reactions[emoji] || [];
-                                // Poprawka: użyj `currentUserId` do revert
                                 const filtered = users.filter(id => id !== currentUserId);
-                                if (filtered.length === 0) delete reactions[emoji];
-                                else reactions[emoji] = filtered;
+                                if (filtered.length === 0) {
+                                    delete reactions[emoji];
+                                } else {
+                                    reactions[emoji] = filtered;
+                                }
                                 return {...msg, reactions};
                             }
                             return msg;
                         }),
-                        error: error.message || 'Failed to add reaction'
+                        error: handleError(error, 'reaction')
                     }));
                 }
             },
 
             removeReaction: async (messageId: string, emoji: string) => {
+                const {user} = useAuthStore.getState();
+                const currentUserId = user?.id;
+                if (!currentUserId) return;
+
                 try {
+                    // Optimistic update
+                    set(state => ({
+                        messages: state.messages.map(msg => {
+                            if (msg.id === messageId) {
+                                const reactions = {...(msg.reactions || {})};
+                                const users = reactions[emoji] || [];
+                                const filtered = users.filter(id => id !== currentUserId);
+                                if (filtered.length === 0) {
+                                    delete reactions[emoji];
+                                } else {
+                                    reactions[emoji] = filtered;
+                                }
+                                return {...msg, reactions};
+                            }
+                            return msg;
+                        })
+                    }));
+
                     const updatedMessage = await trpcClient.chat.removeReaction.mutate({
                         message_id: messageId,
                         emoji: emoji
                     }) as ChatMessage;
+
                     get().updateMessage(updatedMessage);
                     messageCache.set(updatedMessage.id, updatedMessage);
+
                 } catch (error: any) {
-                    console.error('❌ Failed to remove reaction:', error);
-                    set({error: error.message || 'Failed to remove reaction'});
+                    // Revert optimistic update
+                    set(state => ({
+                        messages: state.messages.map(msg => {
+                            if (msg.id === messageId) {
+                                const reactions = {...(msg.reactions || {})};
+                                const users = reactions[emoji] || [];
+                                if (!users.includes(currentUserId)) {
+                                    reactions[emoji] = [...users, currentUserId];
+                                }
+                                return {...msg, reactions};
+                            }
+                            return msg;
+                        }),
+                        error: handleError(error, 'reaction')
+                    }));
                 }
             },
 
@@ -382,14 +489,26 @@ export const useChatStore = create<ChatState & ChatActions>()(
             },
 
             setActiveReactionMessageId: (messageId: string | null) => set({activeReactionMessageId: messageId}),
+
             clearError: () => set({error: null}),
+
             resetMessages: () => {
                 messageCache.clear();
                 set({
-                    messages: [], hasMoreMessages: true, isLoading: false, error: null, mentionSuggestions: [],
-                    currentMentionQuery: null, activeReactionMessageId: null, isInitialized: false, lastFetchTime: 0,
+                    messages: [],
+                    hasMoreMessages: true,
+                    isLoadingMessages: false,
+                    isSendingMessage: false,
+                    isLoadingOlder: false,
+                    error: null,
+                    mentionSuggestions: [],
+                    currentMentionQuery: null,
+                    activeReactionMessageId: null,
+                    isInitialized: false,
+                    lastFetchTime: 0,
                 });
             },
+
             optimizeMessages: () => {
                 set(state => {
                     const optimizedMessages = state.messages.slice(0, 100);
@@ -398,16 +517,20 @@ export const useChatStore = create<ChatState & ChatActions>()(
                     return {messages: optimizedMessages};
                 });
             },
+
             preloadOlderMessages: async () => {
                 const state = get();
-                if (state.isLoading || !state.hasMoreMessages) return;
+                if (state.isLoadingOlder || !state.hasMoreMessages) return;
+
                 try {
                     const oldestMessage = state.messages[state.messages.length - 1];
                     if (!oldestMessage) return;
+
                     const result = await trpcClient.chat.getMessages.query({
                         cursor: oldestMessage.created_at,
                         limit: 10
                     }) as { messages: ChatMessage[], nextCursor?: string };
+
                     if (result?.messages) {
                         result.messages.forEach(msg => messageCache.set(msg.id, msg));
                     }
@@ -421,12 +544,12 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
 // Performance monitoring
 if (__DEV__) {
-// Monitor cache performance
+    // Monitor cache performance
     setInterval(() => {
         console.log(`💾 Message cache: ${messageCache.size()} messages cached`);
     }, 30000);
 
-// Monitor store subscriptions
+    // Monitor store subscriptions
     useChatStore.subscribe(
         (state) => state.messages.length,
         (messageCount) => {

@@ -31,7 +31,7 @@ interface ChatMessageItemProps {
     currentUserId?: string | null;
 }
 
-const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId}) => {
+const ChatMessageItem = memo<ChatMessageItemProps>(({message, currentUserId}) => {
     const {colors} = useTheme();
     const router = useRouter();
 
@@ -53,13 +53,24 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId
         let icon = <AlertTriangle size={16} color={colors.notification}/>;
         let content: React.ReactNode = message.message_content;
 
+        // 🔍 Debug metadata for match_won issues
+        if (metadata.notification_type === 'match_won') {
+            console.log('🔍 Match metadata:', {
+                winnerNickname: metadata.winnerNickname,
+                opponentNickname: metadata.opponentNickname,
+                loserNickname: metadata.loserNickname,
+                score: metadata.score
+            });
+        }
+
         switch (metadata.notification_type) {
             case 'match_won':
                 icon = <Trophy size={16} color={colors.primary}/>;
+                const opponent = metadata.loserNickname || metadata.opponentNickname;
                 content = (
                     <Text>
-                        <Text style={styles.bold}>🏆 {metadata.winnerNickname}</Text> właśnie wygrał(a) mecz z <Text
-                        style={styles.bold}>{metadata.opponentNickname}</Text>!
+                        <Text style={styles.bold}>🏆 {metadata.winnerNickname}</Text> defeated <Text
+                        style={styles.bold}>{opponent}</Text>{metadata.score ? ` ${metadata.score}` : ''}!
                     </Text>
                 );
                 break;
@@ -67,7 +78,7 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId
                 icon = <Award size={16} color={colors.primary}/>;
                 content = (
                     <Text>
-                        <Text style={styles.bold}>👑 {metadata.winnerNickname}</Text> zwyciężył(a) w turnieju <Text
+                        <Text style={styles.bold}>👑 {metadata.winnerNickname}</Text> won the tournament <Text
                         style={styles.bold}>{metadata.tournamentName}</Text>!
                     </Text>
                 );
@@ -76,8 +87,8 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId
                 icon = <CheckCircle size={16} color={colors.primary}/>;
                 content = (
                     <Text>
-                        <Text style={styles.bold}>🏅 {metadata.achieverNickname}</Text> zdobył(a) osiągnięcie: <Text
-                        style={styles.bold}>{metadata.achievementName}</Text>.
+                        <Text style={styles.bold}>🏅 {metadata.achieverNickname}</Text> unlocked achievement: <Text
+                        style={styles.bold}>{metadata.achievementName}</Text>!
                     </Text>
                 );
                 break;
@@ -85,7 +96,7 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId
                 icon = <Zap size={16} color={colors.primary}/>;
                 content = (
                     <Text>
-                        <Text style={styles.bold}>🚀 {metadata.playerNickname}</Text> awansował(a) do rangi <Text
+                        <Text style={styles.bold}>🚀 {metadata.playerNickname}</Text> advanced to rank <Text
                         style={styles.bold}>{metadata.rankName}</Text>!
                     </Text>
                 );
@@ -94,13 +105,14 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId
                 icon = <UserPlus size={16} color={colors.primary}/>;
                 content = (
                     <Text>
-                        👋 Witamy w grze, <Text style={styles.bold}>{metadata.newPlayerNickname}</Text>!
+                        👋 Welcome to the game, <Text style={styles.bold}>{metadata.newPlayerNickname}</Text>!
                     </Text>
                 );
                 break;
             default:
-                content =
-                    <Text>{message.message_content || `Powiadomienie systemowe: ${metadata.notification_type}`}</Text>;
+                content = (
+                    <Text>{message.message_content || `System notification: ${metadata.notification_type}`}</Text>
+                );
         }
 
         return (
@@ -148,7 +160,11 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId
                 <View
                     style={[
                         styles.messageBubble,
-                        isUserMessage ? (isMyMessage ? {backgroundColor: colors.primary} : {backgroundColor: colors.card})
+                        isUserMessage
+                            ? (isMyMessage
+                                    ? {backgroundColor: colors.primary}
+                                    : {backgroundColor: colors.card}
+                            )
                             : {backgroundColor: colors.background}
                     ]}
                     accessibilityLabel={isUserMessage ? `Message from ${message.profile?.nickname || 'User'}: ${message.message_content}` : `System notification: ${message.metadata?.notification_type}`}
@@ -171,10 +187,9 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({message, currentUserId
                     />
                 )}
             </View>
-            {/* TODO: Add ReactionPicker on long-press/hover. This will likely involve state management here or in parent. */}
         </View>
     );
-};
+});
 
 const styles = StyleSheet.create({
     container: {

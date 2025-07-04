@@ -10,7 +10,7 @@ import {useRouter} from 'expo-router';
 import {useAuth} from '@/store/authStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useNotificationStore} from '@/store/notificationStore';
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 import {usePlayerProfile} from '@/hooks/usePlayerProfile';
 import {useImageUpload} from '@/hooks/useImageUpload';
 import {Rank, ranks} from "@/constants";

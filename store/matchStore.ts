@@ -9,7 +9,7 @@ import {
     sendRankingChangeNotification
 } from "./notificationStore";
 import {calculateEloRating} from "@/utils/elo";
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '@/app/lib/supabase';
 import {useEffect} from "react";
 import {Json} from "@/backend/types/supabase";
 
@@ -84,7 +84,7 @@ export const useMatchStore = create<MatchState>()(
                     player2Score: data.player2_score,
                     sets: data.sets as unknown as Set[],
                     winner: data.winner,
-                    winnerId: parseInt(data.winner, 10),
+                    winnerId: data.winner,
                     date: data.date,
                     tournamentId: data.tournament_id,
                 };
@@ -120,14 +120,16 @@ export const useMatchStore = create<MatchState>()(
                 // Dispatch system notification for chat
                 try {
                     if (newMatch && updatedPlayer1 && updatedPlayer2) {
-                        const winnerIdStr = String(newMatch.winnerId);
-                        const winnerNickname = winnerIdStr === updatedPlayer1.id ? updatedPlayer1.nickname : updatedPlayer2.nickname;
-                        const opponentNickname = winnerIdStr === updatedPlayer1.id ? updatedPlayer2.nickname : updatedPlayer1.nickname;
+                        const winnerNickname   =
+                            newMatch.winner === player1Id ? updatedPlayer1.nickname : updatedPlayer2.nickname;
+
+                        const loserNickname    =
+                            newMatch.winner === player1Id ? updatedPlayer2.nickname : updatedPlayer1.nickname;
 
                         await dispatchSystemNotification('match_won', {
                             notification_type: 'match_won',
                             winnerNickname,
-                            opponentNickname,
+                            loserNickname,
                             matchId: newMatch.id,
                         });
                     }
