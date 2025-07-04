@@ -120,10 +120,10 @@ export const useMatchStore = create<MatchState>()(
                 // Dispatch system notification for chat
                 try {
                     if (newMatch && updatedPlayer1 && updatedPlayer2) {
-                        const winnerNickname   =
+                        const winnerNickname =
                             newMatch.winner === player1Id ? updatedPlayer1.nickname : updatedPlayer2.nickname;
 
-                        const loserNickname    =
+                        const loserNickname =
                             newMatch.winner === player1Id ? updatedPlayer2.nickname : updatedPlayer1.nickname;
 
                         await dispatchSystemNotification('match_won', {
