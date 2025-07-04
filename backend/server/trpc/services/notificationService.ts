@@ -109,7 +109,10 @@ export async function dispatchSystemNotification<T extends SystemNotificationTyp
                 user_id: null,
                 message_content: input.message_content,
                 message_type: 'system_notification',
-                metadata: cleanMetadata as Json,
+                metadata: {
+                    ...cleanMetadata,
+                    notification_type: type
+                } as Json,
             });
 
         if (error) {
