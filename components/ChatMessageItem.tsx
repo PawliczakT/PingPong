@@ -61,7 +61,6 @@ const ChatMessageItem = memo<ChatMessageItemProps>(({message, currentUserId}) =>
         let icon = <AlertTriangle size={16} color={colors.notification}/>;
         let content: React.ReactNode = message.message_content;
 
-        // 🔍 Debug metadata for match_won issues
         if (metadata.notification_type === 'match_won') {
             console.log('🔍 Match metadata:', {
                 winnerNickname: metadata.winnerNickname,
@@ -194,7 +193,7 @@ const ChatMessageItem = memo<ChatMessageItemProps>(({message, currentUserId}) =>
                         renderSystemNotificationContent()
                     )}
                 </View>
-                {message.reactions && isUserMessage && (
+                {message.reactions && (
                     <MessageReactions
                         reactions={message.reactions}
                         messageId={message.id}

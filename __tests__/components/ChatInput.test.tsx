@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import ChatInput from '../../components/ChatInput'; // Assuming ChatInput is in the same directory or correct path
+import {ChatInput} from '../../components/ChatInput'; // Assuming ChatInput is in the same directory or correct path
 
 // Mock useTheme
 jest.mock('@react-navigation/native', () => ({

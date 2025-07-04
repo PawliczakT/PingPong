@@ -16,7 +16,7 @@ import {
 import {useTheme} from '@react-navigation/native';
 import {Stack} from 'expo-router';
 import ChatMessageItem, {ChatMessage} from '@/components/ChatMessageItem';
-import ChatInput from '@/components/ChatInput';
+import {ChatInput} from '@/components/ChatInput';
 import Button from '@/components/Button';
 import ReactionPicker from '@/components/ReactionPicker';
 import MentionSuggestionsOverlay from '@/components/MentionSuggestionsOverlay';
@@ -34,7 +34,6 @@ const ChatScreen = () => {
     const [showNewMessagesButton, setShowNewMessagesButton] = useState(false);
     const [showTestButton, setShowTestButton] = useState(__DEV__);
 
-    // Auth
     const {user} = useAuth();
     const currentUserId = user?.id;
     const currentUserProfile = user ? {
@@ -42,8 +41,6 @@ const ChatScreen = () => {
         nickname: user.user_metadata?.nickname || user.user_metadata?.full_name || 'You',
         avatar_url: user.user_metadata?.avatar_url || null
     } : null;
-
-    // ✅ Store selectors - updated to use new state structure
     const messages = useChatStore(state => state.messages);
     const isLoadingMessages = useChatStore(state => state.isLoadingMessages);
     const isSendingMessage = useChatStore(state => state.isSendingMessage);
@@ -53,8 +50,6 @@ const ChatScreen = () => {
     const mentionSuggestions = useChatStore(state => state.mentionSuggestions);
     const error = useChatStore(state => state.error);
     const isInitialized = useChatStore(state => state.isInitialized);
-
-    // Store actions
     const fetchInitialMessages = useChatStore(state => state.fetchInitialMessages);
     const fetchOlderMessages = useChatStore(state => state.fetchOlderMessages);
     const sendMessage = useChatStore(state => state.sendMessage);
@@ -64,18 +59,14 @@ const ChatScreen = () => {
     const setActiveReactionMessageId = useChatStore(state => state.setActiveReactionMessageId);
     const clearError = useChatStore(state => state.clearError);
     const resetMessages = useChatStore(state => state.resetMessages);
-
-    // Setup Realtime connection
     const {connectionStatus, reconnect} = useChatRealtime();
 
-    // ✅ Initialize chat on component mount
     useEffect(() => {
         if (!isInitialized && currentUserId) {
             fetchInitialMessages();
         }
     }, [isInitialized, currentUserId, fetchInitialMessages]);
 
-    // Track message count changes for "new messages" button
     useEffect(() => {
         if (messages.length > previousMessageCount.current && isUserScrolledUp.current) {
             setShowNewMessagesButton(true);
@@ -83,17 +74,14 @@ const ChatScreen = () => {
         previousMessageCount.current = messages.length;
     }, [messages.length]);
 
-    // ✅ Auto-scroll to bottom when sending message
     useEffect(() => {
         if (isSendingMessage && !isUserScrolledUp.current) {
-            // Small delay to ensure message is in the list
             setTimeout(() => {
                 flatListRef.current?.scrollToOffset({offset: 0, animated: true});
             }, 100);
         }
     }, [isSendingMessage]);
 
-    // Callbacks
     const handleSendMessage = useCallback(async (content: string) => {
         if (!currentUserId || !currentUserProfile) {
             console.error("User not authenticated, cannot send message.");
@@ -108,13 +96,12 @@ const ChatScreen = () => {
         try {
             await sendMessage(content.trim(), currentUserId, currentUserProfile);
             setInputText('');
-            // Clear mention suggestions
             useChatStore.setState({mentionSuggestions: [], currentMentionQuery: null});
         } catch (error: any) {
             console.error('Failed to send message:', error);
             Alert.alert('Send Error', `Failed to send message: ${error?.message || 'Unknown error'}`);
         }
-    }, [sendMessage, currentUserId, currentUserProfile]);
+    }, [sendMessage, currentUserId]);
 
     const handleInputTextChange = useCallback((text: string) => {
         setInputText(text);
@@ -188,7 +175,6 @@ const ChatScreen = () => {
             clearError();
             resetMessages();
             await reconnect();
-            // Re-fetch initial messages after reconnect
             setTimeout(() => {
                 fetchInitialMessages();
             }, 1000);
@@ -198,7 +184,6 @@ const ChatScreen = () => {
         }
     }, [clearError, resetMessages, reconnect, fetchInitialMessages]);
 
-    // Development only - backend test
     const testBackend = useCallback(async () => {
         if (!__DEV__) return;
 
@@ -221,10 +206,9 @@ const ChatScreen = () => {
         }
     }, []);
 
-    // ✅ Optimized render functions
     const renderItem = useCallback(({item}: { item: ChatMessage }) => (
         <TouchableOpacity
-            onLongPress={() => item.message_type === 'user_message' && handleToggleReactionPicker(item.id)}
+            onLongPress={() => handleToggleReactionPicker(item.id)}
             delayLongPress={300}
             activeOpacity={0.95}
         >
@@ -236,7 +220,6 @@ const ChatScreen = () => {
     ), [handleToggleReactionPicker, currentUserId]);
 
     const renderHeader = useCallback(() => {
-        // Loading initial messages
         if (isLoadingMessages && messages.length === 0) {
             return (
                 <View style={styles.loadingContainer}>
@@ -248,7 +231,6 @@ const ChatScreen = () => {
             );
         }
 
-        // Loading older messages
         if (isLoadingOlder && messages.length > 0) {
             return (
                 <View style={styles.loadingOlderContainer}>
@@ -265,7 +247,6 @@ const ChatScreen = () => {
 
     const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
-    // ✅ Error state with proper error object handling
     if (error && messages.length === 0) {
         const errorMessage = typeof error === 'string' ? error : error?.message || 'Unknown error occurred';
 
@@ -299,7 +280,6 @@ const ChatScreen = () => {
         );
     }
 
-    // ✅ Loading state for initial load
     if (!isInitialized && isLoadingMessages) {
         return (
             <SafeAreaView style={[styles.container, styles.centerContent, {backgroundColor: colors.background}]}>
@@ -368,10 +348,9 @@ const ChatScreen = () => {
                     maxToRenderPerBatch={10}
                     windowSize={10}
                     initialNumToRender={15}
-                    getItemLayout={undefined} // Better for dynamic content
+                    getItemLayout={undefined}
                 />
 
-                {/* New Messages Button */}
                 {showNewMessagesButton && (
                     <RNTouchableOpacity
                         style={[styles.newMessagesButton, {backgroundColor: colors.primary}]}
@@ -384,7 +363,6 @@ const ChatScreen = () => {
                     </RNTouchableOpacity>
                 )}
 
-                {/* Mention Suggestions */}
                 {mentionSuggestions.length > 0 && (
                     <MentionSuggestionsOverlay
                         suggestions={mentionSuggestions}
@@ -393,7 +371,6 @@ const ChatScreen = () => {
                     />
                 )}
 
-                {/* ✅ Updated ChatInput with proper props */}
                 <ChatInput
                     value={inputText}
                     onChangeText={handleInputTextChange}
@@ -405,7 +382,6 @@ const ChatScreen = () => {
                 />
             </KeyboardAvoidingView>
 
-            {/* Reaction Picker */}
             {activeReactionMessageId && (
                 <ReactionPicker
                     isVisible={!!activeReactionMessageId}

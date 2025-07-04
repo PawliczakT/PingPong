@@ -16,7 +16,7 @@ export interface ChatInputProps {
     maxLength?: number;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({
+export const ChatInput: React.FC<ChatInputProps> = ({
                                                  value,
                                                  onChangeText,
                                                  onSendMessage,
@@ -32,7 +32,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const mentionQueryRef = useRef<string>('');
     const [inputHeight, setInputHeight] = useState(40);
 
-    // ✅ Memoized calculations
     const isInputDisabled = useMemo(() =>
             isLoading || isSending || isDisconnected,
         [isLoading, isSending, isDisconnected]
@@ -50,16 +49,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
         return placeholder;
     }, [isDisconnected, isSending, isLoading, placeholder]);
 
-    // ✅ Improved mention detection
     const handleTextChange = useCallback((text: string) => {
-        // Limit text length
         if (text.length > maxLength) {
             return;
         }
 
         onChangeText(text);
 
-        // Handle mention detection
         const words = text.split(/\s+/);
         const lastWord = words[words.length - 1] || "";
 
@@ -77,7 +73,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
         }
     }, [onChangeText, onMentionQueryChange, maxLength]);
 
-    // ✅ Improved send handler
     const handleSend = useCallback(async () => {
         const trimmedMessage = value.trim();
         if (!trimmedMessage || isSendDisabled) {
@@ -86,25 +81,21 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
         try {
             await onSendMessage(trimmedMessage);
-            // Clear mention query after successful send
             if (mentionQueryRef.current !== '') {
                 onMentionQueryChange('');
                 mentionQueryRef.current = '';
             }
         } catch (error) {
             console.error('Failed to send message:', error);
-            // Focus back to input on error
             textInputRef.current?.focus();
         }
     }, [value, isSendDisabled, onSendMessage, onMentionQueryChange]);
 
-    // ✅ Handle content size change for dynamic height
     const handleContentSizeChange = useCallback((event: any) => {
         const newHeight = Math.min(Math.max(40, event.nativeEvent.contentSize.height), 120);
         setInputHeight(newHeight);
     }, []);
 
-    // ✅ Render send button content
     const renderSendButtonContent = useCallback(() => {
         if (isSending) {
             return <ActivityIndicator size={16} color="#FFFFFF"/>;
@@ -115,7 +106,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
         return <Send size={18} color="#FFFFFF"/>;
     }, [isSending, isDisconnected]);
 
-    // ✅ Dynamic styles
     const inputStyle = useMemo(() => [
         styles.input,
         {
@@ -124,7 +114,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             borderColor: isDisconnected ? '#FF5722' : colors.border,
             height: inputHeight,
         }
-    ], [colors, isInputDisabled, isDisconnected, inputHeight]);
+    ], [isInputDisabled, isDisconnected, inputHeight, colors.card, colors.background, colors.text, colors.border]);
 
     const sendButtonStyle = useMemo(() => [
         styles.sendButton,
@@ -132,11 +122,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
             backgroundColor: isSendDisabled ? colors.border : colors.primary,
             opacity: isSendDisabled ? 0.5 : 1,
         }
-    ], [colors, isSendDisabled]);
+    ], [isSendDisabled, colors.border, colors.primary]);
 
     return (
         <View style={[styles.container, {borderTopColor: colors.border, backgroundColor: colors.card}]}>
-            {/* Character count indicator */}
             {value.length > maxLength * 0.8 && (
                 <View style={styles.characterCountContainer}>
                     <Text style={[
@@ -184,12 +173,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 </TouchableOpacity>
             </View>
 
-            {/* Connection status indicator */}
             {isDisconnected && (
                 <View style={styles.statusIndicator}>
                     <WifiOff size={12} color="#FF5722"/>
                     <Text style={[styles.statusText, {color: '#FF5722'}]}>
-                        Brak połączenia
+                        No internet connection
                     </Text>
                 </View>
             )}
@@ -251,5 +239,3 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 });
-
-export default ChatInput;
