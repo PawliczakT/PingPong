@@ -1,8 +1,28 @@
 import {
-    ArrowUp, Award, Crown, Flame, Medal, Star, Target, Trophy, Users, Zap,
-    Award as Award2, Bolt, Crosshair, Gem, Heart, Moon, Shield,
-    Shield as Shield2, Sparkles, Star as Star2, Sun, Sword, Swords,
-    Target as Target2
+    ArrowUp,
+    Award,
+    Award as Award2,
+    Bolt,
+    Crosshair,
+    Crown,
+    Flame,
+    Gem,
+    Heart,
+    Medal,
+    Moon,
+    Shield,
+    Shield as Shield2,
+    Sparkles,
+    Star,
+    Star as Star2,
+    Sun,
+    Sword,
+    Swords,
+    Target,
+    Target as Target2,
+    Trophy,
+    Users,
+    Zap
 } from "lucide-react-native";
 import {AchievementType} from "../backend/types";
 import {achievements} from "@constants/achievements";

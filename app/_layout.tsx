@@ -16,6 +16,8 @@ import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStor
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
 import {useNotificationStore} from "@/store/notificationStore";
 import {useNotificationsRealtime} from "@hooks/useNotificationsRealtime";
+import WebAnalytics from "@components/WebAnalytics";
+
 
 const queryClient = new QueryClient();
 SplashScreen.preventAutoHideAsync().catch((e) => console.warn("SplashScreen error:", e));
@@ -230,6 +232,7 @@ export default function RootLayout() {
                         <Stack.Screen name="notifications/index" options={{title: "Notifications"}}/>
                         <Stack.Screen name="settings/index" options={{title: "Settings"}}/>
                     </Stack>
+                    {/*<WebAnalytics />*/}
                 </QueryClientProvider>
             </trpc.Provider>
         </ErrorBoundary>

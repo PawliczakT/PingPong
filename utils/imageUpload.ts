@@ -27,7 +27,6 @@ interface ProcessAvatarResponse {
     message?: string;
 }
 
-// ML Kit Face interface converted to match vision camera format
 interface Face {
     pitchAngle: number;
     rollAngle: number;
@@ -83,22 +82,13 @@ interface Landmarks {
     RIGHT_EYE: Point;
 }
 
-/**
- * Sprawdza, czy jesteśmy w środowisku przeglądarki czy natywnym
- */
 const isWeb = () => Platform.OS === 'web';
 
-/**
- * Request permissions to access the user's media library
- */
 export const requestMediaLibraryPermissions = async (): Promise<boolean> => {
     const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
     return status === 'granted';
 };
 
-/**
- * Convert ML Kit face detection result to our Face interface
- */
 const convertMlkitFaceToFace = (mlkitFace: MlkitFace): Face => {
     return {
         bounds: {
@@ -118,9 +108,6 @@ const convertMlkitFaceToFace = (mlkitFace: MlkitFace): Face => {
     };
 };
 
-/**
- * Convert ML Kit contours to our Contours interface
- */
 const convertMlkitContours = (mlkitContours: Record<ContourType, Coutour>): Contours => {
     const convertPoints = (contour: Coutour | undefined): Point[] => {
         if (!contour || !contour.points || !Array.isArray(contour.points)) return [];
@@ -149,9 +136,6 @@ const convertMlkitContours = (mlkitContours: Record<ContourType, Coutour>): Cont
     };
 };
 
-/**
- * Convert ML Kit landmarks to our Landmarks interface
- */
 const convertMlkitLandmarks = (mlkitLandmarks: Record<LandmarkType, Landmark>): Landmarks => {
     const getPoint = (landmark: Landmark | undefined): Point => ({
         x: landmark?.position?.x || 0,
@@ -172,16 +156,12 @@ const convertMlkitLandmarks = (mlkitLandmarks: Record<LandmarkType, Landmark>): 
     };
 };
 
-/**
- * Detect faces in static image using ML Kit
- */
 const detectFacesInStaticImage = async (
     imageUri: string
 ): Promise<Face[]> => {
     try {
         console.log('Starting ML Kit face detection for image:', imageUri);
 
-        // ML Kit Face Detection options
         const options: MlkitFaceDetectionOptions = {
             performanceMode: 'accurate',
             landmarkMode: 'all',
@@ -191,15 +171,12 @@ const detectFacesInStaticImage = async (
             trackingEnabled: false
         };
 
-        // Detect faces using ML Kit
         const mlkitFaces = await MlkitFaceDetection.detect(imageUri, options);
 
         console.log(`ML Kit detected ${mlkitFaces.length} faces`);
 
-        // Convert ML Kit faces to our Face interface
         const faces: Face[] = mlkitFaces.map(convertMlkitFaceToFace);
 
-        // Log face details for debugging
         faces.forEach((face, index) => {
             console.log(`Face ${index + 1}:`, {
                 bounds: face.bounds,
@@ -223,55 +200,43 @@ const detectFacesInStaticImage = async (
     }
 };
 
-/**
- * Detect face in an image and crop it to center on the face using ML Kit
- */
 export const detectFaceAndCrop = async (imageUri: string): Promise<string> => {
     try {
         console.log('Detecting face in image using ML Kit:', imageUri);
 
-        // W środowisku web pomijamy wykrywanie twarzy i zwracamy oryginalny obraz
         if (isWeb()) {
             console.log('ML Kit face detection not available in web environment, returning original image');
             return imageUri;
         }
 
-        // Get image dimensions
         const imageInfo = await manipulateAsync(imageUri, [], {});
         const imageWidth = imageInfo.width;
         const imageHeight = imageInfo.height;
 
         console.log('Image dimensions:', {width: imageWidth, height: imageHeight});
 
-        // Detect faces using ML Kit
         const faces = await detectFacesInStaticImage(imageUri);
 
         if (faces && faces.length > 0) {
             console.log(`Found ${faces.length} faces. Using the first one for cropping.`);
 
-            // Use coordinates of the first detected face
             const face = faces[0];
             const bounds = face.bounds;
 
-            // Validate bounds
             if (bounds.width <= 0 || bounds.height <= 0) {
                 console.warn('Invalid face bounds detected, returning original image');
                 return imageUri;
             }
 
-            // Calculate face center and size
             const centerX = bounds.x + bounds.width / 2;
             const centerY = bounds.y + bounds.height / 2;
             const faceSize = Math.max(bounds.width, bounds.height);
 
-            // Face should occupy about 60-70% of the frame (multiplier 2.5-3.0)
             const cropSize = Math.round(faceSize * 3.0);
 
-            // Calculate crop origin (top-left corner)
             let originX = Math.max(0, Math.round(centerX - cropSize / 2));
             let originY = Math.max(0, Math.round(centerY - cropSize / 2));
 
-            // Ensure crop doesn't exceed image boundaries
             let finalCropSize = cropSize;
             if (originX + cropSize > imageWidth) {
                 finalCropSize = imageWidth - originX;
@@ -280,21 +245,17 @@ export const detectFaceAndCrop = async (imageUri: string): Promise<string> => {
                 finalCropSize = Math.min(finalCropSize, imageHeight - originY);
             }
 
-            // Adjust if face is near bottom edge
             if (originY + finalCropSize > imageHeight - 10) {
                 const shift = Math.min(originY, (originY + finalCropSize) - (imageHeight - 10));
                 originY -= shift;
             }
 
-            // Adjust if face is near top edge
             if (originY < 10 && finalCropSize < imageHeight) {
                 originY = 0;
             }
 
-            // Make sure crop size is square and reasonable
             finalCropSize = Math.min(finalCropSize, imageWidth - originX, imageHeight - originY);
 
-            // Minimum crop size check
             if (finalCropSize < 50) {
                 console.warn('Calculated crop size too small, returning original image');
                 return imageUri;
@@ -312,7 +273,6 @@ export const detectFaceAndCrop = async (imageUri: string): Promise<string> => {
                 cropMultiplier: finalCropSize / faceSize
             });
 
-            // Perform cropping
             const result = await manipulateAsync(
                 imageUri,
                 [
@@ -336,13 +296,10 @@ export const detectFaceAndCrop = async (imageUri: string): Promise<string> => {
         return imageUri;
     } catch (error) {
         console.error('Error in ML Kit face detection and cropping:', error);
-        return imageUri; // Return original image on error
+        return imageUri;
     }
 };
 
-/**
- * Get face analysis information for debugging/logging
- */
 export const analyzeFaceInImage = async (imageUri: string): Promise<{
     faceCount: number;
     faces: Face[];
@@ -361,11 +318,9 @@ export const analyzeFaceInImage = async (imageUri: string): Promise<{
         const faces = await detectFacesInStaticImage(imageUri);
 
         const quality = faces.map(face => {
-            // Analyze face quality
             const eyesOpen = face.leftEyeOpenProbability > 0.5 && face.rightEyeOpenProbability > 0.5;
             const isSmiling = face.smilingProbability > 0.3;
 
-            // Analyze face angle
             const maxAngle = Math.max(
                 Math.abs(face.pitchAngle),
                 Math.abs(face.rollAngle),
@@ -382,7 +337,7 @@ export const analyzeFaceInImage = async (imageUri: string): Promise<{
             }
 
             return {
-                hasGoodLighting: true, // ML Kit doesn't provide lighting info directly
+                hasGoodLighting: true,
                 eyesOpen,
                 isSmiling,
                 faceAngle
@@ -400,11 +355,7 @@ export const analyzeFaceInImage = async (imageUri: string): Promise<{
     }
 };
 
-/**
- * Pick an image from the device's media library
- */
 export const pickImage = async (): Promise<ImagePicker.ImagePickerResult> => {
-    // Request permissions first
     const permissionGranted = await requestMediaLibraryPermissions();
     if (!permissionGranted) {
         return {canceled: true, assets: null};
@@ -424,9 +375,6 @@ export const pickImage = async (): Promise<ImagePicker.ImagePickerResult> => {
     }
 };
 
-/**
- * Process avatar image using Supabase Edge Function with AWS Rekognition
- */
 export const processAvatarWithAWS = async (
     imageBase64: string | undefined,
     fileName: string,
@@ -443,8 +391,8 @@ export const processAvatarWithAWS = async (
     try {
         console.log('Processing avatar with AWS Rekognition through Supabase Edge Function');
 
-        const SUPABASE_URL = 'https://msiemlfjcnhnwkwwpvhm.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zaWVtbGZqY25obmtrd3dwdmhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE2ODY0MDYxNzUsImV4cCI6MjAwMTk4MjE3NX0.Lbk36myTLbXH6UQ0yMAeM9sSWaB0SHqafflOKXzGkPI';
+        const SUPABASE_URL = process.env.SUPABASE_URL;
+        const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
         const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/process-avatar`;
 
         const requestData = {
@@ -493,9 +441,6 @@ export const pickAndProcessAvatarWithAWS = async (): Promise<{
     return {...result, awsProcessed: true};
 }
 
-/**
- * Pick an image and process it with AWS Rekognition or fall back to ML Kit processing
- */
 export const pickAndProcessAvatarWithMLKit = async (): Promise<{
     uri: string | undefined;
     base64: string | undefined;
@@ -525,7 +470,6 @@ export const pickAndProcessAvatarWithMLKit = async (): Promise<{
         const fileName = originalUri.split('/').pop() || `image_${Date.now()}.jpg`;
         const tempPlayerId = `temp_${Date.now()}`;
 
-        // Try AWS processing first for web
         if (Platform.OS === 'web') {
             try {
                 const processResult = await processAvatarWithAWS(originalBase64, fileName, tempPlayerId);
@@ -546,14 +490,11 @@ export const pickAndProcessAvatarWithMLKit = async (): Promise<{
 
         console.log('Using ML Kit face detection for local processing');
 
-        // Analyze face first for debugging
         const faceAnalysis = await analyzeFaceInImage(originalUri);
         console.log('Face analysis result:', faceAnalysis);
 
-        // Process with ML Kit
         const processedUri = await detectFaceAndCrop(originalUri);
 
-        // If ML Kit processing changed the URI, update base64
         let finalBase64 = originalBase64;
         if (processedUri !== originalUri && originalBase64) {
             const processedResult = await manipulateAsync(
@@ -587,9 +528,6 @@ export const pickAndProcessAvatarWithMLKit = async (): Promise<{
     }
 };
 
-/**
- * Upload an image to Supabase Storage and return the public URL
- */
 export const uploadImageToSupabase = async (
     imageUri: string,
     base64Data: string | undefined,

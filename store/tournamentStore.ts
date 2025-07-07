@@ -4,8 +4,8 @@ import {supabase} from '@/app/lib/supabase';
 import {v4 as uuidv4} from 'uuid';
 import type {Set as MatchSet} from '@/backend/types';
 import {Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
-import type {TournamentWonMetadata} from '../backend/server/trpc/services/notificationService';
-import {dispatchSystemNotification} from '../backend/server/trpc/services/notificationService';
+import type {TournamentWonMetadata} from '@/backend/server/trpc/services/notificationService';
+import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
 import {useEffect} from "react";
 import {usePlayerStore} from './playerStore';
 import {useMatchStore} from "@/store/matchStore";
@@ -288,13 +288,8 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             .eq('id', tournamentId)
             .single();
 
-        if (tournamentError) {
+        if (tournamentError || !tournamentData) {
             console.error(`Error fetching tournament:`, tournamentError);
-            return null;
-        }
-
-        if (!tournamentData) {
-            console.error(`Tournament ${tournamentId} not found`);
             return null;
         }
 
@@ -308,7 +303,6 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             player2Score: m.player2_score,
             status: m.status,
             winnerId: m.winner_id,
-            winner: m.winner_id,
             sets: m.sets,
             nextMatchId: m.next_match_id,
             group: m.group,
@@ -320,16 +314,20 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             return null;
         }
 
+        // Statystyki zawodników
         const playerStats: Record<string, {
             playerId: string,
-            points: number,
-            matches: number,
-            smallPoints: number,
-            wins: number,
-            losses: number,
-            headToHead: Record<string, number>
+            mainPoints: number,      // punkty główne (2 za wygraną, 1 za przegraną)
+            matchesPlayed: number,
+            matchesWon: number,
+            setsWon: number,
+            setsLost: number,
+            smallPointsWon: number,  // małe punkty (punkty w setach)
+            smallPointsLost: number,
+            headToHead: Record<string, number>  // wyniki bezpośrednich spotkań
         }> = {};
 
+        // Inicjalizacja statystyk
         const playerIds = new Set<string>();
         matches.forEach(match => {
             if (match.player1Id) playerIds.add(match.player1Id);
@@ -339,53 +337,107 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
         playerIds.forEach(playerId => {
             playerStats[playerId] = {
                 playerId,
-                points: 0,
-                matches: 0,
-                smallPoints: 0,
-                wins: 0,
-                losses: 0,
+                mainPoints: 0,
+                matchesPlayed: 0,
+                matchesWon: 0,
+                setsWon: 0,
+                setsLost: 0,
+                smallPointsWon: 0,
+                smallPointsLost: 0,
                 headToHead: {}
             };
         });
 
+        // Przetwarzanie meczów
         matches.forEach(match => {
             if (match.status !== 'completed' || !match.player1Id || !match.player2Id) return;
 
             const player1 = playerStats[match.player1Id];
             const player2 = playerStats[match.player2Id];
 
-            player1.matches++;
-            player2.matches++;
+            player1.matchesPlayed++;
+            player2.matchesPlayed++;
 
-            const p1Score = match.player1Score || 0;
-            const p2Score = match.player2Score || 0;
+            // Liczenie setów wygranych/przegranych
+            let p1SetsWon = 0;
+            let p2SetsWon = 0;
 
-            if (p1Score > p2Score) {
-                player1.points += 2;
-                player1.wins++;
-                player2.losses++;
+            if (match.sets && Array.isArray(match.sets)) {
+                match.sets.forEach((set: any) => {
+                    const p1Score = set.player1Score || 0;
+                    const p2Score = set.player2Score || 0;
+
+                    player1.smallPointsWon += p1Score;
+                    player1.smallPointsLost += p2Score;
+                    player2.smallPointsWon += p2Score;
+                    player2.smallPointsLost += p1Score;
+
+                    if (p1Score > p2Score) {
+                        p1SetsWon++;
+                    } else if (p2Score > p1Score) {
+                        p2SetsWon++;
+                    }
+                });
+            }
+
+            player1.setsWon += p1SetsWon;
+            player1.setsLost += p2SetsWon;
+            player2.setsWon += p2SetsWon;
+            player2.setsLost += p1SetsWon;
+
+            // Punkty główne i wyniki bezpośrednie
+            if (match.winner === match.player1Id) {
+                player1.mainPoints += 2;  // 2 punkty za wygraną
+                player1.matchesWon++;
+                player2.mainPoints += 1;  // 1 punkt za przegraną!
                 player1.headToHead[match.player2Id] = 1;
                 player2.headToHead[match.player1Id] = -1;
-            } else if (p2Score > p1Score) {
-                player2.points += 2;
-                player2.wins++;
-                player1.losses++;
+            } else if (match.winner === match.player2Id) {
+                player2.mainPoints += 2;  // 2 punkty za wygraną
+                player2.matchesWon++;
+                player1.mainPoints += 1;  // 1 punkt za przegraną!
                 player2.headToHead[match.player1Id] = 1;
                 player1.headToHead[match.player2Id] = -1;
             }
-
-            player1.smallPoints += p1Score - p2Score;
-            player2.smallPoints += p2Score - p1Score;
         });
 
+        // Sortowanie według przepisów PZTS
         const rankedPlayers = Object.values(playerStats).sort((a, b) => {
-            if (a.points !== b.points) return b.points - a.points;
+            // 1. Punkty główne
+            if (a.mainPoints !== b.mainPoints) {
+                return b.mainPoints - a.mainPoints;
+            }
+
+            // 2. Stosunek meczów wygranych do rozegranych
+            const aMatchRatio = a.matchesWon / (a.matchesPlayed || 1);
+            const bMatchRatio = b.matchesWon / (b.matchesPlayed || 1);
+            if (aMatchRatio !== bMatchRatio) {
+                return bMatchRatio - aMatchRatio;
+            }
+
+            // 3. Stosunek setów
+            const aSetRatio = a.setsWon / (a.setsWon + a.setsLost || 1);
+            const bSetRatio = b.setsWon / (b.setsWon + b.setsLost || 1);
+            if (aSetRatio !== bSetRatio) {
+                return bSetRatio - aSetRatio;
+            }
+
+            // 4. Stosunek małych punktów
+            const aPointRatio = a.smallPointsWon / (a.smallPointsWon + a.smallPointsLost || 1);
+            const bPointRatio = b.smallPointsWon / (b.smallPointsWon + b.smallPointsLost || 1);
+            if (aPointRatio !== bPointRatio) {
+                return bPointRatio - aPointRatio;
+            }
+
+            // 5. Wynik bezpośredniego meczu
             if (a.headToHead[b.playerId] !== undefined) {
                 return a.headToHead[b.playerId] > 0 ? -1 : 1;
             }
-            return b.smallPoints - a.smallPoints;
+
+            return 0;
         });
 
+        // Aktualizacja zwycięzcy
         if (rankedPlayers.length > 0) {
             const winner = rankedPlayers[0];
             const {error} = await supabase
@@ -400,6 +452,7 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
                 console.error(`Error updating tournament winner:`, error);
                 return null;
             } else {
+                // Powiadomienie o zwycięstwie...
                 try {
                     const playerStore = usePlayerStore.getState();
                     const winnerPlayer = playerStore.getPlayerById(winner.playerId);
@@ -414,19 +467,17 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
                             tournamentName: tournament.name,
                             tournamentId: tournament.id,
                         };
-                        console.log('📤 Attempting to dispatch tournament_won notification from autoSelectRoundRobinWinner', {metadata});
                         await dispatchSystemNotification('tournament_won', metadata);
-                        console.log('✅ Tournament won notification dispatched successfully from autoSelectRoundRobinWinner');
                     }
                 } catch (e) {
-                    console.warn("Failed to dispatch tournament_won notification from autoSelectRoundRobinWinner", e);
+                    console.warn("Failed to dispatch tournament_won notification", e);
                 }
 
                 return winner.playerId;
             }
-        } else {
-            return null;
         }
+
+        return null;
     } catch (error) {
         console.error(`Error selecting winner:`, error);
         return null;

@@ -94,6 +94,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                     shouldShowAlert: true,
                     shouldPlaySound: true,
                     shouldSetBadge: true,
+                    shouldShowBanner: true,
+                    shouldShowList: true
                 }),
             });
 
