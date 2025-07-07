@@ -173,7 +173,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
                     console.log('🔐 Web logout - clearing local storage');
 
                     if (typeof window !== 'undefined') {
-                        const projectRef = supabase.supabaseUrl.split('//')[1];
+                        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+                        const projectRef = supabaseUrl.split('//')[1].split('.')[0];
                         const storageKey = `sb-${projectRef}-auth-token`;
 
                         window.localStorage.removeItem(storageKey);
@@ -223,8 +224,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
                         window.location.reload();
                     }, 100);
                 }
-
-                console.log('🔐 Logout completed despite errors');
             }
         },
 

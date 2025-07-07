@@ -77,9 +77,9 @@ export default function HomeScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
-                        <Text style={styles.title}>PingPong StatKeeper</Text>
+                        <Text style={styles.title}>Grey Zone PingPong StatKeeper</Text>
                         <Pressable
-                            testID="notification-bell-button" // Dodaj testID dla stabilniejszych testów
+                            testID="notification-bell-button"
                             style={styles.notificationButton}
                             onPress={() => navigateToSection("notifications")}
                         >

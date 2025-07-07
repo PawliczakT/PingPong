@@ -1,6 +1,6 @@
 // app/(tabs)/profile.tsx
 import React, {useCallback, useMemo, useState} from 'react';
-import {ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import {ActivityIndicator, Alert, Platform, ScrollView, Text, TextInput, TouchableOpacity, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Ionicons} from '@expo/vector-icons';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -39,7 +39,7 @@ export default function ProfileScreen() {
 
     const updateFormState = useCallback((updates: Partial<typeof formState>) => {
         setFormState(prev => ({...prev, ...updates}));
-    }, []);
+    }, [formState]);
 
     const {
         currentPlayer,
@@ -171,25 +171,15 @@ export default function ProfileScreen() {
     }, [user, formState.name, formState.nickname, addPlayer, updateFormState, refreshProfile]);
 
     const handleLogout = useCallback(async () => {
-        Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-                {text: 'Cancel', style: 'cancel'},
-                {
-                    text: 'Logout',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await logout();
-                        } catch (error) {
-                            console.error('Logout error:', error);
-                            Alert.alert('Error', 'Failed to logout. Please try again.');
-                        }
-                    }
-                }
-            ]
-        );
+        try {
+            await logout();
+        } catch (error) {
+            if (Platform.OS === 'web') {
+                alert('Failed to logout. Please try again.');
+            } else {
+                Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+        }
     }, [logout]);
 
     if (isLoadingProfile) {
@@ -678,9 +668,12 @@ export default function ProfileScreen() {
                             style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
-                                padding: 16
+                                padding: 16,
                             }}
-                            onPress={handleLogout}
+                            onPress={() => {
+                                handleLogout();
+                            }}
+                            activeOpacity={0.5}
                         >
                             <Ionicons name="log-out-outline" size={20} color="#FF3B30"/>
                             <Text style={{marginLeft: 12, fontSize: 16, color: '#FF3B30', flex: 1}}>
