@@ -207,7 +207,8 @@ export default function TournamentDetailScreen() {
             matches: 0,
             wins: 0,
             losses: 0,
-            points: 0,
+            tournamentPoints: 0, // Punkty za zwycięstwo w turnieju
+            points: 0, // Małe punkty (z setów)
             pointsAgainst: 0,
             pointsDiff: 0
         }));
@@ -221,18 +222,30 @@ export default function TournamentDetailScreen() {
             standings[player1Index].matches++;
             standings[player2Index].matches++;
 
-            if (match.player1Score !== null && match.player2Score !== null) {
-                standings[player1Index].points += match.player1Score;
-                standings[player2Index].points += match.player2Score;
-                standings[player1Index].pointsAgainst += match.player2Score;
-                standings[player2Index].pointsAgainst += match.player1Score;
+            // Sumowanie małych punktów z setów
+            if (match.sets && Array.isArray(match.sets)) {
+                match.sets.forEach((set: any) => {
+                    const p1Score = set.player1Score || 0;
+                    const p2Score = set.player2Score || 0;
+                    standings[player1Index].points += p1Score;
+                    standings[player1Index].pointsAgainst += p2Score;
+                    standings[player2Index].points += p2Score;
+                    standings[player2Index].pointsAgainst += p1Score;
+                });
+            }
 
+            // Zwycięstwa, porażki i punkty turniejowe
+            if (match.player1Score !== null && match.player2Score !== null) {
                 if (match.player1Score > match.player2Score) {
                     standings[player1Index].wins++;
+                    standings[player1Index].tournamentPoints += 2; // 2 punkty za wygraną
                     standings[player2Index].losses++;
+                    standings[player2Index].tournamentPoints += 1; // 1 punkt za przegraną
                 } else if (match.player2Score > match.player1Score) {
                     standings[player2Index].wins++;
+                    standings[player2Index].tournamentPoints += 2; // 2 punkty za wygraną
                     standings[player1Index].losses++;
+                    standings[player1Index].tournamentPoints += 1; // 1 punkt za przegraną
                 }
             }
         });
@@ -240,6 +253,7 @@ export default function TournamentDetailScreen() {
         standings.forEach(s => s.pointsDiff = s.points - s.pointsAgainst);
 
         return standings.sort((a, b) => {
+            if (a.tournamentPoints !== b.tournamentPoints) return b.tournamentPoints - a.tournamentPoints; // Sortuj po punktach turniejowych
             if (a.wins !== b.wins) return b.wins - a.wins;
             if (a.pointsDiff !== b.pointsDiff) return b.pointsDiff - a.pointsDiff;
             return b.points - a.points;
@@ -367,9 +381,8 @@ export default function TournamentDetailScreen() {
                                             <Text style={styles.standingsHeaderCell}>P</Text>
                                             <Text style={styles.standingsHeaderCell}>W</Text>
                                             <Text style={styles.standingsHeaderCell}>L</Text>
-                                            <Text style={styles.standingsHeaderCell}>Pts+</Text>
-                                            <Text style={styles.standingsHeaderCell}>Pts-</Text>
-                                            <Text style={styles.standingsHeaderCell}>Diff</Text>
+                                            <Text style={styles.standingsHeaderCell}>Pts</Text>
+                                            <Text style={styles.standingsHeaderCell}>+/-</Text>
                                         </View>
                                         {standings.map((standing, index) => (
                                             <View key={standing.player.id}
@@ -384,8 +397,7 @@ export default function TournamentDetailScreen() {
                                                 <Text style={styles.standingsCell}>{standing.matches}</Text>
                                                 <Text style={styles.standingsCell}>{standing.wins}</Text>
                                                 <Text style={styles.standingsCell}>{standing.losses}</Text>
-                                                <Text style={styles.standingsCell}>{standing.points}</Text>
-                                                <Text style={styles.standingsCell}>{standing.pointsAgainst}</Text>
+                                                <Text style={styles.standingsCell}>{standing.tournamentPoints}</Text>
                                                 <Text style={styles.standingsCell}>{standing.pointsDiff}</Text>
                                             </View>
                                         ))}
@@ -415,9 +427,8 @@ export default function TournamentDetailScreen() {
                                                         <Text style={styles.standingsHeaderCell}>P</Text>
                                                         <Text style={styles.standingsHeaderCell}>W</Text>
                                                         <Text style={styles.standingsHeaderCell}>L</Text>
-                                                        <Text style={styles.standingsHeaderCell}>Pts+</Text>
-                                                        <Text style={styles.standingsHeaderCell}>Pts-</Text>
-                                                        <Text style={styles.standingsHeaderCell}>Diff</Text>
+                                                        <Text style={styles.standingsHeaderCell}>Pts</Text>
+                                                        <Text style={styles.standingsHeaderCell}>+/-</Text>
                                                     </View>
                                                     {groupStanding.map((standing, index) => (
                                                         <View key={standing.player.id}
@@ -433,9 +444,7 @@ export default function TournamentDetailScreen() {
                                                             <Text style={styles.standingsCell}>{standing.matches}</Text>
                                                             <Text style={styles.standingsCell}>{standing.wins}</Text>
                                                             <Text style={styles.standingsCell}>{standing.losses}</Text>
-                                                            <Text style={styles.standingsCell}>{standing.points}</Text>
-                                                            <Text
-                                                                style={styles.standingsCell}>{standing.pointsAgainst}</Text>
+                                                            <Text style={styles.standingsCell}>{standing.tournamentPoints}</Text>
                                                             <Text
                                                                 style={styles.standingsCell}>{standing.pointsDiff}</Text>
                                                         </View>
