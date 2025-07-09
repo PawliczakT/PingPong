@@ -80,11 +80,14 @@ export const signInWithGoogle = async () => {
             {showInRecents: true},
         );
         if (result.type === 'success' && result.url) {
-            const params = new URL(result.url).hash.substring(1);
-            await supabase.auth.setSession({
-                access_token: new URLSearchParams(params).get('access_token') ?? '',
-                refresh_token: new URLSearchParams(params).get('refresh_token') ?? '',
+            const {error} = await supabase.auth.getSessionFromUrl(result.url, {
+                checkSession: false,
             });
+
+            if (error) {
+                console.error('Error getting session from URL:', error.message);
+                throw new Error('Failed to process authentication callback.');
+            }
         }
     }
 };
