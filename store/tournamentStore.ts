@@ -53,6 +53,7 @@ type TournamentStore = {
     getUpcomingTournaments: () => Tournament[];
     getActiveTournaments: () => Tournament[];
     getCompletedTournaments: () => Tournament[];
+    getPlayerTournamentWins: (playerId: string) => number;
 };
 
 let tournamentChannel: RealtimeChannel | null = null;
@@ -1235,6 +1236,12 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             set({loading: false});
         }
     },
+    getPlayerTournamentWins: (playerId: string) => {
+        const completedTournaments = get().tournaments.filter(
+            t => t.status === TournamentStatus.COMPLETED
+        );
+        return completedTournaments.filter(t => t.winner === playerId).length;
+    },
 }));
 
 export function useTournamentsRealtime() {
@@ -1256,5 +1263,3 @@ export function useTournamentsRealtime() {
         }
     }, []);
 }
-
-

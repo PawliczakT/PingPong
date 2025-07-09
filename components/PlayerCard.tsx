@@ -2,11 +2,12 @@
 import React from "react";
 import {Pressable, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
-import {ArrowRight} from "lucide-react-native";
+import {ArrowRight, Trophy} from "lucide-react-native";
 import PlayerAvatar from "./PlayerAvatar";
 import {Player} from "@/backend/types";
 import {colors} from "@/constants/colors";
 import {formatWinRate} from "@/utils/formatters";
+import {useTournamentStore} from "@/store/tournamentStore";
 
 type PlayerCardProps = {
     player: Player;
@@ -26,6 +27,9 @@ export default function PlayerCard({
                                        onPress
                                    }: PlayerCardProps) {
     const router = useRouter();
+    const getPlayerTournamentWins = useTournamentStore(state => state.getPlayerTournamentWins);
+
+    const tournamentWins = getPlayerTournamentWins(player.id);
 
     const handlePress = () => {
         if (onPress) {
@@ -74,6 +78,15 @@ export default function PlayerCard({
                             </Text>
                             <Text style={styles.statLabel}>Win Rate</Text>
                         </View>
+                        {tournamentWins > 0 && (
+                            <View style={styles.statItem}>
+                                <View style={styles.tournamentWinsContainer}>
+                                    <Trophy size={14} color={colors.primary}/>
+                                    <Text style={styles.statValue}>{tournamentWins}</Text>
+                                </View>
+                                <Text style={styles.statLabel}>Tournaments</Text>
+                            </View>
+                        )}
                     </View>
                 )}
                 {statLabel && statValue !== undefined && statValue !== null && (
@@ -130,9 +143,11 @@ const styles = StyleSheet.create({
     statsContainer: {
         flexDirection: "row",
         marginTop: 6,
+        flexWrap: 'wrap',
     },
     statItem: {
         marginRight: 12,
+        marginBottom: 4,
     },
     statValue: {
         fontSize: 14,
@@ -142,6 +157,11 @@ const styles = StyleSheet.create({
     statLabel: {
         fontSize: 12,
         color: colors.textLight,
+    },
+    tournamentWinsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
     },
     customStatContainer: {
         marginTop: 6,

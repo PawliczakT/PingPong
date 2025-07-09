@@ -30,6 +30,8 @@ export default function TournamentDetailScreen() {
     const tournamentStore = useTournamentStore();
     const playerStore = usePlayerStore();
 
+    const getPlayerTournamentWins = useTournamentStore(state => state.getPlayerTournamentWins);
+
     const tournament = tournamentStore.getTournamentById(id as string);
     const tournamentMatches = tournament?.matches || [];
     const winner = tournament?.winner ? playerStore.getPlayerById(tournament.winner) : null;
@@ -444,7 +446,8 @@ export default function TournamentDetailScreen() {
                                                             <Text style={styles.standingsCell}>{standing.matches}</Text>
                                                             <Text style={styles.standingsCell}>{standing.wins}</Text>
                                                             <Text style={styles.standingsCell}>{standing.losses}</Text>
-                                                            <Text style={styles.standingsCell}>{standing.tournamentPoints}</Text>
+                                                            <Text
+                                                                style={styles.standingsCell}>{standing.tournamentPoints}</Text>
                                                             <Text
                                                                 style={styles.standingsCell}>{standing.pointsDiff}</Text>
                                                         </View>
@@ -530,12 +533,47 @@ export default function TournamentDetailScreen() {
                         <Text style={styles.sectionTitle}>Participants ({participants.length})</Text>
                         {participants.length > 0 ? (
                             <View style={styles.participantsList}>
-                                {participants.map((player) => (
-                                    <View key={player.id} style={styles.participantItem}>
-                                        <PlayerAvatar player={player} name={player.name} size={60}/>
-                                        <Text style={styles.participantName} numberOfLines={2}>{player.name}</Text>
-                                    </View>
-                                ))}
+                                {participants.map((player, index) => {
+                                    const wins = getPlayerTournamentWins(player.id);
+                                    return (
+                                        <Pressable
+                                            key={player.id}
+                                            style={[
+                                                styles.playerRow,
+                                                index % 2 === 0 ? styles.playerRowEven : styles.playerRowOdd,
+                                                showConfirmComplete && selectedWinnerId === player.id && styles.selectedPlayerRow
+                                            ]}
+                                            onPress={() => {
+                                                if (showConfirmComplete) {
+                                                    setSelectedWinnerId(player.id);
+                                                    if (Platform.OS !== 'web') {
+                                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                    }
+                                                } else {
+                                                    router.push(`/player/${player.id}`);
+                                                }
+                                            }}
+                                        >
+                                            <View style={styles.playerInfo}>
+                                                <PlayerAvatar name={player.name} player={player} size={40}/>
+                                                <View>
+                                                    <Text style={styles.playerName}>{player.name}</Text>
+                                                    <Text style={styles.playerRating}>Rating: {player.eloRating}</Text>
+                                                </View>
+                                            </View>
+
+                                            <View style={styles.playerStatsContainer}>
+                                                <Trophy size={16} color={colors.primary}/>
+                                                <Text style={styles.playerWinsText}>{wins}</Text>
+                                            </View>
+
+                                            {showConfirmComplete && (
+                                                <View
+                                                    style={[styles.radioCircle, selectedWinnerId === player.id && styles.radioFilled]}/>
+                                            )}
+                                        </Pressable>
+                                    );
+                                })}
                             </View>
                         ) : (
                             <View style={styles.emptyMatches}>
@@ -945,5 +983,58 @@ const styles = StyleSheet.create({
     },
     roundMatches: {
         padding: 16,
+    },
+    playerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 12,
+        borderRadius: 8,
+    },
+    playerRowEven: {
+        backgroundColor: colors.card
+    },
+    playerRowOdd: {
+        backgroundColor: colors.background
+    },
+    playerInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    playerName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.text,
+    },
+    playerRating: {
+        fontSize: 14,
+        color: colors.textLight,
+    },
+    playerStatsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    playerWinsText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.primary,
+    },
+    selectedPlayerRow: {
+        backgroundColor: colors.primaryMuted,
+        borderColor: colors.primary,
+    },
+    radioCircle: {
+        height: 24,
+        width: 24,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    radioFilled: {
+        backgroundColor: colors.primary,
     },
 });
