@@ -47,20 +47,10 @@ class SupabaseClient {
 
 export const supabase = SupabaseClient.getInstance();
 
-const getRedirectUri = () => {
-    if (Platform.OS === 'web') {
-        if (process.env.NODE_ENV === 'development') {
-            return 'http://localhost:8081/auth/callback';
-        }
-        return 'https://ping-pong-three-woad.vercel.app/auth/callback';
-    }
-    return makeRedirectUri({
-        scheme: 'pingpongstatkeeper',
-        path: 'auth/callback',
-    });
-};
-
-const redirectUri = getRedirectUri();
+const redirectUri = makeRedirectUri({
+    scheme: 'pingpongstatkeeper',
+    path: 'auth/callback',
+});
 
 export const signInWithGoogle = async () => {
     const {data, error} = await supabase.auth.signInWithOAuth({
@@ -80,14 +70,11 @@ export const signInWithGoogle = async () => {
             {showInRecents: true},
         );
         if (result.type === 'success' && result.url) {
-            const {error} = await supabase.auth.getSessionFromUrl(result.url, {
-                checkSession: false,
+            const params = new URL(result.url).hash.substring(1);
+            await supabase.auth.setSession({
+                access_token: new URLSearchParams(params).get('access_token') ?? '',
+                refresh_token: new URLSearchParams(params).get('refresh_token') ?? '',
             });
-
-            if (error) {
-                console.error('Error getting session from URL:', error.message);
-                throw new Error('Failed to process authentication callback.');
-            }
         }
     }
 };

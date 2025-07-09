@@ -17,7 +17,7 @@ ios
 
 # Development
 .env.local
-.env.development
+env.development
 .env.test
 
 # Cache
