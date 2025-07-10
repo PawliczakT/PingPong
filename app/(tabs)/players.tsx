@@ -1,5 +1,5 @@
 //app/(tabs)/players.tsx
-import React, {useState} from "react";
+import React, {useMemo, useState} from "react";
 import {FlatList, Pressable, StyleSheet, Text, TextInput, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Search, Users, X} from "lucide-react-native";
@@ -8,18 +8,35 @@ import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import PlayerCard from "@/components/PlayerCard";
 import EmptyState from "@/components/EmptyState";
+import {useEloStore} from "@/store/eloStore";
 
 export default function PlayersScreen() {
     const router = useRouter();
-    const {players} = usePlayerStore();
+    const {getPlayerById, players} = usePlayerStore();
+    const {isInitialized, getLeaderboard} = useEloStore();
     const [searchQuery, setSearchQuery] = useState("");
 
-    const activePlayers = players.filter(player => player.active);
+    const sortedAndFilteredPlayers = useMemo(() => {
+        if (!isInitialized) {
+            return [];
+        }
 
-    const filteredPlayers = activePlayers.filter(player =>
-        player.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (player.nickname && player.nickname.toLowerCase().includes(searchQuery.toLowerCase()))
-    ).sort((a, b) => b.eloRating - a.eloRating);
+        const leaderboard = getLeaderboard();
+        const sortedPlayers = leaderboard
+            .map(entry => getPlayerById(entry.id))
+            .filter((player): player is NonNullable<typeof player> => !!player && player.active);
+
+        if (!searchQuery) {
+            return sortedPlayers;
+        }
+
+        return sortedPlayers.filter(player =>
+            player.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (player.nickname && player.nickname.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+    }, [isInitialized, getLeaderboard, getPlayerById, searchQuery, players]);
+
+    const activePlayersExist = useMemo(() => players.some(p => p.active), [players]);
 
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -39,20 +56,11 @@ export default function PlayersScreen() {
                         </Pressable>
                     )}
                 </View>
-
-                {/* Temporarily disabled adding new players except during login
-                <Button
-                    title="Add Player"
-                    onPress={() => router.push("/player/create")}
-                    icon={<Plus size={18} color="#fff"/>}
-                    size="small"
-                />
-                */}
             </View>
 
-            {activePlayers.length > 0 ? (
+            {activePlayersExist ? (
                 <FlatList
-                    data={filteredPlayers}
+                    data={sortedAndFilteredPlayers}
                     keyExtractor={(item) => item.id}
                     renderItem={({item, index}) => (
                         <PlayerCard player={item} rank={index + 1}/>
@@ -69,10 +77,6 @@ export default function PlayersScreen() {
                     title="No Players Yet"
                     message="Players can only be added during login"
                     icon={<Users size={60} color={colors.textLight}/>}
-                    /* Temporarily disabled adding new players except during login
-                    actionLabel="Add Player"
-                    onAction={() => router.push("/player/create")}
-                    */
                 />
             )}
         </SafeAreaView>

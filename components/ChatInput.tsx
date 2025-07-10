@@ -17,16 +17,16 @@ export interface ChatInputProps {
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
-                                                 value,
-                                                 onChangeText,
-                                                 onSendMessage,
-                                                 onMentionQueryChange,
-                                                 isLoading = false,
-                                                 isSending = false,
-                                                 isDisconnected = false,
-                                                 placeholder = "Send message...",
-                                                 maxLength = 1000
-                                             }) => {
+                                                        value,
+                                                        onChangeText,
+                                                        onSendMessage,
+                                                        onMentionQueryChange,
+                                                        isLoading = false,
+                                                        isSending = false,
+                                                        isDisconnected = false,
+                                                        placeholder = "Send message...",
+                                                        maxLength = 1000
+                                                    }) => {
     const {colors} = useTheme();
     const textInputRef = useRef<TextInput>(null);
     const mentionQueryRef = useRef<string>('');
@@ -81,6 +81,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
         try {
             await onSendMessage(trimmedMessage);
+            onChangeText('');
             if (mentionQueryRef.current !== '') {
                 onMentionQueryChange('');
                 mentionQueryRef.current = '';
@@ -89,7 +90,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             console.error('Failed to send message:', error);
             textInputRef.current?.focus();
         }
-    }, [value, isSendDisabled, onSendMessage, onMentionQueryChange]);
+    }, [value, isSendDisabled, onSendMessage, onMentionQueryChange, onChangeText]);
 
     const handleContentSizeChange = useCallback((event: any) => {
         const newHeight = Math.min(Math.max(40, event.nativeEvent.contentSize.height), 120);
@@ -154,8 +155,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     onSubmitEditing={Platform.OS === 'web' ? handleSend : undefined}
                     returnKeyType={Platform.OS === 'ios' ? 'send' : 'default'}
                     enablesReturnKeyAutomatically
-                    accessibilityLabel="Send message"
-                    accessibilityHint={isDisconnected ? "No internet connection" : "Send message"}
+                    accessibilityLabel="Message input"
+                    accessibilityHint="Type your message here"
+                    testID="chat-input"
                     maxLength={maxLength}
                     textAlignVertical="top"
                 />

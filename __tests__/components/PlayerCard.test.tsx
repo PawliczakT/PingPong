@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render, screen} from '@testing-library/react-native';
+import {fireEvent, render, screen, within} from '@testing-library/react-native';
 import PlayerCard from '@/components/PlayerCard';
 import {Player} from '@/backend/types';
 
@@ -16,6 +16,11 @@ jest.mock('@/utils/formatters', () => ({
     formatWinRate: (wins: number, losses: number) => `${Math.round((wins / (wins + losses)) * 100)}%`,
 }));
 
+const mockGetPlayerTournamentWins = jest.fn(() => 5);
+jest.mock('@/store/tournamentStore', () => ({
+    useTournamentStore: jest.fn((selector) => selector({getPlayerTournamentWins: mockGetPlayerTournamentWins})),
+}));
+
 describe('PlayerCard', () => {
     const mockPlayer: Player = {
         id: 'player1',
@@ -27,7 +32,10 @@ describe('PlayerCard', () => {
         losses: 5,
         active: true,
         createdAt: '',
-        updatedAt: ''
+        updatedAt: '',
+        gamesPlayed: 0,
+        dailyDelta: 0,
+        lastMatchDay: ''
     };
 
     beforeEach(() => {
@@ -35,17 +43,18 @@ describe('PlayerCard', () => {
     });
 
     it('renders player information correctly', () => {
-        render(<PlayerCard player={mockPlayer}/>);
-        expect(screen.getByText('John Doe')).toBeTruthy();
-        expect(screen.getByText('"Johnny"')).toBeTruthy();
-        expect(screen.getByText('1500')).toBeTruthy();
-        expect(screen.getByText('10')).toBeTruthy();
-        expect(screen.getByText('5')).toBeTruthy();
-        expect(screen.getByText('67%')).toBeTruthy();
-        expect(screen.getByText('ELO')).toBeTruthy();
-        expect(screen.getByText('Wins')).toBeTruthy();
-        expect(screen.getByText('Losses')).toBeTruthy();
-        expect(screen.getByText('Win Rate')).toBeTruthy();
+        const {getByText, getByTestId} = render(<PlayerCard player={mockPlayer}/>);
+        expect(getByText('John Doe')).toBeTruthy();
+        expect(getByText('"Johnny"')).toBeTruthy();
+        expect(getByText('1500')).toBeTruthy();
+        expect(within(getByTestId('player-card-wins')).getByText('10')).toBeTruthy();
+        expect(within(getByTestId('player-card-losses')).getByText('5')).toBeTruthy();
+        expect(within(getByTestId('player-card-winrate')).getByText('67%')).toBeTruthy();
+        expect(within(getByTestId('player-card-tournaments')).getByText('5')).toBeTruthy();
+        expect(getByText('ELO')).toBeTruthy();
+        expect(getByText('Wins')).toBeTruthy();
+        expect(getByText('Losses')).toBeTruthy();
+        expect(getByText('Win Rate')).toBeTruthy();
     });
 
     it('renders rank when provided', () => {

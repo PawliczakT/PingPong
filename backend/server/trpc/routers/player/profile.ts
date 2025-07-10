@@ -49,7 +49,7 @@ export const ensurePlayerProfileProcedure = protectedProcedure
             user_id: userId,
             name: userName,
             avatar_url: avatarUrl,
-            elo_rating: 1200,
+            elo_rating: 1500,
             wins: 0,
             losses: 0,
             active: true,

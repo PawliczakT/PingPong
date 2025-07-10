@@ -10,14 +10,16 @@ beforeEach(() => {
 describe('Match Management Integration Tests', () => {
     test('should add a match with correct parameters', async () => {
         // Mock dla funkcji addMatch
-        const mockAddMatch = jest.fn().mockImplementation(async (player1Id: string, player2Id: string, player1Score: number, player2Score: number, sets: Set[], tournamentId: string) => ({
+        const mockAddMatch = jest.fn().mockImplementation(async (data: {
+            player1Id: string,
+            player2Id: string,
+            player1Score: number,
+            player2Score: number,
+            sets: Set[],
+            tournamentId?: string
+        }) => ({
             id: 'newMatch123',
-            player1Id,
-            player2Id,
-            player1Score,
-            player2Score,
-            sets,
-            tournamentId,
+            ...data,
             date: new Date().toISOString()
         }));
 
@@ -68,17 +70,24 @@ describe('Match Management Integration Tests', () => {
             {player1Score: 11, player2Score: 9}
         ];
 
-        await matchStore.addMatch('player1', 'player3', 3, 0, sets, 'tournament1');
+        await matchStore.addMatch({
+            player1Id: 'player1',
+            player2Id: 'player3',
+            player1Score: 3,
+            player2Score: 0,
+            sets: sets,
+            tournamentId: 'tournament1'
+        });
 
         // Weryfikacja czy funkcja addMatch zostau0142a wywou0142ana z odpowiednimi parametrami
-        expect(mockAddMatch).toHaveBeenCalledWith(
-            'player1',
-            'player3',
-            3,
-            0,
-            sets,
-            'tournament1'
-        );
+        expect(mockAddMatch).toHaveBeenCalledWith({
+            player1Id: 'player1',
+            player2Id: 'player3',
+            player1Score: 3,
+            player2Score: 0,
+            sets: sets,
+            tournamentId: 'tournament1'
+        });
     });
 
     test('should retrieve match details correctly', async () => {

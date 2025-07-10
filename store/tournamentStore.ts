@@ -4,8 +4,8 @@ import {supabase} from '@/app/lib/supabase';
 import {v4 as uuidv4} from 'uuid';
 import type {Set as MatchSet} from '@/backend/types';
 import {Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
-import type {TournamentWonMetadata} from '@/backend/server/trpc/services/notificationService';
-import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
+import type {TournamentWonMetadata} from '@/services/notificationService';
+import {dispatchSystemNotification} from '@/services/notificationService';
 import {useEffect} from "react";
 import {usePlayerStore} from './playerStore';
 import {useMatchStore} from "@/store/matchStore";
@@ -492,14 +492,14 @@ const _addMatchToHistory = async (
 ): Promise<void> => {
     const {addMatch} = useMatchStore.getState();
     if (match.player1Id && match.player2Id) {
-        await addMatch(
-            match.player1Id,
-            match.player2Id,
-            scores.player1Score,
-            scores.player2Score,
-            scores.sets || [],
-            tournamentId
-        );
+        await addMatch({
+            player1Id: match.player1Id,
+            player2Id: match.player2Id,
+            player1Score: scores.player1Score,
+            player2Score: scores.player2Score,
+            sets: scores.sets || [],
+            tournamentId,
+        });
     }
 };
 
@@ -1030,20 +1030,25 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 sets: scores.sets,
             };
 
-            const updateMatchPromise = supabase
-                .from('tournament_matches')
-                .update(updateData)
-                .eq('id', matchId);
+            const matchStore = useMatchStore.getState();
+            const newMatchId = await matchStore.addMatch({
+                player1Id: match.player1Id,
+                player2Id: match.player2Id,
+                player1Score: scores.player1Score,
+                player2Score: scores.player2Score,
+                sets: scores.sets || [],
+                tournamentId: tournamentId,
+            });
 
-            const addHistoryPromise = _addMatchToHistory(match, scores, tournamentId);
+            if (newMatchId) {
+                const {error: updateMatchError} = await supabase
+                    .from('tournament_matches')
+                    .update({match_id: newMatchId})
+                    .eq('id', matchId);
 
-            const [updateResult, historyResult] = await Promise.allSettled([
-                updateMatchPromise,
-                addHistoryPromise,
-            ]);
-
-            if (updateResult.status === 'rejected' || historyResult.status === 'rejected') {
-                throw new Error("Failed to update match result or add to history.");
+                if (updateMatchError) {
+                    console.error('Error updating tournament match with new match_id:', updateMatchError);
+                }
             }
 
             if (match.nextMatchId) {

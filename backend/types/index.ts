@@ -8,6 +8,9 @@ export interface Player {
     eloRating: number;
     wins: number;
     losses: number;
+    gamesPlayed: number;
+    dailyDelta: number;
+    lastMatchDay: string;
     active: boolean;
     createdAt: string;
     updatedAt: string;

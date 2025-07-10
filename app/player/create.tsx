@@ -70,7 +70,7 @@ export default function CreatePlayerScreen() {
                 name: name.trim(),
                 nickname: nickname?.trim() || null,
                 avatarUrl: user.user_metadata.avatar_url || null,
-                eloRating: 1200,
+                eloRating: 1500,
                 wins: 0,
                 losses: 0,
                 active: true,

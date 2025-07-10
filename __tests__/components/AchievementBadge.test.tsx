@@ -3,9 +3,20 @@ import {render} from '@testing-library/react-native';
 import AchievementBadge from '@/components/AchievementBadge';
 import {Achievement, AchievementType} from '@/backend/types';
 
-jest.mock('@/constants/achievements', () => ({
-    getAchievementIcon: () => () => null,
-}));
+jest.mock('@/constants/achievements', () => {
+    const {AchievementType} = require('@/backend/types');
+    return {
+        achievements: [
+            {type: AchievementType.FIRST_WIN, name: 'First Win', description: 'Win your first match', icon: 'trophy'},
+            {
+                type: AchievementType.CLEAN_SWEEP,
+                name: 'Flawless Victory',
+                description: 'Win a match 3-0.',
+                icon: 'star',
+            },
+        ],
+    };
+});
 
 jest.mock('@/constants/colors', () => ({
     colors: {
@@ -24,6 +35,9 @@ describe('AchievementBadge', () => {
         description: 'Win your first match',
         icon: 'award',
         target: 1,
+        id: '',
+        progress: 0,
+        unlocked: false
     };
 
     it('renders correctly with default props', () => {
@@ -137,5 +151,10 @@ describe('AchievementBadge', () => {
         expect(progressBar.props.style).toEqual(expect.arrayContaining([
             expect.objectContaining({width: '100%'})
         ]));
+    });
+
+    it('renders correctly for a given achievement type', () => {
+        const {toJSON} = render(<AchievementBadge achievement={mockAchievement}/>);
+        expect(toJSON()).toBeTruthy();
     });
 });

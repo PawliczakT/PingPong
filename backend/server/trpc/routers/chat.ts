@@ -8,7 +8,7 @@ import {
     dispatchSystemNotification,
     SystemNotificationMetadata,
     SystemNotificationType
-} from '../services/notificationService';
+} from '@/services/notificationService';
 
 // Input schemas
 const sendMessageInputSchema = z.object({

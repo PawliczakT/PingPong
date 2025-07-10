@@ -1,4 +1,4 @@
-//backend/server/trpc/services/playerService.ts
+//services/playerService.ts
 import {supabaseAsAdmin} from "@/backend/server/lib/supabaseAdmin";
 
 export const ensurePlayerProfile = async (userId: string) => {
@@ -34,7 +34,7 @@ export const ensurePlayerProfile = async (userId: string) => {
             user_id: userId,
             name: userName,
             avatar_url: avatarUrl,
-            elo_rating: 1200,
+            elo_rating: 1500,
             wins: 0,
             losses: 0,
             active: true,
@@ -80,7 +80,7 @@ export class PlayerService {
                 name: playerData.name,
                 nickname: playerData.nickname || null,
                 avatar_url: playerData.avatarUrl || null,
-                elo_rating: playerData.eloRating || 1200,
+                elo_rating: playerData.eloRating || 1500,
                 wins: playerData.wins || 0,
                 losses: playerData.losses || 0,
                 active: true,

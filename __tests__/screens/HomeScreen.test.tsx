@@ -98,7 +98,7 @@ describe('HomeScreen', () => {
 
     it('renders correctly with data', () => {
         render(<HomeScreen/>);
-        expect(screen.getByText('PingPong StatKeeper')).toBeTruthy();
+        expect(screen.getByText(/PingPong StatKeeper/)).toBeTruthy();
         expect(screen.getByText('Top Players')).toBeTruthy();
         expect(screen.getByText('1')).toBeTruthy();
     });

@@ -98,10 +98,9 @@ describe('ChatMessageItem', () => {
         const {getByText, queryByTestId} = render(<ChatMessageItem message={systemNotification}/>);
 
         expect(queryByTestId('mock-player-avatar')).toBeNull(); // No avatar for system messages
-        expect(getByText(/PlayerX/)).toBeTruthy(); // Part of the formatted message
-        expect(getByText(/wygrał\(a\) mecz z/)).toBeTruthy();
+        expect(getByText(/PlayerX/)).toBeTruthy();
+        expect(getByText(/defeated/)).toBeTruthy();
         expect(getByText(/PlayerY/)).toBeTruthy();
-        // Check for icon (not easily testable with Lucide, but text indicates formatting)
     });
 
     it('handles nickname press for user messages', () => {
@@ -126,30 +125,39 @@ describe('ChatMessageItem', () => {
     });
 
     it('renders different system notification types', () => {
-        const tournamentWonNotification: ChatMessage = {
+        const matchNotification = {
             ...systemNotification,
             id: 'sys2',
-            metadata: {notification_type: 'tournament_won', winnerNickname: 'Champion', tournamentName: 'BigTourney'}
+            metadata: {notification_type: 'match_won', winnerNickname: 'PlayerX', loserNickname: 'PlayerY'}
         };
-        const achievementNotification: ChatMessage = {
+        const {rerender, getByText} = render(<ChatMessageItem message={matchNotification}/>);
+        expect(getByText(/PlayerX/)).toBeTruthy();
+        expect(getByText(/defeated/)).toBeTruthy();
+        expect(getByText(/PlayerY/)).toBeTruthy();
+
+        const tournamentWonNotification = {
             ...systemNotification,
             id: 'sys3',
+            metadata: {notification_type: 'tournament_won', winnerNickname: 'Champion', tournamentName: 'BigTourney'}
+        };
+        rerender(<ChatMessageItem message={tournamentWonNotification}/>);
+        expect(getByText(/Champion/)).toBeTruthy();
+        expect(getByText(/won the tournament/)).toBeTruthy();
+        expect(getByText(/BigTourney/)).toBeTruthy();
+
+        const achievementNotification = {
+            ...systemNotification,
+            id: 'sys4',
             metadata: {
                 notification_type: 'achievement_unlocked',
                 achieverNickname: 'Achiever',
-                achievementName: 'FirstWin'
+                achievementName: 'First Win'
             }
         };
-
-        const {rerender, getByText} = render(<ChatMessageItem message={tournamentWonNotification}/>);
-        expect(getByText(/Champion/)).toBeTruthy();
-        expect(getByText(/zwyciężył\(a\) w turnieju/)).toBeTruthy();
-        expect(getByText(/BigTourney/)).toBeTruthy();
-
         rerender(<ChatMessageItem message={achievementNotification}/>);
         expect(getByText(/Achiever/)).toBeTruthy();
-        expect(getByText(/zdobył\(a\) osiągnięcie:/)).toBeTruthy();
-        expect(getByText(/FirstWin/)).toBeTruthy();
+        expect(getByText(/unlocked achievement:/)).toBeTruthy();
+        expect(getByText(/First Win/)).toBeTruthy();
     });
 
     // Test own message styling (conceptual, actual style check is complex)

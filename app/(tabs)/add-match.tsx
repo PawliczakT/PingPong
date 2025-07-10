@@ -109,13 +109,13 @@ export default function AddMatchScreen() {
 
         try {
             if (isOnline) {
-                await addMatch(
-                    player1.id,
-                    player2.id,
-                    player1Sets,
-                    player2Sets,
-                    sets
-                );
+                await addMatch({
+                    player1Id: player1.id,
+                    player2Id: player2.id,
+                    player1Score: player1Sets,
+                    player2Score: player2Sets,
+                    sets: sets,
+                });
             } else {
                 addPendingMatch({
                     id: `pending-${Date.now()}`,

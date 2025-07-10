@@ -60,26 +60,26 @@ export default function PlayerCard({
                 ) : null}
                 {showStats && !statValue && (
                     <View style={styles.statsContainer}>
-                        <View style={styles.statItem}>
+                        <View style={styles.statItem} testID="player-card-elo">
                             <Text style={styles.statValue}>{player.eloRating}</Text>
                             <Text style={styles.statLabel}>ELO</Text>
                         </View>
-                        <View style={styles.statItem}>
+                        <View style={styles.statItem} testID="player-card-wins">
                             <Text style={styles.statValue}>{player.wins}</Text>
                             <Text style={styles.statLabel}>Wins</Text>
                         </View>
-                        <View style={styles.statItem}>
+                        <View style={styles.statItem} testID="player-card-losses">
                             <Text style={styles.statValue}>{player.losses}</Text>
                             <Text style={styles.statLabel}>Losses</Text>
                         </View>
-                        <View style={styles.statItem}>
+                        <View style={styles.statItem} testID="player-card-winrate">
                             <Text style={styles.statValue}>
                                 {formatWinRate(player.wins, player.losses)}
                             </Text>
                             <Text style={styles.statLabel}>Win Rate</Text>
                         </View>
                         {tournamentWins > 0 && (
-                            <View style={styles.statItem}>
+                            <View style={styles.statItem} testID="player-card-tournaments">
                                 <View style={styles.tournamentWinsContainer}>
                                     <Trophy size={14} color={colors.primary}/>
                                     <Text style={styles.statValue}>{tournamentWins}</Text>

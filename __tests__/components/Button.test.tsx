@@ -1,8 +1,7 @@
-import React from 'react';
+import React, {ComponentType} from 'react';
 import {fireEvent, render, screen} from '@testing-library/react-native';
 import EmptyState from '@/components/EmptyState';
 import {Text} from 'react-native';
-import {ComponentType} from 'react';
 
 jest.mock('@/components/Button', () => 'Button');
 

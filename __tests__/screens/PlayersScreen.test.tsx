@@ -30,15 +30,39 @@ let mockPlayers = [
     {id: '4', name: 'Inactive Player', eloRating: 1300, wins: 2, losses: 8, active: false},
 ];
 
+// Mock player store data and functions
+const mockPlayerState = {
+    players: mockPlayers,
+    getPlayerById: (id: string) => mockPlayers.find(p => p.id === id),
+};
+
+// Mock ELO store data and functions
+const mockLeaderboard = [...mockPlayers]
+    .filter(p => p.active)
+    .sort((a, b) => b.eloRating - a.eloRating)
+    .map(p => ({id: p.id, rating: p.eloRating}));
+
+const mockEloState = {
+    isInitialized: true,
+    getLeaderboard: () => mockLeaderboard,
+};
+
 jest.mock('@/store/playerStore', () => ({
-    usePlayerStore: () => ({
-        players: mockPlayers,
-    }),
+    usePlayerStore: jest.fn(),
 }));
+
+jest.mock('@/store/eloStore', () => ({
+    useEloStore: jest.fn(),
+}));
+
+const usePlayerStore = require('@/store/playerStore').usePlayerStore;
+const useEloStore = require('@/store/eloStore').useEloStore;
 
 describe('PlayersScreen', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        usePlayerStore.mockReturnValue(mockPlayerState);
+        useEloStore.mockReturnValue(mockEloState);
     });
 
     it('renders the list of active players', () => {
@@ -51,12 +75,15 @@ describe('PlayersScreen', () => {
     });
 
     it('displays EmptyState when there are no active players', () => {
-        const originalPlayers = [...mockPlayers];
-        mockPlayers = [{id: '4', name: 'Inactive Player', eloRating: 1300, wins: 2, losses: 8, active: false}];
+        usePlayerStore.mockReturnValue({
+            ...mockPlayerState,
+            players: [{id: '4', name: 'Inactive Player', eloRating: 1300, wins: 2, losses: 8, active: false}],
+        });
+        useEloStore.mockReturnValue({...mockEloState, getLeaderboard: () => []});
+
         const {UNSAFE_getAllByType} = render(<PlayersScreen/>);
         const emptyState = UNSAFE_getAllByType('EmptyState');
         expect(emptyState.length).toBe(1);
-        mockPlayers = originalPlayers;
     });
 
     it('filters players based on search query', () => {

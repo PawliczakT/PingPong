@@ -2,29 +2,31 @@
 import {create} from "zustand";
 import {Achievement, HeadToHead, Match, Set} from "@/backend/types";
 import {usePlayerStore} from "./playerStore";
-import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
+import {dispatchSystemNotification} from '@/services/notificationService';
 import {
     sendAchievementNotification,
     sendMatchResultNotification,
     sendRankingChangeNotification
 } from "./notificationStore";
-import {calculateEloRating} from "@/utils/elo";
 import {supabase} from '@/app/lib/supabase';
 import {useEffect} from "react";
 import {Json} from "@/backend/types/supabase";
+import {useEloStore} from "@/store/eloStore";
+
+interface AddMatchData {
+    player1Id: string;
+    player2Id: string;
+    player1Score: number;
+    player2Score: number;
+    sets: Set[];
+    tournamentId?: string;
+}
 
 interface MatchState {
     matches: Match[];
     isLoading: boolean;
     error: string | null;
-    addMatch: (
-        player1Id: string,
-        player2Id: string,
-        player1Score: number,
-        player2Score: number,
-        sets: Set[],
-        tournamentId?: string
-    ) => Promise<Match>;
+    addMatch: (data: AddMatchData) => Promise<Match>;
     getMatchById: (matchId: string) => Match | undefined;
     getMatchesByPlayerId: (playerId: string) => Match[];
     getRecentMatches: (limit?: number) => Match[];
@@ -38,15 +40,19 @@ export const useMatchStore = create<MatchState>()(
         isLoading: false,
         error: null,
 
-        addMatch: async (player1Id, player2Id, player1Score, player2Score, sets, tournamentId) => {
+        addMatch: async (data) => {
+            const {player1Id, player2Id, player1Score, player2Score, sets, tournamentId} = data;
             set({isLoading: true, error: null});
             let newMatch: Match | null = null;
 
             try {
-                const winner = player1Score > player2Score ? player1Id : player2Id;
+                const winnerId = player1Score > player2Score ? player1Id : player2Id;
+                const loserId = player1Score > player2Score ? player2Id : player1Id;
+
                 const playerStore = usePlayerStore.getState();
                 const statsStore = require("./statsStore").useStatsStore.getState();
                 const achievementStore = require("./achievementStore").useAchievementStore.getState();
+                const eloStore = useEloStore.getState();
 
                 const player1 = playerStore.getPlayerById(player1Id);
                 const player2 = playerStore.getPlayerById(player2Id);
@@ -55,20 +61,14 @@ export const useMatchStore = create<MatchState>()(
                     throw new Error("Player not found");
                 }
 
-                const {player1NewRating, player2NewRating} = calculateEloRating(
-                    player1.eloRating,
-                    player2.eloRating,
-                    winner === player1Id
-                );
-
-                const {data, error: insertError} = await supabase.from('matches').insert([
+                const {data: insertData, error: insertError} = await supabase.from('matches').insert([
                     {
                         player1_id: player1Id,
                         player2_id: player2Id,
                         player1_score: player1Score,
                         player2_score: player2Score,
                         sets: sets as unknown as Json,
-                        winner: winner,
+                        winner: winnerId,
                         tournament_id: tournamentId,
                         date: new Date().toISOString(),
                     }
@@ -77,45 +77,50 @@ export const useMatchStore = create<MatchState>()(
                 if (insertError) throw insertError;
 
                 newMatch = {
-                    id: data.id,
-                    player1Id: data.player1_id,
-                    player2Id: data.player2_id,
-                    player1Score: data.player1_score,
-                    player2Score: data.player2_score,
-                    sets: data.sets as unknown as Set[],
-                    winner: data.winner,
-                    winnerId: data.winner,
-                    date: data.date,
-                    tournamentId: data.tournament_id,
+                    id: insertData.id,
+                    player1Id: insertData.player1_id,
+                    player2Id: insertData.player2_id,
+                    player1Score: insertData.player1_score,
+                    player2Score: insertData.player2_score,
+                    sets: insertData.sets as unknown as Set[],
+                    winner: insertData.winner,
+                    winnerId: insertData.winner,
+                    date: insertData.date,
+                    tournamentId: insertData.tournament_id,
                 };
 
+                const matchDate = new Date(newMatch.date);
+                await eloStore.updateRatingsAfterMatch(winnerId, loserId, matchDate);
+
                 await Promise.all([
-                    playerStore.updatePlayerRating(player1Id, player1NewRating),
-                    playerStore.updatePlayerRating(player2Id, player2NewRating),
-                    playerStore.updatePlayerStats(player1Id, winner === player1Id),
-                    playerStore.updatePlayerStats(player2Id, winner === player2Id),
-                    statsStore.updatePlayerStreak(player1Id, winner === player1Id),
-                    statsStore.updatePlayerStreak(player2Id, winner === player2Id),
-                    statsStore.addRankingChange({
-                        playerId: player1Id,
-                        oldRating: player1.eloRating,
-                        newRating: player1NewRating,
-                        change: player1NewRating - player1.eloRating,
-                        date: new Date().toISOString(),
-                        matchId: newMatch.id
-                    }),
-                    statsStore.addRankingChange({
-                        playerId: player2Id,
-                        oldRating: player2.eloRating,
-                        newRating: player2NewRating,
-                        change: player2NewRating - player2.eloRating,
-                        date: new Date().toISOString(),
-                        matchId: newMatch.id
-                    })
+                    playerStore.updatePlayerStats(player1Id, winnerId === player1Id),
+                    playerStore.updatePlayerStats(player2Id, winnerId === player2Id),
+                    statsStore.updatePlayerStreak(player1Id, winnerId === player1Id),
+                    statsStore.updatePlayerStreak(player2Id, winnerId === player2Id),
                 ]);
 
                 const updatedPlayer1 = playerStore.getPlayerById(player1Id) || player1;
                 const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
+
+                // Send ranking change notifications based on the new data from the store
+                if (newMatch && updatedPlayer1 && updatedPlayer2) {
+                    statsStore.addRankingChange({
+                        playerId: player1Id,
+                        oldRating: player1.eloRating,
+                        newRating: updatedPlayer1.eloRating,
+                        change: updatedPlayer1.eloRating - player1.eloRating,
+                        date: new Date().toISOString(),
+                        matchId: newMatch.id
+                    });
+                    statsStore.addRankingChange({
+                        playerId: player2Id,
+                        oldRating: player2.eloRating,
+                        newRating: updatedPlayer2.eloRating,
+                        change: updatedPlayer2.eloRating - player2.eloRating,
+                        date: new Date().toISOString(),
+                        matchId: newMatch.id
+                    });
+                }
 
                 try {
                     if (newMatch && updatedPlayer1 && updatedPlayer2) {
@@ -143,16 +148,16 @@ export const useMatchStore = create<MatchState>()(
                 }
 
                 try {
-                    if (Math.abs(player1NewRating - player1.eloRating) >= 15) {
-                        await sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
+                    if (Math.abs(updatedPlayer1.eloRating - player1.eloRating) >= 15) {
+                        await sendRankingChangeNotification(updatedPlayer1, player1.eloRating, updatedPlayer1.eloRating);
                     }
                 } catch (error) {
                     console.warn("Non-critical error in addMatch [sendRankingChangeNotification player1]:", error);
                 }
 
                 try {
-                    if (Math.abs(player2NewRating - player2.eloRating) >= 15) {
-                        await sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
+                    if (Math.abs(updatedPlayer2.eloRating - player2.eloRating) >= 15) {
+                        await sendRankingChangeNotification(updatedPlayer2, player2.eloRating, updatedPlayer2.eloRating);
                     }
                 } catch (error) {
                     console.warn("Non-critical error in addMatch [sendRankingChangeNotification player2]:", error);
