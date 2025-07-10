@@ -125,10 +125,14 @@ export const useMatchStore = create<MatchState>()(
                 try {
                     if (newMatch && updatedPlayer1 && updatedPlayer2) {
                         const winnerNickname =
-                            newMatch.winner === player1Id ? updatedPlayer1.nickname : updatedPlayer2.nickname;
+                            newMatch.winner === player1Id
+                                ? (updatedPlayer1.nickname ?? updatedPlayer1.name)
+                                : (updatedPlayer2.nickname ?? updatedPlayer2.name);
 
                         const loserNickname =
-                            newMatch.winner === player1Id ? updatedPlayer2.nickname : updatedPlayer1.nickname;
+                            newMatch.winner === player1Id
+                                ? (updatedPlayer2.nickname ?? updatedPlayer2.name)
+                                : (updatedPlayer1.nickname ?? updatedPlayer1.name);
 
                         await dispatchSystemNotification('match_won', {
                             notification_type: 'match_won',
@@ -185,7 +189,7 @@ export const useMatchStore = create<MatchState>()(
                             // Dispatch system notification for chat
                             dispatchSystemNotification('achievement_unlocked', {
                                 notification_type: 'achievement_unlocked',
-                                achieverNickname: updatedPlayer1.nickname,
+                                achieverNickname: updatedPlayer1.nickname!,
                                 achievementName: achievement.name,
                                 achievementId: achievement.id,
                             }).catch(e => console.warn("Failed to dispatch achievement notification for player 1", e));
@@ -201,7 +205,7 @@ export const useMatchStore = create<MatchState>()(
                             sendAchievementNotification(updatedPlayer2, achievement);
                             dispatchSystemNotification('achievement_unlocked', {
                                 notification_type: 'achievement_unlocked',
-                                achieverNickname: updatedPlayer2.nickname,
+                                achieverNickname: updatedPlayer2.nickname!,
                                 achievementName: achievement.name,
                                 achievementId: achievement.id,
                             }).catch(e => console.warn("Failed to dispatch achievement notification for player 2", e));
@@ -300,14 +304,14 @@ export const useMatchesRealtime = () => {
                 'postgres_changes',
                 {event: '*', schema: 'public', table: 'matches'},
                 () => {
-                    fetchMatchesFromSupabase().catch((e) => {
+                    fetchMatchesFromSupabase().catch((e: unknown) => {
                         console.warn("Error fetching matches from Supabase:", e);
                     })
                 }
             )
             .subscribe();
         return () => {
-            supabase.removeChannel(channel).catch(e =>
+            supabase.removeChannel(channel).catch((e: unknown) =>
                 console.error("Error removing matches channel:", e));
         };
     }, []);

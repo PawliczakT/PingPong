@@ -61,14 +61,14 @@ export const useEloStore = create<EloState>((set, get) => ({
 
         const updatedWinner = {
             ...winner,
-            eloRating: winnerStats.rating,
+            eloRating: Math.round(winnerStats.rating),
             gamesPlayed: winnerStats.gamesPlayed,
             dailyDelta: winnerStats.dailyDelta,
             lastMatchDay: winnerStats.lastMatchDay
         };
         const updatedLoser = {
             ...loser,
-            eloRating: loserStats.rating,
+            eloRating: Math.round(loserStats.rating),
             gamesPlayed: loserStats.gamesPlayed,
             dailyDelta: loserStats.dailyDelta,
             lastMatchDay: loserStats.lastMatchDay

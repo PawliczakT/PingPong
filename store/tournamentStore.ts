@@ -570,7 +570,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     .eq('tournament_id', tournamentId);
 
                 if (pErr) throw pErr;
-                const playerIds = participantsData.map(p => p.player_id);
+                const playerIds = participantsData.map((p: { player_id: string }) => p.player_id);
 
                 const groups = Array.from(new Set(groupMatches.map(m => m.group).filter(Boolean))).map(groupNum => {
                     const groupPlayerIds = new Set<string>();
@@ -644,7 +644,20 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 return;
             }
 
-            const processedTournaments = rawTournaments.map(t => {
+            type RawTournamentFromDB = {
+                id: string;
+                name: string;
+                date: string;
+                format: string;
+                status: string;
+                winner_id?: string | null;
+                created_at: string;
+                updated_at: string;
+                tournament_participants: { player_id: string }[];
+                tournament_matches: any[];
+            };
+
+            const processedTournaments = rawTournaments.map((t: RawTournamentFromDB) => {
                 const participantsData = Array.isArray(t.tournament_participants) ? t.tournament_participants : [];
                 const matchesData = Array.isArray(t.tournament_matches) ? t.tournament_matches : [];
 
@@ -654,7 +667,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     date: t.date,
                     format: t.format as TournamentFormat,
                     status: t.status as TournamentStatus,
-                    participants: participantsData.map((p: any) => p.player_id),
+                    participants: participantsData.map((p: { player_id: string }) => p.player_id),
                     matches: matchesData.map((m: any) => ({
                         id: m.id,
                         tournamentId: m.tournament_id,
@@ -680,7 +693,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 };
             });
 
-            processedTournaments.sort((a, b) => {
+            processedTournaments.sort((a: Tournament, b: Tournament) => {
                 const statusOrder: Record<TournamentStatus, number> = {
                     [TournamentStatus.IN_PROGRESS]: 1,
                     [TournamentStatus.UPCOMING]: 2,
@@ -724,7 +737,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     finalName = "Tournament 1";
                 } else {
                     let maxNumber = 0;
-                    existingTournaments?.forEach(t => {
+                    existingTournaments?.forEach((t: { name: string }) => {
                         const match = t.name.match(/Tournament (\d+)/);
                         if (match && match[1]) {
                             const num = parseInt(match[1]);
@@ -754,6 +767,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             }));
             const {error: pErr} = await supabase.from('tournament_participants').insert(participantsRows);
             if (pErr) {
+                await supabase.from('tournament_participants').delete().eq('tournament_id', tournamentId);
                 await supabase.from('tournaments').delete().eq('id', tournamentId);
                 throw pErr;
             }
@@ -781,6 +795,16 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             if (!existingTournament) throw new Error(`Tournament ${tournamentId} not found.`);
             if (existingTournament.status !== 'pending') throw new Error(`Tournament ${tournamentId} is not in pending state.`);
 
+            const {count: existingMatchesCount, error: countError} = await supabase
+                .from('tournament_matches')
+                .select('*', {count: 'exact', head: true})
+                .eq('tournament_id', tournamentId);
+
+            if (countError) throw countError;
+            if (existingMatchesCount && existingMatchesCount > 0) {
+                throw new Error('Matches for this tournament have already been generated.');
+            }
+
             const {data: participantsData, error: pFetchErr} = await supabase
                 .from('tournament_participants')
                 .select('player_id')
@@ -790,7 +814,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             if (!participantsData || participantsData.length < 2) {
                 throw new Error("Not enough participants found for this tournament.");
             }
-            const playerIds = participantsData.map(p => p.player_id);
+            const playerIds = participantsData.map((p: { player_id: string }) => p.player_id);
 
             if (existingTournament.format === TournamentFormat.KNOCKOUT && playerIds.length % 4 !== 0) {
                 throw new Error("Knockout tournaments require an even number of players");
@@ -814,70 +838,49 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             if (existingTournament.format === 'ROUND_ROBIN') {
                 const schedule = generateRoundRobinSchedule(playerIds);
-                type TournamentMatchInsertDB = Omit<TournamentMatchInsert, 'sets'>;
-
-                const matchesToInsert: TournamentMatchInsertDB[] = schedule.map((match, index) => ({
+                const matchesToInsert = schedule.map((match, index) => ({
                     id: uuidv4(),
                     tournament_id: tournamentId,
                     round: 1,
                     match_number: index + 1,
                     player1_id: match.player1Id,
                     player2_id: match.player2Id,
-                    player1_score: null,
-                    player2_score: null,
-                    winner_id: null,
                     status: 'scheduled',
-                    next_match_id: null,
                 }));
 
-                const {error: mErr} = await supabase.from('tournament_matches').insert(matchesToInsert);
-                if (mErr) throw mErr;
-                generatedMatchesInserted = true;
+                const {error} = await supabase.rpc('start_tournament', {
+                    p_tournament_id: tournamentId,
+                    p_matches: matchesToInsert,
+                });
 
-                const {error: statusErr} = await supabase
-                    .from('tournaments')
-                    .update({status: 'active'})
-                    .eq('id', tournamentId);
-                if (statusErr) throw statusErr;
+                if (error) throw error;
 
-                await get().fetchTournaments();
+                await get().fetchTournaments({force: true});
                 set({loading: false});
             } else if (existingTournament.format === 'GROUP') {
                 const numGroups = Math.min(4, Math.ceil(playerIds.length / 3));
                 const groups = generateGroups(playerIds, numGroups);
                 const groupMatches = generateGroupMatches(tournamentId, groups);
 
-                const matchesToInsert: TournamentMatchInsert[] = groupMatches.map((match, index) => ({
+                const matchesToInsert = groupMatches.map((match, index) => ({
                     id: uuidv4(),
                     tournament_id: tournamentId,
                     round: 1,
                     match_number: index + 1,
                     player1_id: match.player1Id,
                     player2_id: match.player2Id,
-                    player1_score: null,
-                    player2_score: null,
-                    winner_id: null,
                     status: 'scheduled',
-                    next_match_id: null,
                     group: match.group
                 }));
 
-                const {error: mErr} = await supabase.from('tournament_matches').insert(
-                    matchesToInsert.map(match => ({
-                        ...match,
-                        sets: match.sets ? JSON.stringify(match.sets) : null,
-                    }))
-                );
-                if (mErr) throw mErr;
-                generatedMatchesInserted = true;
+                const {error} = await supabase.rpc('start_tournament', {
+                    p_tournament_id: tournamentId,
+                    p_matches: matchesToInsert,
+                });
 
-                const {error: statusErr} = await supabase
-                    .from('tournaments')
-                    .update({status: 'active'})
-                    .eq('id', tournamentId);
-                if (statusErr) throw statusErr;
+                if (error) throw error;
 
-                await get().fetchTournaments();
+                await get().fetchTournaments({force: true});
                 set({loading: false});
             } else {
                 const numPlayers = playerIds.length;
@@ -956,22 +959,14 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     matchIdMatrix.push(currRoundMatches);
                 }
 
-                const {error: mErr} = await supabase.from('tournament_matches').insert(
-                    matchesToInsert.map(match => ({
-                        ...match,
-                        sets: match.sets ? JSON.stringify(match.sets) : null,
-                    }))
-                );
-                if (mErr) throw mErr;
-                generatedMatchesInserted = true;
+                const {error} = await supabase.rpc('start_tournament', {
+                    p_tournament_id: tournamentId,
+                    p_matches: matchesToInsert,
+                });
 
-                const {error: statusErr} = await supabase
-                    .from('tournaments')
-                    .update({status: 'active'})
-                    .eq('id', tournamentId);
-                if (statusErr) throw statusErr;
+                if (error) throw error;
 
-                await get().fetchTournaments();
+                await get().fetchTournaments({force: true});
                 set({loading: false});
             }
 
@@ -1022,33 +1017,29 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             const winnerId = p1FinalScore > p2FinalScore ? match.player1Id : match.player2Id;
 
-            const updateData = {
+            const matchStore = useMatchStore.getState();
+            const newMatch = await matchStore.addMatch({
+                player1Id: match.player1Id!,
+                player2Id: match.player2Id!,
+                player1Score: scores.player1Score,
+                player2Score: scores.player2Score,
+                sets: scores.sets || [],
+                tournamentId,
+            });
+
+            const updateData: any = {
                 player1_score: scores.player1Score,
                 player2_score: scores.player2Score,
                 winner_id: winnerId,
                 status: 'completed',
                 sets: scores.sets,
+                match_id: newMatch?.id,
             };
 
-            const matchStore = useMatchStore.getState();
-            const newMatchId = await matchStore.addMatch({
-                player1Id: match.player1Id,
-                player2Id: match.player2Id,
-                player1Score: scores.player1Score,
-                player2Score: scores.player2Score,
-                sets: scores.sets || [],
-                tournamentId: tournamentId,
-            });
+            const {error: updateMatchError} = await supabase.from('tournament_matches').update(updateData).eq('id', matchId);
 
-            if (newMatchId) {
-                const {error: updateMatchError} = await supabase
-                    .from('tournament_matches')
-                    .update({match_id: newMatchId})
-                    .eq('id', matchId);
-
-                if (updateMatchError) {
-                    console.error('Error updating tournament match with new match_id:', updateMatchError);
-                }
+            if (updateMatchError) {
+                console.error('Error updating tournament match:', updateMatchError);
             }
 
             if (match.nextMatchId) {
@@ -1059,8 +1050,10 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         player2_id?: string;
                         status?: TournamentMatch['status']
                     } = {};
-                    if (nextMatch.player1Id === null) nextMatchUpdate.player1_id = winnerId;
-                    else if (nextMatch.player2Id === null) nextMatchUpdate.player2_id = winnerId;
+                    if (winnerId) {
+                        if (nextMatch.player1Id === null) nextMatchUpdate.player1_id = winnerId;
+                        else if (nextMatch.player2Id === null) nextMatchUpdate.player2_id = winnerId;
+                    }
 
                     if ((nextMatchUpdate.player1_id || nextMatch.player1Id) && (nextMatchUpdate.player2_id || nextMatch.player2Id)) {
                         nextMatchUpdate.status = 'scheduled';
@@ -1222,16 +1215,26 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         console.log('✅ Tournament won notification dispatched successfully');
                     } catch (e) {
                         console.error('❌ Failed to dispatch tournament won notification:', e);
-                        console.error('Error details:', {
-                            message: e.message,
-                            stack: e.stack,
-                            name: e.name
-                        });
+                        if (e instanceof Error) {
+                            console.error('Error details:', {
+                                message: e.message,
+                                stack: e.stack,
+                                name: e.name
+                            });
+                        }
                         throw e;
                     }
                 }
             } catch (e) {
                 console.warn("Failed to dispatch tournament_won system notification", e);
+                if (e instanceof Error) {
+                    console.error('Error details:', {
+                        message: e.message,
+                        stack: e.stack,
+                        name: e.name
+                    });
+                }
+                throw e;
             }
 
             await get().fetchTournaments();
@@ -1260,7 +1263,7 @@ export function useTournamentsRealtime() {
         };
 
         const channel = getTournamentChannel();
-        if (channel.state !== 'joined') {
+        if (channel && channel.state !== 'joined') {
             channel
                 .on('postgres_changes', {event: '*', schema: 'public', table: 'tournaments'}, handleChanges)
                 .on('postgres_changes', {event: '*', schema: 'public', table: 'tournament_matches'}, handleChanges)
