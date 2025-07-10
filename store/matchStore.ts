@@ -8,10 +8,12 @@ import {
     sendMatchResultNotification,
     sendRankingChangeNotification
 } from "./notificationStore";
-import {calculateEloRating} from "@/utils/elo";
+// import {calculateEloRating} from "@/utils/elo"; // No longer needed
 import {supabase} from '@/app/lib/supabase';
 import {useEffect} from "react";
 import {Json} from "@/backend/types/supabase";
+import {elo} from "@/app/lib/eloService"; // Import global elo instance
+import {MatchRecord} from "@/utils/elo"; // Import MatchRecord type
 
 interface MatchState {
     matches: Match[];
@@ -55,12 +57,30 @@ export const useMatchStore = create<MatchState>()(
                     throw new Error("Player not found");
                 }
 
-                const {player1NewRating, player2NewRating} = calculateEloRating(
-                    player1.eloRating,
-                    player2.eloRating,
-                    winner === player1Id
-                );
+                const matchDate = new Date(); // Use a consistent date for all operations related to this match
 
+                // Create MatchRecord for elo service
+                const matchRecord: MatchRecord = {
+                    winner: winner,
+                    loser: winner === player1Id ? player2Id : player1Id,
+                    date: matchDate,
+                };
+
+                // Get old ratings for RankingChange event before updating Elo
+                const oldPlayer1Rating = player1.eloRating;
+                const oldPlayer2Rating = player2.eloRating;
+
+                // Update Elo ratings using the elo service
+                elo.updateMatch(matchRecord);
+
+                const player1UpdatedStats = elo.getPlayerStats(player1Id);
+                const player2UpdatedStats = elo.getPlayerStats(player2Id);
+
+                if (!player1UpdatedStats || !player2UpdatedStats) {
+                    throw new Error("Failed to get updated player stats from Elo service");
+                }
+
+                // Persist match to Supabase
                 const {data, error: insertError} = await supabase.from('matches').insert([
                     {
                         player1_id: player1Id,
@@ -70,7 +90,7 @@ export const useMatchStore = create<MatchState>()(
                         sets: sets as unknown as Json,
                         winner: winner,
                         tournament_id: tournamentId,
-                        date: new Date().toISOString(),
+                        date: matchDate.toISOString(), // Use consistent date
                     }
                 ]).select().single();
 
@@ -85,35 +105,37 @@ export const useMatchStore = create<MatchState>()(
                     sets: data.sets as unknown as Set[],
                     winner: data.winner,
                     winnerId: data.winner,
-                    date: data.date,
+                    date: data.date, // This will be the ISOString from Supabase
                     tournamentId: data.tournament_id,
                 };
 
+                // Update player stats in Supabase and local store (playerStore)
                 await Promise.all([
-                    playerStore.updatePlayerRating(player1Id, player1NewRating),
-                    playerStore.updatePlayerRating(player2Id, player2NewRating),
-                    playerStore.updatePlayerStats(player1Id, winner === player1Id),
-                    playerStore.updatePlayerStats(player2Id, winner === player2Id),
+                    playerStore.updatePlayerEloStats(player1Id, player1UpdatedStats),
+                    playerStore.updatePlayerEloStats(player2Id, player2UpdatedStats),
+                    playerStore.updatePlayerStats(player1Id, winner === player1Id), // For wins/losses
+                    playerStore.updatePlayerStats(player2Id, winner === player2Id), // For wins/losses
                     statsStore.updatePlayerStreak(player1Id, winner === player1Id),
                     statsStore.updatePlayerStreak(player2Id, winner === player2Id),
                     statsStore.addRankingChange({
                         playerId: player1Id,
-                        oldRating: player1.eloRating,
-                        newRating: player1NewRating,
-                        change: player1NewRating - player1.eloRating,
-                        date: new Date().toISOString(),
+                        oldRating: oldPlayer1Rating,
+                        newRating: player1UpdatedStats.rating,
+                        change: player1UpdatedStats.rating - oldPlayer1Rating,
+                        date: matchDate.toISOString(),
                         matchId: newMatch.id
                     }),
                     statsStore.addRankingChange({
                         playerId: player2Id,
-                        oldRating: player2.eloRating,
-                        newRating: player2NewRating,
-                        change: player2NewRating - player2.eloRating,
-                        date: new Date().toISOString(),
+                        oldRating: oldPlayer2Rating,
+                        newRating: player2UpdatedStats.rating,
+                        change: player2UpdatedStats.rating - oldPlayer2Rating,
+                        date: matchDate.toISOString(),
                         matchId: newMatch.id
                     })
                 ]);
 
+                // Fetch the possibly updated player objects from the store for notifications
                 const updatedPlayer1 = playerStore.getPlayerById(player1Id) || player1;
                 const updatedPlayer2 = playerStore.getPlayerById(player2Id) || player2;
 
@@ -143,16 +165,18 @@ export const useMatchStore = create<MatchState>()(
                 }
 
                 try {
-                    if (Math.abs(player1NewRating - player1.eloRating) >= 15) {
-                        await sendRankingChangeNotification(updatedPlayer1, player1.eloRating, player1NewRating);
+                    // Use the new rating from player1UpdatedStats for comparison
+                    if (player1UpdatedStats && Math.abs(player1UpdatedStats.rating - oldPlayer1Rating) >= 15) {
+                        await sendRankingChangeNotification(updatedPlayer1, oldPlayer1Rating, player1UpdatedStats.rating);
                     }
                 } catch (error) {
                     console.warn("Non-critical error in addMatch [sendRankingChangeNotification player1]:", error);
                 }
 
                 try {
-                    if (Math.abs(player2NewRating - player2.eloRating) >= 15) {
-                        await sendRankingChangeNotification(updatedPlayer2, player2.eloRating, player2NewRating);
+                    // Use the new rating from player2UpdatedStats for comparison
+                    if (player2UpdatedStats && Math.abs(player2UpdatedStats.rating - oldPlayer2Rating) >= 15) {
+                        await sendRankingChangeNotification(updatedPlayer2, oldPlayer2Rating, player2UpdatedStats.rating);
                     }
                 } catch (error) {
                     console.warn("Non-critical error in addMatch [sendRankingChangeNotification player2]:", error);

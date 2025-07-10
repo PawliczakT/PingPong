@@ -11,6 +11,10 @@ export interface Player {
     active: boolean;
     createdAt: string;
     updatedAt: string;
+    // New Elo fields
+    gamesPlayed: number;
+    dailyDelta: number;
+    lastMatchDay: string;
     rank?: {
         id: number;
         name: string;
