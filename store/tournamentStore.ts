@@ -484,24 +484,6 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
     }
 }
 
-const _addMatchToHistory = async (
-    match: TournamentMatch,
-    scores: { player1Score: number; player2Score: number; sets?: MatchSet[] },
-    tournamentId: string
-): Promise<void> => {
-    const {addMatch} = useMatchStore.getState();
-    if (match.player1Id && match.player2Id) {
-        await addMatch({
-            player1Id: match.player1Id,
-            player2Id: match.player2Id,
-            player1Score: scores.player1Score,
-            player2Score: scores.player2Score,
-            sets: scores.sets || [],
-            tournamentId,
-        });
-    }
-};
-
 export const useTournamentStore = create<TournamentStore>((set, get) => ({
     handleTournamentUpdate: (payload) => {
         const {eventType, new: newRecord, old} = payload;
@@ -1020,15 +1002,15 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             const newMatch = await matchStore.addMatch({
                 player1Id: match.player1Id!,
                 player2Id: match.player2Id!,
-                player1Score: scores.player1Score,
-                player2Score: scores.player2Score,
+                player1Score: p1FinalScore,
+                player2Score: p2FinalScore,
                 sets: scores.sets || [],
                 tournamentId,
             });
 
             const updateData: any = {
-                player1_score: scores.player1Score,
-                player2_score: scores.player2Score,
+                player1_score: p1FinalScore,
+                player2_score: p2FinalScore,
                 winner_id: winnerId,
                 status: 'completed',
                 sets: scores.sets,
