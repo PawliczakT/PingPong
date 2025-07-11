@@ -1,718 +1,156 @@
-import {Set as MatchSet, Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
-import {useTournamentStore} from '@/store/tournamentStore';
+/**
+ * @fileoverview Tests for the main tournament Zustand store.
+ * Focuses on initial state, basic integration of modules, and selector correctness.
+ * Detailed action/logic tests are in their respective module test files.
+ */
+import { useTournamentStore } from '@/store/tournamentStore';
+import { initialState } from '@/store/tournament/tournamentState';
+import { TournamentStatus, TournamentFormat } from '@/store/tournament/tournamentTypes';
+import type { Tournament } from '@/store/tournament/tournamentTypes';
 
-// Define mock getState functions
-const mockGetPlayerState = jest.fn();
-const mockGetMatchState = jest.fn();
-const mockAddMatch = jest.fn().mockResolvedValue({id: 'mock-match-id'});
+// Mock external dependencies used by actions/logic if they were to be called directly here.
+// However, for this top-level test, we mostly verify state and selectors.
+jest.mock('@/app/lib/supabase', () => ({
+  supabase: {
+    from: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    ilike: jest.fn().mockReturnThis(),
+    single: jest.fn().mockResolvedValue({ data: {}, error: null }),
+    channel: jest.fn().mockReturnThis(),
+    on: jest.fn().mockReturnThis(),
+    subscribe: jest.fn().mockReturnThis(),
+  },
+}));
 
-// Mock dependent stores
 jest.mock('@/store/playerStore', () => ({
-    usePlayerStore: {
-        getState: mockGetPlayerState,
-    },
+  usePlayerStore: {
+    getState: jest.fn(() => ({
+      getPlayerById: jest.fn(id => ({ id, nickname: `Player ${id}` })),
+      // Add other playerStore mocks if needed by any tested utility
+    })),
+  },
 }));
 
 jest.mock('@/store/matchStore', () => ({
-    useMatchStore: {
-        getState: () => ({
-            addMatch: mockAddMatch,
-            getMatchesByPlayerId: jest.fn(),
-        }),
-    },
+  useMatchStore: {
+    getState: jest.fn(() => ({
+      addMatch: jest.fn().mockResolvedValue({ id: 'mock-global-match-id' }),
+      // Add other matchStore mocks
+    })),
+  },
 }));
 
-// Mock Supabase
-const mockSupabaseFrom = jest.fn();
-const mockSupabaseSelect = jest.fn();
-const mockSupabaseInsert = jest.fn();
-const mockSupabaseUpdate = jest.fn();
-const mockSupabaseEq = jest.fn();
-
-jest.mock('@/lib/supabase', () => ({
-    supabase: {
-        from: (...args: any) => mockSupabaseFrom(...args),
-    },
+jest.mock('@/backend/server/trpc/services/notificationService', () => ({
+    dispatchSystemNotification: jest.fn().mockResolvedValue(undefined),
 }));
 
-// Mock uuid generation to have predictable IDs
-jest.mock('uuid', () => ({
-    v4: () => 'mock-uuid',
-}));
 
-// Mock addMatch function from matchStore
-jest.mock('@/store/matchStore', () => ({
-    useMatchStore: {
-        getState: () => ({
-            addMatch: (...args: any) => mockAddMatch(...args),
-        }),
-    },
-}));
+// Helper to reset store state before each test
+const resetStore = () => {
+  useTournamentStore.setState(initialState, true); // Replace state with initial
+};
 
-// Helper functions to create mock tournament and matches
-const createMockTournament = (
-    id: string,
-    status: TournamentStatus,
-    participants: string[],
-    winner?: string | null,
-    name: string = 'Mock Tournament',
-    format: TournamentFormat = TournamentFormat.KNOCKOUT,
-    matches: TournamentMatch[] = []
-): Tournament => ({
-    id,
-    name,
-    date: new Date().toISOString(),
-    format,
-    status,
-    participants,
-    winner: winner || undefined,
-    matches,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-});
+describe('Main Tournament Store (useTournamentStore)', () => {
+  beforeEach(() => {
+    resetStore();
+    // Clear all mocks if other tests might have set them up
+    jest.clearAllMocks();
+  });
 
-const createMockTournamentMatch = (
-    id: string,
-    tournamentId: string,
-    round: number,
-    player1Id: string | null,
-    player2Id: string | null,
-    nextMatchId?: string | null,
-    status: TournamentMatch['status'] = 'pending'
-): TournamentMatch => ({
-    id,
-    tournamentId,
-    round,
-    player1Id,
-    player2Id,
-    player1Score: 0,
-    player2Score: 0,
-    winner: null,
-    nextMatchId: nextMatchId || null,
-    status,
-    matchId: null,
-});
+  it('should initialize with the correct initial state', () => {
+    const state = useTournamentStore.getState();
+    expect(state.tournaments).toEqual(initialState.tournaments);
+    expect(state.loading).toEqual(initialState.loading);
+    expect(state.error).toEqual(initialState.error);
+    expect(state.lastFetchTimestamp).toEqual(initialState.lastFetchTimestamp);
+  });
 
-const createMockSet = (p1Score: number, p2Score: number): MatchSet => ({
-    player1Score: p1Score,
-    player2Score: p2Score
-});
+  it('should have all actions and getters defined from modules', () => {
+    const state = useTournamentStore.getState();
+    // Check for a few key actions and getters
+    expect(typeof state.fetchTournaments).toBe('function');
+    expect(typeof state.createTournament).toBe('function');
+    expect(typeof state.getTournamentById).toBe('function');
+    expect(typeof state.getActiveTournaments).toBe('function');
+    // ... etc. for other important interface methods
+  });
 
-// Spies for tournamentStore methods
-let generateTournamentMatchesSpy: jest.SpyInstance;
-let updateTournamentStatusSpy: jest.SpyInstance;
+  describe('Selectors / Getters Integration', () => {
+    const mockTournaments: Tournament[] = [
+      { id: 't1', name: 'Upcoming Tourney', date: '2024-01-01', format: TournamentFormat.KNOCKOUT, status: TournamentStatus.UPCOMING, participants: ['p1', 'p2'], matches: [], createdAt: '', updatedAt: '' },
+      { id: 't2', name: 'Active Tourney', date: '2024-01-02', format: TournamentFormat.ROUND_ROBIN, status: TournamentStatus.ACTIVE, participants: ['p3', 'p4'], matches: [], createdAt: '', updatedAt: '' },
+      { id: 't3', name: 'Completed Tourney', date: '2024-01-03', format: TournamentFormat.GROUP, status: TournamentStatus.COMPLETED, winner: 'p5', participants: ['p5', 'p6'], matches: [], createdAt: '', updatedAt: '' },
+      { id: 't4', name: 'Pending Tourney', date: '2024-01-04', format: TournamentFormat.KNOCKOUT, status: TournamentStatus.PENDING, participants: ['p1', 'p2'], matches: [], createdAt: '', updatedAt: '' },
+    ];
 
-describe('Tournament Store', () => {
-    // Reset all mocks before each test
     beforeEach(() => {
-        jest.clearAllMocks();
-
-        // Reset the tournament store state
-        useTournamentStore.setState({
-            tournaments: [],
-            loading: false,
-            error: null,
-            lastFetchTimestamp: null,
-        });
-
-        // Setup spies after state reset
-        generateTournamentMatchesSpy = jest.spyOn(
-            useTournamentStore.getState(), 'generateTournamentMatches'
-        ).mockResolvedValue();
-
-        updateTournamentStatusSpy = jest.spyOn(
-            useTournamentStore.getState(), 'updateTournamentStatus'
-        ).mockResolvedValue();
+      // Seed the store with mock tournaments for getter tests
+      useTournamentStore.setState({ tournaments: mockTournaments, loading: false, error: null, lastFetchTimestamp: Date.now() });
     });
 
-    describe('createTournament', () => {
-        let createTournamentOriginal: (name: string, date: string, format: TournamentFormat, playerIds: string[]) => Promise<string | undefined>;
-
-        beforeEach(() => {
-            jest.clearAllMocks();
-
-            // Store original implementation
-            createTournamentOriginal = useTournamentStore.getState().createTournament;
-
-            // Create a spy version that always returns our mock ID
-            const createTournamentSpy = jest.fn().mockImplementation(async (name, date, format, playerIds) => {
-                // Actually call supabase.from with 'tournaments' to make sure the mock is recorded
-                mockSupabaseFrom('tournaments');
-                return 'mock-tournament-id';
-            });
-
-            // Override the implementation
-            useTournamentStore.setState({
-                createTournament: createTournamentSpy
-            });
-        });
-
-        afterEach(() => {
-            // Restore original implementation
-            if (createTournamentOriginal) {
-                useTournamentStore.setState({
-                    createTournament: createTournamentOriginal
-                });
-            }
-        });
-
-        it('should create a new tournament with the specified parameters', async () => {
-            const store = useTournamentStore.getState();
-
-            const name = 'Test Tournament';
-            const date = new Date().toISOString();
-            const format = TournamentFormat.KNOCKOUT;
-            const playerIds = ['player1', 'player2', 'player3', 'player4'];
-
-            const tournamentId = await store.createTournament(name, date, format, playerIds);
-
-            expect(tournamentId).toBe('mock-tournament-id');
-            expect(mockSupabaseFrom).toHaveBeenCalledWith('tournaments');
-        });
-
-        it('should generate a tournament name when name is empty', async () => {
-            // This test uses the spy implementation which always returns 'mock-tournament-id'
-            const store = useTournamentStore.getState();
-            const result = await store.createTournament('', '2023-01-01', TournamentFormat.KNOCKOUT, ['player1', 'player2', 'player3', 'player4']);
-
-            expect(result).toBe('mock-tournament-id');
-            expect(mockSupabaseFrom).toHaveBeenCalledWith('tournaments');
-        });
-
-        it('should use Tournament 1 as default when fetching existing tournaments fails', async () => {
-            // This test uses the spy implementation which always returns 'mock-tournament-id'
-            const store = useTournamentStore.getState();
-            const result = await store.createTournament('', '2023-01-01', TournamentFormat.GROUP, ['player1', 'player2', 'player3', 'player4']);
-
-            expect(result).toBe('mock-tournament-id');
-            expect(mockSupabaseFrom).toHaveBeenCalledWith('tournaments');
-        });
+    it('getTournamentById should retrieve the correct tournament', () => {
+      const tournament = useTournamentStore.getState().getTournamentById('t2');
+      expect(tournament).toBeDefined();
+      expect(tournament?.name).toBe('Active Tourney');
     });
 
-    describe('generateTournamentMatches', () => {
-        beforeEach(() => {
-            jest.clearAllMocks();
-
-            // Setup the spy for generateTournamentMatches
-            const generateMatchesSpy = jest.fn().mockImplementation(async (id) => {
-                mockSupabaseFrom('tournament_matches');
-                mockSupabaseInsert({tournament_id: id});
-                return Promise.resolve();
-            });
-
-            // Override the implementation
-            useTournamentStore.setState({
-                generateTournamentMatches: generateMatchesSpy
-            });
-        });
-
-        it('should generate matches for a knockout tournament', async () => {
-            // Setup a tournament
-            const tournamentId = 'tournament1';
-            const playerIds = ['player1', 'player2', 'player3', 'player4'];
-            const tournament = createMockTournament(
-                tournamentId, TournamentStatus.UPCOMING, playerIds, null, 'Knockout Test', TournamentFormat.KNOCKOUT
-            );
-
-            // Add tournament to state
-            useTournamentStore.setState({
-                tournaments: [tournament],
-                loading: false,
-                error: null,
-                lastFetchTimestamp: null,
-            });
-
-            // Execute the method
-            await useTournamentStore.getState().generateTournamentMatches(tournamentId);
-
-            // Verify the mocks were called
-            expect(mockSupabaseFrom).toHaveBeenCalledWith('tournament_matches');
-            expect(mockSupabaseInsert).toHaveBeenCalled();
-        });
+    it('getUpcomingTournaments should retrieve upcoming and pending tournaments', () => {
+      const upcoming = useTournamentStore.getState().getUpcomingTournaments();
+      expect(upcoming.length).toBe(2);
+      expect(upcoming.some(t => t.id === 't1')).toBe(true); // UPCOMING
+      expect(upcoming.some(t => t.id === 't4')).toBe(true); // PENDING
     });
 
-    describe('updateMatchResult', () => {
-        it('should update a tournament match result correctly', async () => {
-            // Setup tournament with matches
-            const tournamentId = 'tournament1';
-            const matchId = 'match1';
-            const player1Id = 'player1';
-            const player2Id = 'player2';
-
-            const match = createMockTournamentMatch(
-                matchId, tournamentId, 1, player1Id, player2Id, 'nextMatch', 'scheduled'
-            );
-
-            const tournament = createMockTournament(
-                tournamentId, TournamentStatus.IN_PROGRESS, [player1Id, player2Id], null, 'Test Tournament',
-                TournamentFormat.KNOCKOUT, [match]
-            );
-
-            // Add tournament to state
-            useTournamentStore.setState({
-                tournaments: [tournament],
-                loading: false,
-                error: null,
-                lastFetchTimestamp: null,
-            });
-
-            // Reset mocks
-            mockSupabaseFrom.mockClear();
-            mockAddMatch.mockClear();
-
-            // Execute the method with mocked implementation
-            const updateMatchResultSpy = jest.spyOn(
-                useTournamentStore.getState(), 'updateMatchResult'
-            ).mockImplementation(async (tournamentId, matchId, scores) => {
-                // Mock what happens inside updateMatchResult
-                // Call addMatch to ensure it's properly tested
-                await mockAddMatch(
-                    player1Id,
-                    player2Id,
-                    scores.player1Score,
-                    scores.player2Score,
-                    scores.sets,
-                    tournamentId
-                );
-                return;
-            });
-
-            const scores = {
-                player1Score: 3,
-                player2Score: 1,
-                sets: [createMockSet(11, 5), createMockSet(9, 11), createMockSet(11, 7), createMockSet(11, 9)]
-            };
-
-            await useTournamentStore.getState().updateMatchResult(tournamentId, matchId, scores);
-
-            // Assert the match was added to general match history
-            expect(mockAddMatch).toHaveBeenCalledWith(
-                player1Id,
-                player2Id,
-                scores.player1Score,
-                scores.player2Score,
-                scores.sets,
-                tournamentId
-            );
-
-            // Clean up
-            updateMatchResultSpy.mockRestore();
-        });
-
-        it('should handle errors when updating match result', async () => {
-            // Setup error condition
-            const updateMatchResultSpy = jest.spyOn(
-                useTournamentStore.getState(), 'updateMatchResult'
-            ).mockRejectedValue(new Error('Mock database error'));
-
-            // Setup tournament with match
-            const tournamentId = 'tournament1';
-            const matchId = 'match1';
-            const match = createMockTournamentMatch(
-                matchId, tournamentId, 1, 'player1', 'player2', null, 'scheduled'
-            );
-            const tournament = createMockTournament(
-                tournamentId, TournamentStatus.IN_PROGRESS, ['player1', 'player2'], null, 'Test Tournament',
-                TournamentFormat.KNOCKOUT, [match]
-            );
-
-            useTournamentStore.setState({
-                tournaments: [tournament],
-                loading: false,
-                error: null,
-                lastFetchTimestamp: null,
-            });
-
-            // Execute with expectation of error
-            const scores = {player1Score: 3, player2Score: 1};
-            await expect(useTournamentStore.getState().updateMatchResult(
-                tournamentId, matchId, scores
-            )).rejects.toThrow('Mock database error');
-
-            // Clean up
-            updateMatchResultSpy.mockRestore();
-        });
+    it('getActiveTournaments should retrieve active tournaments', () => {
+      const active = useTournamentStore.getState().getActiveTournaments();
+      expect(active.length).toBe(1);
+      expect(active[0].id).toBe('t2');
     });
 
-    describe('updateMatchResult with sets', () => {
-        beforeEach(() => {
-            jest.clearAllMocks();
-
-            // Create a spy version of updateMatchResult
-            const updateMatchResultSpy = jest.fn().mockImplementation(async (tournamentId, matchId, scores) => {
-                mockSupabaseFrom('tournament_matches');
-                if (scores.sets) {
-                    mockAddMatch('player1', 'player2', scores.player1Score, scores.player2Score, scores.sets, tournamentId);
-                }
-                return Promise.resolve();
-            });
-
-            // Override the implementation
-            useTournamentStore.setState({
-                updateMatchResult: updateMatchResultSpy
-            });
-        });
-
-        it('should update a match result with set scores', async () => {
-            // Mock tournament data
-            const tournamentId = 'tournament-sets';
-            const matchId = 'match-with-sets';
-            const mockTournament = createMockTournament(
-                tournamentId,
-                TournamentStatus.IN_PROGRESS,
-                ['player1', 'player2']
-            );
-            mockTournament.matches = [
-                createMockTournamentMatch(matchId, tournamentId, 1, 'player1', 'player2', null, 'scheduled')
-            ];
-
-            // Setup store with the mock tournament
-            const store = useTournamentStore.getState();
-            useTournamentStore.setState({
-                tournaments: [mockTournament]
-            });
-
-            // Set scores with sets
-            const sets = [
-                createMockSet(11, 7),
-                createMockSet(9, 11),
-                createMockSet(11, 5)
-            ];
-
-            // Call the function
-            await store.updateMatchResult(tournamentId, matchId, {
-                player1Score: 2, // 2 sets won
-                player2Score: 1, // 1 set won
-                sets: sets
-            });
-
-            // Verify the update was called
-            expect(mockSupabaseFrom).toHaveBeenCalledWith('tournament_matches');
-            expect(mockAddMatch).toHaveBeenCalledWith('player1', 'player2', 2, 1, sets, tournamentId);
-        });
-
-        it('should handle edge cases in set scores', async () => {
-            // Mock tournament data
-            const tournamentId = 'tournament-edge';
-            const matchId = 'match-edge-case';
-            const mockTournament = createMockTournament(
-                tournamentId,
-                TournamentStatus.IN_PROGRESS,
-                ['player1', 'player2']
-            );
-            mockTournament.matches = [
-                createMockTournamentMatch(matchId, tournamentId, 1, 'player1', 'player2', null, 'scheduled')
-            ];
-
-            // Setup store with the mock tournament
-            const store = useTournamentStore.getState();
-            useTournamentStore.setState({
-                tournaments: [mockTournament]
-            });
-
-            // Edge case: a tie in set scores, but player1 wins more points overall
-            const sets = [
-                createMockSet(11, 0), // Player 1 dominates
-                createMockSet(0, 11), // Player 2 dominates
-                createMockSet(11, 9)  // Close win for Player 1
-            ];
-
-            // Call the function
-            await store.updateMatchResult(tournamentId, matchId, {
-                player1Score: 2,
-                player2Score: 1,
-                sets: sets
-            });
-
-            // Verify the update was called
-            expect(mockSupabaseFrom).toHaveBeenCalledWith('tournament_matches');
-            expect(mockAddMatch).toHaveBeenCalledWith('player1', 'player2', 2, 1, sets, tournamentId);
-        });
+    it('getCompletedTournaments should retrieve completed tournaments', () => {
+      const completed = useTournamentStore.getState().getCompletedTournaments();
+      expect(completed.length).toBe(1);
+      expect(completed[0].id).toBe('t3');
     });
 
-    describe('generateAndStartTournament', () => {
-        it('should generate and start a tournament', async () => {
-            // Setup tournament
-            const tournamentId = 'tournament1';
-            const playerIds = ['player1', 'player2', 'player3', 'player4'];
-            const tournament = createMockTournament(
-                tournamentId, TournamentStatus.UPCOMING, playerIds, null, 'Start Test', TournamentFormat.KNOCKOUT
-            );
-
-            useTournamentStore.setState({
-                tournaments: [tournament],
-                loading: false,
-                error: null,
-                lastFetchTimestamp: null,
-            });
-
-            // Setup spy for generateAndStartTournament
-            const generateAndStartTournamentSpy = jest.spyOn(
-                useTournamentStore.getState(), 'generateAndStartTournament'
-            ).mockImplementation(async (tournamentId) => {
-                // Instead of directly calling the spies, mock the behavior
-                // This avoids the type issues with calling spy instances
-                return Promise.resolve();
-            });
-
-            // Execute the method
-            await useTournamentStore.getState().generateAndStartTournament(tournamentId);
-
-            // Assert the function was called with correct parameter
-            expect(generateAndStartTournamentSpy).toHaveBeenCalledWith(tournamentId);
-
-            // We're no longer directly testing that these functions were called
-            // since we've mocked the implementation of generateAndStartTournament
-            // Instead, we're just testing that generateAndStartTournament was called correctly
-
-            // Clean up
-            generateAndStartTournamentSpy.mockRestore();
-        });
+    it('getPlayerTournamentWins should correctly count wins', () => {
+      const wins = useTournamentStore.getState().getPlayerTournamentWins('p5');
+      expect(wins).toBe(1);
+      const winsP1 = useTournamentStore.getState().getPlayerTournamentWins('p1');
+      expect(winsP1).toBe(0);
     });
+  });
 
-    describe('Tournament Formats', () => {
-        it('should handle different tournament formats', () => {
-            // Setup tournaments with different formats
-            const knockoutTournament = createMockTournament(
-                'knockout1', TournamentStatus.UPCOMING, ['p1', 'p2'], null, 'Knockout Test', TournamentFormat.KNOCKOUT
-            );
+  // A very high-level test for an action could be done here,
+  // but detailed testing of actions (including mocking Supabase responses)
+  // should be in `tournamentActions.test.ts`.
+  // This is just to ensure the action is wired up.
+  describe('Actions Integration (Basic Check)', () => {
+    it('fetchTournaments should attempt to set loading state (more detailed tests in actions test file)', async () => {
+      // Mock supabase.from().select() for this specific call if not covered by global mock
+      const mockSelect = jest.fn().mockResolvedValue({ data: [], error: null });
+      (useTournamentStore.getState() as any)._supabase // Accessing potential internal for override if needed
+        = { from: jest.fn().mockReturnThis(), select: mockSelect }; // Simplified mock path
 
-            const roundRobinTournament = createMockTournament(
-                'roundrobin1', TournamentStatus.UPCOMING, ['p1', 'p2'], null, 'Round Robin Test', TournamentFormat.ROUND_ROBIN
-            );
+      // Call the action
+      // No direct await here as we are checking initial optimistic state update
+      useTournamentStore.getState().fetchTournaments();
 
-            useTournamentStore.setState({
-                tournaments: [knockoutTournament, roundRobinTournament],
-                loading: false,
-                error: null,
-                lastFetchTimestamp: null,
-            });
+      // Check optimistic loading state (if fetch is quick, this might be flaky)
+      // This kind of test is better in tournamentActions.test.ts with controlled async behavior.
+      // For now, we assume it sets loading to true at some point.
+      // A more robust test here would be to check if the mock for supabase was called.
+      // This is primarily demonstrating that the action is callable.
+      expect(useTournamentStore.getState().loading).toBe(true); // Check initial optimistic update
 
-            // Test format identification
-            const tournaments = useTournamentStore.getState().tournaments;
-            expect(tournaments[0].format).toBe(TournamentFormat.KNOCKOUT);
-            expect(tournaments[1].format).toBe(TournamentFormat.ROUND_ROBIN);
-        });
+      // To properly test the outcome, you'd await and then check final state:
+      // await promiseFromAction;
+      // expect(useTournamentStore.getState().loading).toBe(false);
     });
+  });
 
-    describe('Tournament formats', () => {
-        let originalGenerateMatches: (tournamentId: string) => Promise<void>;
-        let originalUpdateStatus: (tournamentId: string, status: Tournament["status"]) => Promise<void>;
-
-        beforeEach(() => {
-            jest.clearAllMocks();
-
-            // Store original implementations
-            originalGenerateMatches = useTournamentStore.getState().generateTournamentMatches;
-            originalUpdateStatus = useTournamentStore.getState().updateTournamentStatus;
-        });
-
-        afterEach(() => {
-            // Restore original implementations
-            useTournamentStore.setState({
-                generateTournamentMatches: originalGenerateMatches,
-                updateTournamentStatus: originalUpdateStatus
-            });
-        });
-
-        it('should handle ROUND_ROBIN format correctly', async () => {
-            // Setup test data
-            const tournamentId = 'round-robin-tournament';
-            const playerIds = ['player1', 'player2', 'player3', 'player4'];
-            const mockTournament = createMockTournament(
-                tournamentId,
-                TournamentStatus.UPCOMING,
-                playerIds,
-                null,
-                'Round Robin Test',
-                TournamentFormat.ROUND_ROBIN
-            );
-
-            // Override with test implementations
-            useTournamentStore.setState({
-                tournaments: [mockTournament],
-                generateTournamentMatches: jest.fn().mockImplementation(async (id) => {
-                    mockSupabaseFrom('tournament_matches');
-                    // For round robin with 4 players, that's 6 matches (n*(n-1)/2)
-                    const expectedMatches = 6;
-                    for (let i = 0; i < expectedMatches; i++) {
-                        mockSupabaseInsert({tournament_id: id});
-                    }
-                    return Promise.resolve();
-                }),
-                updateTournamentStatus: jest.fn().mockImplementation(async (id, status) => {
-                    mockSupabaseFrom('tournaments');
-                    return Promise.resolve();
-                })
-            });
-
-            // Call the function directly without trying to use the original implementation
-            await useTournamentStore.getState().generateTournamentMatches(tournamentId);
-
-            // In round robin, each player plays against all others once
-            // With 4 players, that's 6 matches total (n*(n-1)/2)
-            const expectedNumberOfMatches = (playerIds.length * (playerIds.length - 1)) / 2;
-
-            // Verify the calls were made correctly
-            expect(mockSupabaseFrom).toHaveBeenCalledWith('tournament_matches');
-            expect(mockSupabaseInsert).toHaveBeenCalledTimes(expectedNumberOfMatches);
-        });
-
-        it('should handle GROUP format correctly', async () => {
-            // Setup test data
-            const tournamentId = 'group-tournament';
-            const playerIds = ['player1', 'player2', 'player3', 'player4', 'player5', 'player6', 'player7', 'player8'];
-            const mockTournament = createMockTournament(
-                tournamentId,
-                TournamentStatus.UPCOMING,
-                playerIds,
-                null,
-                'Group Format Test',
-                TournamentFormat.GROUP
-            );
-
-            // Override with test implementations
-            useTournamentStore.setState({
-                tournaments: [mockTournament],
-                generateTournamentMatches: jest.fn().mockImplementation(async (id) => {
-                    mockSupabaseFrom('tournament_matches');
-                    // For a group format, create at least as many matches as there are players
-                    for (let i = 0; i < playerIds.length; i++) {
-                        mockSupabaseInsert({tournament_id: id});
-                    }
-                    return Promise.resolve();
-                }),
-                updateTournamentStatus: jest.fn().mockImplementation(async (id, status) => {
-                    mockSupabaseFrom('tournaments');
-                    return Promise.resolve();
-                })
-            });
-
-            // Call the function directly to avoid using original implementations
-            await useTournamentStore.getState().generateTournamentMatches(tournamentId);
-
-            // Verify the calls were made correctly
-            expect(mockSupabaseFrom).toHaveBeenCalledWith('tournament_matches');
-            expect(mockSupabaseInsert).toHaveBeenCalledTimes(playerIds.length);
-        });
-    });
-
-    describe('setTournamentWinner', () => {
-        it('should set the tournament winner correctly', async () => {
-            // Setup tournament
-            const tournamentId = 'tournament1';
-            const winnerId = 'player1';
-            const tournament = createMockTournament(
-                tournamentId, TournamentStatus.IN_PROGRESS, ['player1', 'player2', 'player3', 'player4']
-            );
-
-            useTournamentStore.setState({
-                tournaments: [tournament],
-                loading: false,
-                error: null,
-                lastFetchTimestamp: null,
-            });
-
-            // Mock setTournamentWinner implementation
-            const setTournamentWinnerSpy = jest.spyOn(
-                useTournamentStore.getState(), 'setTournamentWinner'
-            ).mockImplementation(async (tournamentId, winnerId) => {
-                // Mock the database update
-                mockSupabaseFrom('tournaments');
-                mockSupabaseUpdate({winner_id: winnerId, status: TournamentStatus.COMPLETED});
-                return;
-            });
-
-            // Execute the method
-            await useTournamentStore.getState().setTournamentWinner(tournamentId, winnerId);
-
-            // Assert the method was called with correct parameters
-            expect(setTournamentWinnerSpy).toHaveBeenCalledWith(tournamentId, winnerId);
-
-            // Clean up
-            setTournamentWinnerSpy.mockRestore();
-        });
-    });
-
-    describe('Tournament Queries', () => {
-        beforeEach(() => {
-            // Setup various tournaments
-            const tournaments = [
-                createMockTournament('t1', TournamentStatus.UPCOMING, ['p1', 'p2']),
-                createMockTournament('t2', TournamentStatus.IN_PROGRESS, ['p3', 'p4']),
-                createMockTournament('t3', TournamentStatus.COMPLETED, ['p5', 'p6'], 'p5'),
-                createMockTournament('t4', TournamentStatus.IN_PROGRESS, ['p7', 'p8']),
-                createMockTournament('t5', TournamentStatus.COMPLETED, ['p9', 'p10'], 'p10'),
-            ];
-
-            useTournamentStore.setState({
-                tournaments,
-                loading: false,
-                error: null,
-                lastFetchTimestamp: null,
-            });
-        });
-
-        it('should get tournament by id correctly', () => {
-            const tournament = useTournamentStore.getState().getTournamentById('t3');
-            expect(tournament).toBeDefined();
-            expect(tournament?.id).toBe('t3');
-            expect(tournament?.status).toBe(TournamentStatus.COMPLETED);
-            expect(tournament?.winner).toBe('p5');
-        });
-
-        it('should get upcoming tournaments correctly', () => {
-            // Mock the implementation to ensure consistent behavior
-            const getUpcomingTournamentsSpy = jest.spyOn(
-                useTournamentStore.getState(), 'getUpcomingTournaments'
-            ).mockImplementation(() => {
-                return [useTournamentStore.getState().tournaments[0]];
-            });
-
-            const upcomingTournaments = useTournamentStore.getState().getUpcomingTournaments();
-            expect(upcomingTournaments.length).toBe(1);
-            expect(upcomingTournaments[0].id).toBe('t1');
-            expect(upcomingTournaments[0].status).toBe(TournamentStatus.UPCOMING);
-
-            // Clean up
-            getUpcomingTournamentsSpy.mockRestore();
-        });
-
-        it('should get active tournaments correctly', () => {
-            // Mock the implementation to ensure consistent behavior
-            const getActiveTournamentsSpy = jest.spyOn(
-                useTournamentStore.getState(), 'getActiveTournaments'
-            ).mockImplementation(() => {
-                return useTournamentStore.getState().tournaments.filter(t => t.status === TournamentStatus.IN_PROGRESS);
-            });
-
-            const activeTournaments = useTournamentStore.getState().getActiveTournaments();
-            expect(activeTournaments.length).toBe(2);
-            expect(activeTournaments.map(t => t.id)).toContain('t2');
-            expect(activeTournaments.map(t => t.id)).toContain('t4');
-            expect(activeTournaments.every(t => t.status === TournamentStatus.IN_PROGRESS)).toBe(true);
-
-            // Clean up
-            getActiveTournamentsSpy.mockRestore();
-        });
-
-        it('should get completed tournaments correctly', () => {
-            // Mock the implementation to ensure consistent behavior
-            const getCompletedTournamentsSpy = jest.spyOn(
-                useTournamentStore.getState(), 'getCompletedTournaments'
-            ).mockImplementation(() => {
-                return useTournamentStore.getState().tournaments.filter(t => t.status === TournamentStatus.COMPLETED);
-            });
-
-            const completedTournaments = useTournamentStore.getState().getCompletedTournaments();
-            expect(completedTournaments.length).toBe(2);
-            expect(completedTournaments.map(t => t.id)).toContain('t3');
-            expect(completedTournaments.map(t => t.id)).toContain('t5');
-            expect(completedTournaments.every(t => t.status === TournamentStatus.COMPLETED)).toBe(true);
-            expect(completedTournaments.every(t => t.winner !== null)).toBe(true);
-
-            // Clean up
-            getCompletedTournamentsSpy.mockRestore();
-        });
-    });
 });
