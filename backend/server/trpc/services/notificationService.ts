@@ -1,7 +1,7 @@
-//services/notificationService.ts
-import {supabase} from '@/backend/server/lib/supabase';
+//backend/server/trpc/services/notificationService.ts
+import {supabase} from '../../../server/lib/supabase';
 import {z} from 'zod'
-import {Json} from '@/backend/types/supabase';
+import {Json} from '../../../../backend/types/supabase';
 
 interface BaseMetadata {
     notification_type: SystemNotificationType;
@@ -128,22 +128,6 @@ export async function dispatchSystemNotification<T extends SystemNotificationTyp
         }
         throw error;
     }
-}
-
-async function exampleUsage() {
-    await dispatchSystemNotification('match_won', {
-        notification_type: 'match_won',
-        winnerNickname: "PlayerA",
-        loserNickname: "PlayerB",
-        matchId: "uuid-match-123"
-    });
-
-    await dispatchSystemNotification('achievement_unlocked', {
-        notification_type: 'achievement_unlocked',
-        achieverNickname: "PlayerC",
-        achievementName: "Pierwsza Wygrana",
-        achievementId: "uuid-achievement-456"
-    });
 }
 
 console.log('Created backend/services/notificationService.ts');

@@ -1,5 +1,5 @@
-// Używamy ścieżki względnej zamiast aliasu @/backend/types
-import {Achievement, AchievementType} from "../backend/types";
+//constants/achievements.ts
+import { Achievement, AchievementType } from './../backend/types';
 
 export const achievements: Achievement[] = [
     {

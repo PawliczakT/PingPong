@@ -39,7 +39,7 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 // This mock is crucial to prevent the WebSocket error
-jest.mock('@/services/notificationService', () => ({
+jest.mock('@/backend/server/trpc/services/notificationService', () => ({
     dispatchSystemNotification: jest.fn(),
 }));
 
@@ -492,7 +492,7 @@ describe('Tournament Store', () => {
             });
             mockFrom.mockReturnValue(supabaseMock);
 
-            const { dispatchSystemNotification } = require('@/services/notificationService');
+            const { dispatchSystemNotification } = require('@/backend/server/trpc/services/notificationService');
 
             await useTournamentStore.getState().setTournamentWinner(tournamentId, winnerId);
 

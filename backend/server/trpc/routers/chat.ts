@@ -7,8 +7,8 @@ import {CHAT_MESSAGE_PAGE_SIZE} from '../../../../constants';
 import {
     dispatchSystemNotification,
     SystemNotificationMetadata,
-    SystemNotificationType
-} from '@/services/notificationService';
+    SystemNotificationType,
+} from '../../../../backend/server/trpc/services/notificationService';
 
 // Input schemas
 const sendMessageInputSchema = z.object({

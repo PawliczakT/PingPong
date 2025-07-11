@@ -2,7 +2,7 @@
 import {createTRPCReact} from '@trpc/react-query';
 import {createTRPCClient, httpBatchLink} from '@trpc/client';
 import type {AppRouter} from '../../server/trpc';
-import {supabase} from "@/app/lib/supabase";
+import {supabase} from "../../../app/lib/supabase";
 
 export const trpc = createTRPCReact<AppRouter>();
 
