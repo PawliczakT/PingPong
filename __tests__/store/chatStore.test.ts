@@ -232,13 +232,13 @@ describe('chatStore basic functionality', () => {
 
 // Dodaj testy dla reakcji
     it('should add reaction to message', async () => {
-        const reactionData = {messageId: 'msg1', emoji: '👍'};
+        const reactionData = {message_id: 'msg1', emoji: '👍'};
         mockAddReaction.mockResolvedValueOnce(reactionData);
 
         await useChatStore.getState().addReaction('msg1', '👍');
 
         expect(mockAddReaction).toHaveBeenCalledWith({
-            messageId: 'msg1',
+            message_id: 'msg1',
             emoji: '👍'
         });
     });
@@ -247,9 +247,12 @@ describe('chatStore basic functionality', () => {
         const error = new Error('Failed to add reaction');
         mockAddReaction.mockRejectedValueOnce(error);
 
-        await expect(
-            useChatStore.getState().addReaction('msg1', '👍')
-        ).rejects.toThrow('Failed to add reaction');
+        await useChatStore.getState().addReaction('msg1', '👍');
+
+        expect(useChatStore.getState().error).toEqual({
+            type: 'reaction',
+            message: 'Failed to add reaction'
+        });
     });
 
     it('should remove reaction from message', async () => {
@@ -258,7 +261,7 @@ describe('chatStore basic functionality', () => {
         await useChatStore.getState().removeReaction('msg1', '👍');
 
         expect(mockRemoveReaction).toHaveBeenCalledWith({
-            messageId: 'msg1',
+            message_id: 'msg1',
             emoji: '👍'
         });
     });
@@ -267,9 +270,12 @@ describe('chatStore basic functionality', () => {
         const error = new Error('Failed to remove reaction');
         mockRemoveReaction.mockRejectedValueOnce(error);
 
-        await expect(
-            useChatStore.getState().removeReaction('msg1', '👍')
-        ).rejects.toThrow('Failed to remove reaction');
+        await useChatStore.getState().removeReaction('msg1', '👍');
+
+        expect(useChatStore.getState().error).toEqual({
+            type: 'reaction',
+            message: 'Failed to remove reaction'
+        });
     });
 
     it('should fetch players for mention', async () => {
