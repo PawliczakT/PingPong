@@ -473,7 +473,6 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
                 } catch (e) {
                     console.warn("Failed to dispatch tournament_won notification", e);
                 }
-
                 return winner.playerId;
             }
         }
