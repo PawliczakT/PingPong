@@ -1,12 +1,12 @@
 //app/(tabs)/index.tsx
-import React, {useEffect} from "react";
-import {Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
+import React, {useEffect, useState} from "react";
+import {Pressable, ScrollView, RefreshControl, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Bell, PlusCircle, Trophy, Users} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
-import {usePlayerStore} from "@/store/playerStore";
-import {useMatchStore} from "@/store/matchStore";
+import {usePlayerStore, fetchPlayersFromSupabase} from "@/store/playerStore";
+import {useMatchStore, fetchMatchesFromSupabase} from "@/store/matchStore";
 import {useTournamentStore} from "@/store/tournamentStore";
 import {useNetworkStore} from "@/store/networkStore";
 import {useNotificationStore} from "@/store/notificationStore";
@@ -33,6 +33,23 @@ export default function HomeScreen() {
     const recentMatches = getRecentMatches(3);
     const upcomingTournaments = [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2);
     const unreadNotifications = notificationHistory.filter(n => !n.read).length;
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await Promise.all([
+                fetchPlayersFromSupabase(),
+                fetchMatchesFromSupabase(),
+                useTournamentStore.getState().fetchTournaments({force: true}),
+            ]);
+        } catch (e) {
+            console.warn("Home refresh error", e);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     useEffect(() => {
         checkNetworkStatus().then(isOnline => {
@@ -74,7 +91,7 @@ export default function HomeScreen() {
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
             <NetworkStatusBar/>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title}>Grey Zone PingPong StatKeeper</Text>

@@ -1,11 +1,11 @@
 //app/(tabs)/players.tsx
 import React, {useMemo, useState} from "react";
-import {FlatList, Pressable, StyleSheet, Text, TextInput, View} from "react-native";
+import {FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Search, Users, X} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
-import {usePlayerStore} from "@/store/playerStore";
+import {usePlayerStore, fetchPlayersFromSupabase} from "@/store/playerStore";
 import PlayerCard from "@/components/PlayerCard";
 import EmptyState from "@/components/EmptyState";
 import {useEloStore} from "@/store/eloStore";
@@ -15,6 +15,18 @@ export default function PlayersScreen() {
     const {getPlayerById, players} = usePlayerStore();
     const {isInitialized, getLeaderboard} = useEloStore();
     const [searchQuery, setSearchQuery] = useState("");
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await fetchPlayersFromSupabase();
+        } catch (e) {
+            console.warn("Failed to refresh players", e);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const sortedAndFilteredPlayers = useMemo(() => {
         if (!isInitialized) {
@@ -66,6 +78,13 @@ export default function PlayersScreen() {
                         <PlayerCard player={item} rank={index + 1}/>
                     )}
                     contentContainerStyle={styles.listContent}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor={colors.primary}
+                        />
+                    }
                     ListEmptyComponent={
                         <View style={styles.emptySearch}>
                             <Text style={styles.emptySearchText}>No players found</Text>

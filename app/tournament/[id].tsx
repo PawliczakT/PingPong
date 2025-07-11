@@ -1,9 +1,9 @@
 //app/tournament/[id].tsx
 import React, {useEffect, useState} from "react";
-import {Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View,} from "react-native";
+import {Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,} from "react-native";
 import {Stack, useLocalSearchParams, useRouter} from "expo-router";
 import {Ionicons} from '@expo/vector-icons';
-import {Calendar, Play, Trophy, Users,} from "lucide-react-native";
+import {BarChart, Calendar, Home, Play, PlusCircle, Trophy, Users,} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {colors} from "@/constants/colors";
@@ -66,6 +66,19 @@ export default function TournamentDetailScreen() {
         setShowConfirmComplete(false);
         setSelectedWinnerId(null);
     }, [tournament?.status]);
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await tournamentStore.fetchTournaments({force: true});
+        } catch (e) {
+            console.warn("Tournament detail refresh error", e);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     if (!tournament) {
         return (
@@ -306,7 +319,7 @@ export default function TournamentDetailScreen() {
                 }}
             />
 
-            <ScrollView>
+            <ScrollView contentContainerStyle={{paddingBottom: 70}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{tournament.name}</Text>
@@ -619,6 +632,25 @@ export default function TournamentDetailScreen() {
                     </View>
                 )}
             </ScrollView>
+
+            {/* Bottom Menu Banner */}
+            <View style={styles.bottomMenu}>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/')}>
+                    <Home size={22} color={colors.textLight}/>
+                </Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/players')}>
+                    <Users size={22} color={colors.textLight}/>
+                </Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/add-match')}>
+                    <PlusCircle size={24} color={colors.primary}/>
+                </Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/tournaments')}>
+                    <Trophy size={22} color={colors.textLight}/>
+                </Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/stats')}>
+                    <BarChart size={22} color={colors.textLight}/>
+                </Pressable>
+            </View>
         </SafeAreaView>
     );
 }
@@ -1036,5 +1068,18 @@ const styles = StyleSheet.create({
     },
     radioFilled: {
         backgroundColor: colors.primary,
+    },
+    bottomMenu: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        height: 60,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        backgroundColor: colors.card,
+    },
+    menuItem: {
+        flex: 1,
+        alignItems: 'center',
     },
 });

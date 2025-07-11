@@ -1,11 +1,11 @@
 //app/matches/index.tsx
 import React, {useState} from "react";
-import {FlatList, Pressable, StyleSheet, Text, TextInput, View} from "react-native";
+import {FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View} from "react-native";
 import {Stack, useRouter} from "expo-router";
 import {Plus, Search, X} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
-import {useMatchStore} from "@/store/matchStore";
+import {useMatchStore, fetchMatchesFromSupabase} from "@/store/matchStore";
 import {usePlayerStore} from "@/store/playerStore";
 import MatchCard from "@/components/MatchCard";
 import EmptyState from "@/components/EmptyState";
@@ -16,6 +16,18 @@ export default function MatchesScreen() {
     const {matches} = useMatchStore();
     const {getPlayerById} = usePlayerStore();
     const [searchQuery, setSearchQuery] = useState("");
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await fetchMatchesFromSupabase();
+        } catch (e) {
+            console.warn("Failed to refresh matches", e);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const filteredMatches = matches.filter(match => {
         if (!searchQuery) return true;
@@ -79,6 +91,7 @@ export default function MatchesScreen() {
                         <MatchCard match={item}/>
                     )}
                     contentContainerStyle={styles.listContent}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}
                     ListEmptyComponent={
                         <View style={styles.emptySearch}>
                             <Text style={styles.emptySearchText}>No matches found</Text>
