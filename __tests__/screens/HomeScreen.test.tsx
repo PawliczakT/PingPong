@@ -11,7 +11,20 @@ jest.mock('expo-router', () => ({
 jest.mock('@/components/PlayerCard', () => 'PlayerCard');
 jest.mock('@/components/MatchCard', () => 'MatchCard');
 jest.mock('@/components/TournamentCard', () => 'TournamentCard');
-jest.mock('@/components/Button', () => 'Button');
+jest.mock('@/components/Button', () => {
+    const realButton = jest.requireActual('@/components/Button');
+    const {TouchableOpacity, Text} = require('react-native');
+
+    return (props) => {
+        const {children, title, testID, ...rest} = props;
+        return (
+            <TouchableOpacity testID={testID} {...rest}>
+                <Text>{title}</Text>
+                {children}
+            </TouchableOpacity>
+        );
+    };
+});
 jest.mock('@/components/EmptyState', () => 'EmptyState');
 jest.mock('@/components/NetworkStatusBar', () => 'NetworkStatusBar');
 jest.mock('react-native-safe-area-context', () => ({
@@ -118,13 +131,12 @@ describe('HomeScreen', () => {
     });
 
     it('navigates to correct screens when View All buttons are pressed', () => {
-        const {UNSAFE_getAllByType} = render(<HomeScreen/>);
-        const buttons = UNSAFE_getAllByType('Button');
-        fireEvent.press(buttons[0]);
+        render(<HomeScreen/>);
+        fireEvent.press(screen.getByTestId('view-all-players-button'));
         expect(mockPush).toHaveBeenCalledWith('/players');
-        fireEvent.press(buttons[1]);
+        fireEvent.press(screen.getByTestId('view-all-matches-button'));
         expect(mockPush).toHaveBeenCalledWith('/matches');
-        fireEvent.press(buttons[2]);
+        fireEvent.press(screen.getByTestId('view-all-tournaments-button'));
         expect(mockPush).toHaveBeenCalledWith('/tournaments');
     });
 });

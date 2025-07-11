@@ -69,10 +69,38 @@ describe('useStatsStore', () => {
 
         it('should return players with 0% win rate if they have no matches or undefined wins/losses', () => {
             mockPlayers = [
-                {id: '1', name: 'Player A', eloRating: 1000, active: true, wins: 0, losses: 0},
-                {id: '2', name: 'Player B', eloRating: 1000, active: true, wins: undefined, losses: undefined},
-                {id: '3', name: 'Player C', eloRating: 1000, active: true, wins: 0, losses: 5}, // 0% win rate, 5 games
-                {id: '4', name: 'Player D', eloRating: 1000, active: true, wins: undefined, losses: 3}, // 0% win rate, < 5 games
+                {
+                    id: '1', name: 'Player A', eloRating: 1000, active: true, wins: 0, losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                },
+                {
+                    id: '2', name: 'Player B', eloRating: 1000, active: true, wins: undefined, losses: undefined,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                },
+                {
+                    id: '3', name: 'Player C', eloRating: 1000, active: true, wins: 0, losses: 5,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 0% win rate, 5 games
+                {
+                    id: '4', name: 'Player D', eloRating: 1000, active: true, wins: undefined, losses: 3,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 0% win rate, < 5 games
             ];
             (usePlayerStore.getState as jest.Mock).mockReturnValue({players: mockPlayers});
             const result = useStatsStore.getState().getTopWinRate(5);
@@ -85,9 +113,30 @@ describe('useStatsStore', () => {
 
         it('should correctly calculate win rates for players with mixed wins/losses', () => {
             mockPlayers = [
-                {id: '1', name: 'Player A', eloRating: 1000, active: true, wins: 5, losses: 5}, // 50%
-                {id: '2', name: 'Player B', eloRating: 1000, active: true, wins: 8, losses: 2}, // 80%
-                {id: '3', name: 'Player C', eloRating: 1000, active: true, wins: 2, losses: 8}, // 20%
+                {
+                    id: '1', name: 'Player A', eloRating: 1000, active: true, wins: 5, losses: 5,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 50%
+                {
+                    id: '2', name: 'Player B', eloRating: 1000, active: true, wins: 8, losses: 2,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 80%
+                {
+                    id: '3', name: 'Player C', eloRating: 1000, active: true, wins: 2, losses: 8,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 20%
             ];
             (usePlayerStore.getState as jest.Mock).mockReturnValue({players: mockPlayers});
             const result = useStatsStore.getState().getTopWinRate(3);
@@ -112,10 +161,38 @@ describe('useStatsStore', () => {
 
         it('should respect the limit parameter', () => {
             mockPlayers = [
-                {id: '1', name: 'Player A', eloRating: 1000, active: true, wins: 10, losses: 0}, // 100%
-                {id: '2', name: 'Player B', eloRating: 1000, active: true, wins: 8, losses: 2},  // 80%
-                {id: '3', name: 'Player C', eloRating: 1000, active: true, wins: 6, losses: 4},  // 60%
-                {id: '4', name: 'Player D', eloRating: 1000, active: true, wins: 4, losses: 6},  // 40%
+                {
+                    id: '1', name: 'Player A', eloRating: 1000, active: true, wins: 10, losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 100%
+                {
+                    id: '2', name: 'Player B', eloRating: 1000, active: true, wins: 8, losses: 2,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                },  // 80%
+                {
+                    id: '3', name: 'Player C', eloRating: 1000, active: true, wins: 6, losses: 4,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                },  // 60%
+                {
+                    id: '4', name: 'Player D', eloRating: 1000, active: true, wins: 4, losses: 6,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                },  // 40%
             ];
             (usePlayerStore.getState as jest.Mock).mockReturnValue({players: mockPlayers});
             const result = useStatsStore.getState().getTopWinRate(2);
@@ -126,10 +203,38 @@ describe('useStatsStore', () => {
 
         it('should filter out players with fewer than 5 total games', () => {
             mockPlayers = [
-                {id: '1', name: 'Player A', eloRating: 1000, active: true, wins: 2, losses: 2}, // 4 games, 50%
-                {id: '2', name: 'Player B', eloRating: 1000, active: true, wins: 3, losses: 2}, // 5 games, 60%
-                {id: '3', name: 'Player C', eloRating: 1000, active: true, wins: 1, losses: 0}, // 1 game, 100%
-                {id: '4', name: 'Player D', eloRating: 1000, active: true, wins: 10, losses: 0}, // 10 games, 100%
+                {
+                    id: '1', name: 'Player A', eloRating: 1000, active: true, wins: 2, losses: 2,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 4 games, 50%
+                {
+                    id: '2', name: 'Player B', eloRating: 1000, active: true, wins: 3, losses: 2,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 5 games, 60%
+                {
+                    id: '3', name: 'Player C', eloRating: 1000, active: true, wins: 1, losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 1 game, 100%
+                {
+                    id: '4', name: 'Player D', eloRating: 1000, active: true, wins: 10, losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // 10 games, 100%
             ];
             (usePlayerStore.getState as jest.Mock).mockReturnValue({players: mockPlayers});
             const result = useStatsStore.getState().getTopWinRate(5);
@@ -190,8 +295,26 @@ describe('useStatsStore', () => {
 
         it('should return players with longestWinStreak 0 if no streaks recorded or longest is 0', () => {
             mockPlayers = [
-                {id: '5', name: 'Player E', eloRating: 1000, active: true}, // No streak record in store
-                {id: '6', name: 'Player F', eloRating: 1000, active: true}, // Will have streak record via store setup
+                {
+                    id: '5', name: 'Player E', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // No streak record in store
+                {
+                    id: '6', name: 'Player F', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Will have streak record via store setup
             ];
             (usePlayerStore.getState as jest.Mock).mockReturnValue({players: mockPlayers});
 
@@ -213,11 +336,56 @@ describe('useStatsStore', () => {
 
         it('should return players sorted by longestWinStreak in descending order', () => {
             mockPlayers = [
-                {id: '1', name: 'Player A', eloRating: 1000, active: true}, // Streak 5
-                {id: '2', name: 'Player B', eloRating: 1000, active: true}, // Streak 8
-                {id: '3', name: 'Player C', eloRating: 1000, active: true}, // Streak 2
-                {id: '4', name: 'Player D', eloRating: 1000, active: true}, // Streak 10
-                {id: '5', name: 'Player E', eloRating: 1000, active: true}, // Streak 0 (no record)
+                {
+                    id: '1', name: 'Player A', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 5
+                {
+                    id: '2', name: 'Player B', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 8
+                {
+                    id: '3', name: 'Player C', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 2
+                {
+                    id: '4', name: 'Player D', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 10
+                {
+                    id: '5', name: 'Player E', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 0 (no record)
             ];
             (usePlayerStore.getState as jest.Mock).mockReturnValue({players: mockPlayers});
             const result = useStatsStore.getState().getLongestWinStreaks(5);
@@ -246,10 +414,46 @@ describe('useStatsStore', () => {
 
         it('should respect the limit parameter for longestWinStreaks', () => {
             mockPlayers = [
-                {id: '1', name: 'Player A', eloRating: 1000, active: true}, // Streak 5
-                {id: '2', name: 'Player B', eloRating: 1000, active: true}, // Streak 8
-                {id: '3', name: 'Player C', eloRating: 1000, active: true}, // Streak 2
-                {id: '4', name: 'Player D', eloRating: 1000, active: true}, // Streak 10
+                {
+                    id: '1', name: 'Player A', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 5
+                {
+                    id: '2', name: 'Player B', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 8
+                {
+                    id: '3', name: 'Player C', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 2
+                {
+                    id: '4', name: 'Player D', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // Streak 10
             ];
             (usePlayerStore.getState as jest.Mock).mockReturnValue({players: mockPlayers});
             const result = useStatsStore.getState().getLongestWinStreaks(2);
@@ -260,7 +464,16 @@ describe('useStatsStore', () => {
 
         it('should correctly assign 0 for longestWinStreak if player has no entry in streaks state', () => {
             mockPlayers = [
-                {id: '99', name: 'Player X', eloRating: 1000, active: true}, // No entry in streaks
+                {
+                    id: '99', name: 'Player X', eloRating: 1000, active: true,
+                    wins: 0,
+                    losses: 0,
+                    gamesPlayed: 0,
+                    dailyDelta: 0,
+                    lastMatchDay: '',
+                    createdAt: '',
+                    updatedAt: ''
+                }, // No entry in streaks
             ];
             (usePlayerStore.getState as jest.Mock).mockReturnValue({players: mockPlayers});
             // Ensure streaks state does not have '99'

@@ -34,7 +34,7 @@ export interface Set {
 }
 
 export interface Match {
-    winnerId: number;
+    winnerId: string;
     id: string;
     player1Id: string;
     player2Id: string;

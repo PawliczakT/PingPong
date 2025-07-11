@@ -71,6 +71,7 @@ const ReactionPicker: React.FC<ReactionPickerProps> = ({
 
     return (
         <Animated.View
+            testID="reaction-picker-container"
             style={[
                 styles.container,
                 {

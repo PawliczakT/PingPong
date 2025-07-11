@@ -4,7 +4,7 @@ import PlayerAvatar from '@/components/PlayerAvatar';
 import {Player} from '@/backend/types';
 
 jest.mock('expo-image', () => ({
-    Image: 'Image',
+    Image: (props: any) => <div {...props} testID="mock-expo-image"/>,
 }));
 
 describe('PlayerAvatar', () => {
@@ -14,10 +14,10 @@ describe('PlayerAvatar', () => {
     });
 
     it('renders image when avatar URL is provided', () => {
-        const {UNSAFE_getByType} = render(
+        const {getByTestId} = render(
             <PlayerAvatar name="John Doe" avatarUrl="https://example.com/avatar.jpg"/>
         );
-        const image = UNSAFE_getByType('Image');
+        const image = getByTestId('mock-expo-image');
         expect(image).toBeTruthy();
         expect(image.props.source).toEqual({uri: 'https://example.com/avatar.jpg'});
     });
@@ -32,11 +32,14 @@ describe('PlayerAvatar', () => {
             losses: 5,
             active: true,
             createdAt: '',
-            updatedAt: ''
+            updatedAt: '',
+            gamesPlayed: 0,
+            dailyDelta: 0,
+            lastMatchDay: ''
         };
 
-        const {UNSAFE_getByType} = render(<PlayerAvatar name="Ignored Name" player={player}/>);
-        const image = UNSAFE_getByType('Image');
+        const {getByTestId} = render(<PlayerAvatar name="Ignored Name" player={player}/>);
+        const image = getByTestId('mock-expo-image');
         expect(image).toBeTruthy();
         expect(image.props.source).toEqual({uri: 'https://example.com/jane.jpg'});
     });

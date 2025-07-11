@@ -3,12 +3,18 @@ import {render} from '@testing-library/react-native';
 import {usePlayerStore} from '@/store/playerStore';
 import {useTournamentStore} from '@/store/tournamentStore';
 import {useMatchStore} from '@/store/matchStore';
-import {TournamentFormat, TournamentStatus} from '@/backend/types';
+import {Player, TournamentFormat, TournamentStatus} from '@/backend/types';
 
 // Mock the screen components
 const TournamentsScreen = () => <React.Fragment/>;
 const TournamentDetailsScreen = () => <React.Fragment/>;
 const NewTournamentScreen = () => <React.Fragment/>;
+
+jest.mock('@/backend/server/trpc/services/notificationService', () => ({
+    notificationService: {
+        sendNotification: jest.fn(),
+    },
+}));
 
 // Mock the navigation
 jest.mock('expo-router', () => ({
@@ -27,7 +33,7 @@ const mockSupabaseSelect = jest.fn();
 const mockSupabaseInsert = jest.fn();
 const mockSupabaseUpdate = jest.fn();
 
-jest.mock('@/lib/supabase', () => ({
+jest.mock('../../app/lib/supabase', () => ({
     supabase: {
         from: (...args: any) => {
             mockSupabaseFrom(...args);
@@ -80,58 +86,127 @@ const setupTestData = () => {
     const playerStore = usePlayerStore.getState();
 
     // Mock the getPlayerById method
-    jest.spyOn(playerStore, 'getPlayerById').mockImplementation((id) => {
-        const players = [
+    jest.spyOn(playerStore, 'getPlayerById').mockImplementation((id: string) => {
+        const players: Player[] = [
             {
                 id: 'player1',
                 name: 'John Doe',
-                email: 'john@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1100,
                 wins: 5,
                 losses: 2,
+                gamesPlayed: 7,
+                dailyDelta: 10,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
             },
             {
                 id: 'player2',
                 name: 'Jane Smith',
-                email: 'jane@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1050,
-                wins: 4,
-                losses: 3,
+                wins: 3,
+                losses: 4,
+                gamesPlayed: 7,
+                dailyDelta: -5,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
             },
             {
                 id: 'player3',
-                name: 'Bob Johnson',
-                email: 'bob@example.com',
+                name: 'Peter Jones',
                 avatarUrl: undefined,
                 active: true,
-                eloRating: 1000,
-                wins: 3,
-                losses: 2,
+                eloRating: 1150,
+                wins: 8,
+                losses: 1,
+                gamesPlayed: 9,
+                dailyDelta: 20,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
             },
             {
                 id: 'player4',
-                name: 'Alice Brown',
-                email: 'alice@example.com',
+                name: 'Mary Williams',
                 avatarUrl: undefined,
                 active: true,
-                eloRating: 950,
-                wins: 2,
-                losses: 4,
+                eloRating: 1000,
+                wins: 0,
+                losses: 5,
+                gamesPlayed: 5,
+                dailyDelta: -15,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
             },
         ];
-        return players.find(p => p.id === id);
+        return players.find((p) => p.id === id);
+    });
+
+    usePlayerStore.setState({
+        players: [
+            {
+                id: 'player1',
+                name: 'John Doe',
+                avatarUrl: undefined,
+                active: true,
+                eloRating: 1100,
+                wins: 5,
+                losses: 2,
+                gamesPlayed: 7,
+                dailyDelta: 10,
+                lastMatchDay: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            },
+            {
+                id: 'player2',
+                name: 'Jane Smith',
+                avatarUrl: undefined,
+                active: true,
+                eloRating: 1050,
+                wins: 3,
+                losses: 4,
+                gamesPlayed: 7,
+                dailyDelta: -5,
+                lastMatchDay: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            },
+            {
+                id: 'player3',
+                name: 'Peter Jones',
+                avatarUrl: undefined,
+                active: true,
+                eloRating: 1150,
+                wins: 8,
+                losses: 1,
+                gamesPlayed: 9,
+                dailyDelta: 20,
+                lastMatchDay: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            },
+            {
+                id: 'player4',
+                name: 'Mary Williams',
+                avatarUrl: undefined,
+                active: true,
+                eloRating: 1000,
+                wins: 0,
+                losses: 5,
+                gamesPlayed: 5,
+                dailyDelta: -15,
+                lastMatchDay: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            },
+        ]
     });
 
     // Mock the getActivePlayersSortedByRating method
@@ -140,50 +215,58 @@ const setupTestData = () => {
             {
                 id: 'player1',
                 name: 'John Doe',
-                email: 'john@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1100,
                 wins: 5,
                 losses: 2,
+                gamesPlayed: 7,
+                dailyDelta: 10,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
             },
             {
                 id: 'player2',
                 name: 'Jane Smith',
-                email: 'jane@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1050,
-                wins: 4,
-                losses: 3,
+                wins: 3,
+                losses: 4,
+                gamesPlayed: 7,
+                dailyDelta: -5,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
             },
             {
                 id: 'player3',
-                name: 'Bob Johnson',
-                email: 'bob@example.com',
+                name: 'Peter Jones',
                 avatarUrl: undefined,
                 active: true,
-                eloRating: 1000,
-                wins: 3,
-                losses: 2,
+                eloRating: 1150,
+                wins: 8,
+                losses: 1,
+                gamesPlayed: 9,
+                dailyDelta: 20,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
             },
             {
                 id: 'player4',
-                name: 'Alice Brown',
-                email: 'alice@example.com',
+                name: 'Mary Williams',
                 avatarUrl: undefined,
                 active: true,
-                eloRating: 950,
-                wins: 2,
-                losses: 4,
+                eloRating: 1000,
+                wins: 0,
+                losses: 5,
+                gamesPlayed: 5,
+                dailyDelta: -15,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
             },
         ];
     });

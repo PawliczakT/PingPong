@@ -32,6 +32,8 @@ jest.mock('@/store/tournamentStore', () => ({
     },
 }));
 
+jest.mock('@/backend/server/trpc/services/notificationService');
+
 // Define our own initial state for testing
 const initialAchievementState = {
     playerAchievements: {},
@@ -89,6 +91,7 @@ const createMockMatch = (id: string, p1: string, p2: string, winnerId: string, s
     date,
     isComplete: true,
     tournamentId,
+    winnerId: ''
 });
 
 // Helper to create a mock set
@@ -194,7 +197,7 @@ describe('achievementStore - checkAndUpdateAchievements', () => {
 
         // Configure checkAndUpdateAchievements to simulate unlocking FIRST_WIN
         mockCheckAndUpdateAchievements.mockImplementationOnce(async () => {
-            const unlockedAchievements = [
+            return [
                 {
                     type: AchievementType.FIRST_WIN,
                     unlocked: true,
@@ -203,7 +206,6 @@ describe('achievementStore - checkAndUpdateAchievements', () => {
                     unlockedAt: expect.any(String)
                 }
             ];
-            return unlockedAchievements;
         });
 
         // Call the function

@@ -67,6 +67,7 @@ describe('PlayersScreen', () => {
 
     it('renders the list of active players', () => {
         const {UNSAFE_getAllByType} = render(<PlayersScreen/>);
+        // @ts-ignore
         const playerCards = UNSAFE_getAllByType('PlayerCard');
         expect(playerCards.length).toBe(3); // 3 active players
         expect(playerCards[0].props.player.id).toBe('1'); // Highest ELO
@@ -82,6 +83,7 @@ describe('PlayersScreen', () => {
         useEloStore.mockReturnValue({...mockEloState, getLeaderboard: () => []});
 
         const {UNSAFE_getAllByType} = render(<PlayersScreen/>);
+        // @ts-ignore
         const emptyState = UNSAFE_getAllByType('EmptyState');
         expect(emptyState.length).toBe(1);
     });
@@ -90,10 +92,12 @@ describe('PlayersScreen', () => {
         const {getByPlaceholderText, UNSAFE_getAllByType} = render(<PlayersScreen/>);
         const searchInput = getByPlaceholderText('Search players...');
         fireEvent.changeText(searchInput, 'Jane');
+        // @ts-ignore
         const playerCards = UNSAFE_getAllByType('PlayerCard');
         expect(playerCards.length).toBe(1);
         expect(playerCards[0].props.player.name).toBe('Jane Smith');
         fireEvent.changeText(searchInput, 'Johnny');
+        // @ts-ignore
         const playerCardsAfterNicknameSearch = UNSAFE_getAllByType('PlayerCard');
         expect(playerCardsAfterNicknameSearch.length).toBe(1);
         expect(playerCardsAfterNicknameSearch[0].props.player.nickname).toBe('Johnny');
@@ -110,10 +114,13 @@ describe('PlayersScreen', () => {
         const {getByPlaceholderText, UNSAFE_getAllByType} = render(<PlayersScreen/>);
         const searchInput = getByPlaceholderText('Search players...');
         fireEvent.changeText(searchInput, 'Jane');
+        // @ts-ignore
         let playerCards = UNSAFE_getAllByType('PlayerCard');
         expect(playerCards.length).toBe(1);
+        // @ts-ignore
         const xButton = screen.UNSAFE_getByType('X').parent;
         fireEvent.press(xButton);
+        // @ts-ignore
         playerCards = UNSAFE_getAllByType('PlayerCard');
         expect(playerCards.length).toBe(3);
         expect(searchInput.props.value).toBe('');

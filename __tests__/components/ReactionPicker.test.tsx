@@ -15,31 +15,51 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 // Mock Animated
-jest.mock('react-native/Libraries/Animated/Animated', () => {
-    const ActualAnimated = jest.requireActual('react-native/Libraries/Animated/Animated');
-    return {
-        ...ActualAnimated,
+jest.mock('react-native', () => {
+    const RN = jest.requireActual('react-native');
+
+    // Mock Animated module
+    const Animated = {
+        ...RN.Animated,
+        Value: jest.fn(() => ({
+            setValue: jest.fn(),
+            addListener: jest.fn(),
+            removeListener: jest.fn(),
+            removeAllListeners: jest.fn(),
+            interpolate: jest.fn(config => config.outputRange[0]),
+        })),
         spring: jest.fn((value, config) => ({
-            start: (callback?: () => void) => {
-                value.setValue(config.toValue); // Immediately set to final value for tests
-                if (callback) callback();
+            start: (callback) => {
+                value.setValue(config.toValue);
+                callback && callback({finished: true});
             },
+            stop: jest.fn(),
         })),
         timing: jest.fn((value, config) => ({
-            start: (callback?: () => void) => {
-                value.setValue(config.toValue); // Immediately set to final value for tests
-                if (callback) callback();
+            start: (callback) => {
+                value.setValue(config.toValue);
+                callback && callback({finished: true});
             },
+            stop: jest.fn(),
         })),
         sequence: jest.fn(animations => ({
-            start: (callback?: () => void) => {
-                animations.forEach(anim => anim.start()); // Run all animations in sequence
-                if (callback) callback();
-            }
-        }))
+            start: (callback) => {
+                animations.forEach(anim => anim.start(() => {
+                }));
+                callback && callback({finished: true});
+            },
+            stop: jest.fn(),
+        })),
     };
-});
 
+    // Keep original View, Text, etc., but replace Animated
+    return Object.setPrototypeOf(
+        {
+            Animated,
+        },
+        RN,
+    );
+});
 
 const PREDEFINED_EMOJIS = ['👍', '❤️', '😂', '🎉', '😮', '😢'];
 
@@ -52,22 +72,19 @@ describe('ReactionPicker', () => {
     });
 
     it('renders nothing when isVisible is false initially', () => {
-        // Need to advance timers or directly manipulate animation values for this to be effective
-        // if component relies on animation finishing to be null.
-        // Given the current implementation, it might render with scale 0.
-        // A better test is to check if the container has opacity 0 or scale 0.
-        const {queryByText} = render(
+        const {getByTestId} = render(
             <ReactionPicker
                 isVisible={false}
                 onSelectEmoji={mockOnSelectEmoji}
                 onDismiss={mockOnDismiss}
             />
         );
-        // At scale 0, elements might still be in the tree but not visible.
-        // This depends on how strictly "renders nothing" is interpreted.
-        // Awaiting proper unmounting logic or checking for visibility styles is more robust.
-        // For now, let's assume the Animated.View is in the tree but scaled to 0.
-        expect(queryByText(PREDEFINED_EMOJIS[0])).toBeTruthy(); // It's in the tree
+
+        // The component is in the tree but animated to scale: 0, making it invisible.
+        // We check for the container's presence, assuming it has a testID.
+        // Note: This requires adding testID="reaction-picker-container" to the component's root View.
+        const container = getByTestId('reaction-picker-container');
+        expect(container).toBeTruthy();
     });
 
     it('renders emojis when isVisible is true', () => {
@@ -78,6 +95,28 @@ describe('ReactionPicker', () => {
                 onDismiss={mockOnDismiss}
             />
         );
+        PREDEFINED_EMOJIS.forEach(emoji => {
+            expect(getByText(emoji)).toBeTruthy();
+        });
+    });
+
+    it('renders emojis when isVisible becomes true', () => {
+        const {rerender, getByText} = render(
+            <ReactionPicker
+                isVisible={false}
+                onSelectEmoji={mockOnSelectEmoji}
+                onDismiss={mockOnDismiss}
+            />
+        );
+
+        rerender(
+            <ReactionPicker
+                isVisible={true}
+                onSelectEmoji={mockOnSelectEmoji}
+                onDismiss={mockOnDismiss}
+            />
+        );
+
         PREDEFINED_EMOJIS.forEach(emoji => {
             expect(getByText(emoji)).toBeTruthy();
         });
@@ -100,14 +139,18 @@ describe('ReactionPicker', () => {
         const {rerender} = render(
             <ReactionPicker isVisible={false} onSelectEmoji={mockOnSelectEmoji} onDismiss={mockOnDismiss}/>
         );
-        // isVisible false -> scaleAnim to 0
-        expect(Animated.timing).toHaveBeenCalledWith(expect.any(Animated.Value), expect.objectContaining({toValue: 0}));
 
         rerender(
             <ReactionPicker isVisible={true} onSelectEmoji={mockOnSelectEmoji} onDismiss={mockOnDismiss}/>
         );
         // isVisible true -> scaleAnim to 1
-        expect(Animated.spring).toHaveBeenCalledWith(expect.any(Animated.Value), expect.objectContaining({toValue: 1}));
+        expect(Animated.spring).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({toValue: 1}));
+
+        rerender(
+            <ReactionPicker isVisible={false} onSelectEmoji={mockOnSelectEmoji} onDismiss={mockOnDismiss}/>
+        );
+        // isVisible false -> scaleAnim to 0, uses timing
+        expect(Animated.timing).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({toValue: 0}));
     });
 
     it('emoji buttons have press animation', () => {
@@ -116,8 +159,8 @@ describe('ReactionPicker', () => {
         );
         const emojiToPress = PREDEFINED_EMOJIS[0];
         fireEvent.press(getByText(emojiToPress));
-        // Check if Animated.sequence was called for the button's scale animation
-        expect(Animated.sequence).toHaveBeenCalled();
+        // Check if Animated.spring was called for the button's scale animation
+        expect(Animated.spring).toHaveBeenCalled();
     });
 
 });

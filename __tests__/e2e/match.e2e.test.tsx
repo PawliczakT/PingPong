@@ -9,6 +9,11 @@ const MatchesScreen = () => <React.Fragment/>;
 const MatchDetailsScreen = () => <React.Fragment/>;
 const NewMatchScreen = () => <React.Fragment/>;
 
+// Mock the notification service to prevent WebSocket errors
+jest.mock('../../backend/server/trpc/services/notificationService', () => ({
+    sendMatchUpdateNotification: jest.fn(),
+}));
+
 // Mock the navigation
 jest.mock('expo-router', () => ({
     useRouter: () => ({
@@ -80,6 +85,7 @@ const setupTestData = () => {
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1000,
+                rating: 1000,
                 wins: 1,
                 losses: 1,
                 gamesPlayed: 2,
@@ -95,6 +101,7 @@ const setupTestData = () => {
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1200,
+                rating: 1200,
                 wins: 1,
                 losses: 1,
                 gamesPlayed: 2,
@@ -110,6 +117,7 @@ const setupTestData = () => {
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1000,
+                rating: 1000,
                 wins: 1,
                 losses: 1,
                 gamesPlayed: 2,
@@ -125,6 +133,7 @@ const setupTestData = () => {
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1000,
+                rating: 1000,
                 wins: 0,
                 losses: 0,
                 gamesPlayed: 0,
@@ -146,6 +155,7 @@ const setupTestData = () => {
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1000,
+                rating: 1000,
                 wins: 1,
                 losses: 1,
                 gamesPlayed: 2,
@@ -163,6 +173,7 @@ const setupTestData = () => {
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1200,
+                rating: 1200,
                 wins: 1,
                 losses: 1,
                 gamesPlayed: 2,
@@ -180,6 +191,7 @@ const setupTestData = () => {
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1000,
+                rating: 1000,
                 wins: 1,
                 losses: 1,
                 gamesPlayed: 2,
@@ -197,6 +209,7 @@ const setupTestData = () => {
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1000,
+                rating: 1000,
                 wins: 0,
                 losses: 0,
                 gamesPlayed: 0,
@@ -221,7 +234,7 @@ const setupTestData = () => {
                 player2Id: 'player2',
                 player1Score: 11,
                 player2Score: 5,
-                winnerId: 1,
+                winnerId: 'player1',
                 date: new Date().toISOString(),
                 tournamentId: 'tournament1',
                 sets: [
@@ -235,7 +248,7 @@ const setupTestData = () => {
                 player2Id: 'player4',
                 player1Score: 11,
                 player2Score: 7,
-                winnerId: 1,
+                winnerId: 'player3',
                 date: new Date().toISOString(),
                 tournamentId: 'tournament1',
                 sets: [
@@ -249,7 +262,7 @@ const setupTestData = () => {
                 player2Id: 'player3',
                 player1Score: 11,
                 player2Score: 9,
-                winnerId: 1,
+                winnerId: 'player1',
                 date: new Date().toISOString(),
                 tournamentId: null,
                 sets: [
@@ -268,9 +281,11 @@ const setupTestData = () => {
     // Mock addMatch
     jest.spyOn(matchStore, 'addMatch').mockImplementation(async (data) => {
         const {player1Id, player2Id, player1Score, player2Score, sets, tournamentId} = data;
-        // Konwertujemy ID gracza na number dla winnerId
-        // Używamy 1 lub 2 jako winnerId bazując na wyniku
-        const winnerId = player1Score > player2Score ? 1 : 2;
+        const winnerStringId = player1Score > player2Score ? player1Id : player2Id;
+
+        // The winnerId in the Match object is a number, but the player IDs in the test data are strings.
+        // We need to map them correctly.
+        const winnerId = winnerStringId === 'player1' ? 1 : 2;
 
         return {
             id: 'new-match-id',
@@ -310,7 +325,7 @@ describe('Match Management E2E Flow', () => {
         expect(matches.length).toBe(3);
         expect(matches[0].player1Id).toBe('player1');
         expect(matches[0].player2Id).toBe('player2');
-        expect(matches[0].winnerId).toBe(1);
+        expect(matches[0].winnerId).toBe('player1');
     });
 
     it('should add a new match successfully', async () => {
@@ -360,7 +375,7 @@ describe('Match Management E2E Flow', () => {
         expect(match?.player2Id).toBe('player2');
         expect(match?.player1Score).toBe(11);
         expect(match?.player2Score).toBe(5);
-        expect(match?.winnerId).toBe(1);
+        expect(match?.winnerId).toBe('player1');
         expect(match?.sets.length).toBe(2);
     });
 
@@ -405,6 +420,8 @@ describe('Match Management E2E Flow', () => {
         await achievementStore.checkAndUpdateAchievements('player2');
 
         // Assert achievement check was triggered
-        expect(checkAchievementsSpy).toHaveBeenCalled();
+        expect(checkAchievementsSpy).toHaveBeenCalledTimes(2);
+        expect(checkAchievementsSpy).toHaveBeenCalledWith('player1');
+        expect(checkAchievementsSpy).toHaveBeenCalledWith('player2');
     });
 });

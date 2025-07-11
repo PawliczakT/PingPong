@@ -125,6 +125,7 @@ export default function HomeScreen() {
                             variant="text"
                             size="small"
                             onPress={() => navigateToSection("players")}
+                            testID="view-all-players-button"
                         />
                     </View>
 
@@ -153,6 +154,7 @@ export default function HomeScreen() {
                             variant="text"
                             size="small"
                             onPress={() => navigateToSection("matches")}
+                            testID="view-all-matches-button"
                         />
                     </View>
 
@@ -179,6 +181,7 @@ export default function HomeScreen() {
                             variant="text"
                             size="small"
                             onPress={() => navigateToSection("tournaments")}
+                            testID="view-all-tournaments-button"
                         />
                     </View>
 

@@ -30,7 +30,7 @@ const transformMatchData = (match: any): TournamentMatch => {
     };
 };
 
-type TournamentStore = {
+export type TournamentStore = {
     handleTournamentUpdate(payload: RealtimePostgresChangesPayload<any>): unknown;
     handleMatchUpdate(payload: RealtimePostgresChangesPayload<any>): unknown;
     generateTournamentMatches: (tournamentId: string) => Promise<void>;

@@ -12,6 +12,7 @@ type ButtonProps = {
     style?: ViewStyle | ViewStyle[];
     textStyle?: TextStyle | TextStyle[];
     icon?: React.ReactNode;
+    testID?: string;
 };
 
 export default function Button({
@@ -24,6 +25,7 @@ export default function Button({
                                    style,
                                    textStyle,
                                    icon,
+                                   testID,
                                }: ButtonProps) {
 
     const getContainerStyle = (): Array<ViewStyle> => {
@@ -106,6 +108,7 @@ export default function Button({
             onPress={onPress}
             disabled={disabled || loading}
             activeOpacity={0.7}
+            testID={testID}
         >
             {loading ? (
                 <ActivityIndicator

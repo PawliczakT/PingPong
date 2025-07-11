@@ -50,6 +50,7 @@ describe('MatchCard', () => {
         winner: 'player1',
         date: '2023-05-15T14:30:00Z',
         sets: [],
+        winnerId: ''
     };
 
     beforeEach(() => {
