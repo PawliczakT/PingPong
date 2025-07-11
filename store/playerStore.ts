@@ -34,7 +34,7 @@ export const usePlayerStore = create<PlayerState>()(
                         (!!nickname && !!p.nickname && p.nickname?.trim().toLowerCase() === nickname.trim().toLowerCase())
                 );
                 if (existing) {
-                    const errMsg = 'Użytkownik o takiej nazwie lub nicku już istnieje.';
+                    const errMsg = 'User with this name or nickname already exists';
                     set({isLoading: false, error: errMsg});
                     throw new Error(errMsg);
                 }
@@ -73,7 +73,7 @@ export const usePlayerStore = create<PlayerState>()(
                     if (player) {
                         const metadata = {
                             notification_type: 'new_player' as const,
-                            newPlayerNickname: player.nickname || player.name || 'Nowy gracz',
+                            newPlayerNickname: player.nickname || player.name || 'New player',
                             playerId: player.id,
                         };
                         await trpcClient.chat.sendSystemNotification.mutate({
@@ -192,7 +192,7 @@ export const usePlayerStore = create<PlayerState>()(
                     try {
                         const metadata = {
                             notification_type: 'rank_up' as const,
-                            playerNickname: player.nickname || player.name || 'Gracz',
+                            playerNickname: player.nickname || player.name || 'Player',
                             rankName: newRank.name,
                         };
                         await trpcClient.chat.sendSystemNotification.mutate({
