@@ -165,4 +165,5 @@ export class RatingElo {
             this.players.set(id, {...stats});
         });
     }
+
 }
