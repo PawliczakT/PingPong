@@ -1,7 +1,7 @@
 import React from "react";
 import {FlatList, Pressable, StyleSheet, Text, View} from "react-native";
 import {colors} from "@/constants/colors";
-import {Achievement, AchievementProgress} from "@/types";
+import {Achievement, AchievementProgress} from "@/backend/types";
 import AchievementBadge from "./AchievementBadge";
 import {achievements} from "@/constants/achievements";
 

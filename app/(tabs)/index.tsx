@@ -1,11 +1,12 @@
-import React, {useEffect} from "react";
-import {Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
+//app/(tabs)/index.tsx
+import React, {useEffect, useState} from "react";
+import {Pressable, ScrollView, RefreshControl, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Bell, PlusCircle, Trophy, Users} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
-import {usePlayerStore} from "@/store/playerStore";
-import {useMatchStore} from "@/store/matchStore";
+import {usePlayerStore, fetchPlayersFromSupabase} from "@/store/playerStore";
+import {useMatchStore, fetchMatchesFromSupabase} from "@/store/matchStore";
 import {useTournamentStore} from "@/store/tournamentStore";
 import {useNetworkStore} from "@/store/networkStore";
 import {useNotificationStore} from "@/store/notificationStore";
@@ -18,16 +19,37 @@ import NetworkStatusBar from "@/components/NetworkStatusBar";
 
 export default function HomeScreen() {
     const router = useRouter();
-    const {getActivePlayersSortedByRating} = usePlayerStore();
-    const {getRecentMatches} = useMatchStore();
-    const {getUpcomingTournaments, getActiveTournaments} = useTournamentStore();
-    const {checkNetworkStatus, syncPendingMatches} = useNetworkStore();
-    const {registerForPushNotifications, notificationHistory} = useNotificationStore();
+
+    const getActivePlayersSortedByRating = usePlayerStore(state => state.getActivePlayersSortedByRating);
+    const getRecentMatches = useMatchStore(state => state.getRecentMatches);
+    const getUpcomingTournaments = useTournamentStore(state => state.getUpcomingTournaments);
+    const getActiveTournaments = useTournamentStore(state => state.getActiveTournaments);
+    const checkNetworkStatus = useNetworkStore(state => state.checkNetworkStatus);
+    const syncPendingMatches = useNetworkStore(state => state.syncPendingMatches);
+    const registerForPushNotifications = useNotificationStore(state => state.registerForPushNotifications);
+    const notificationHistory = useNotificationStore(state => state.notificationHistory);
 
     const topPlayers = getActivePlayersSortedByRating().slice(0, 3);
     const recentMatches = getRecentMatches(3);
     const upcomingTournaments = [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2);
     const unreadNotifications = notificationHistory.filter(n => !n.read).length;
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await Promise.all([
+                fetchPlayersFromSupabase(),
+                fetchMatchesFromSupabase(),
+                useTournamentStore.getState().fetchTournaments({force: true}),
+            ]);
+        } catch (e) {
+            console.warn("Home refresh error", e);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     useEffect(() => {
         checkNetworkStatus().then(isOnline => {
@@ -35,10 +57,13 @@ export default function HomeScreen() {
                 syncPendingMatches();
             }
         });
-        registerForPushNotifications().catch((e) => {
-            console.error("Error registering for push notifications:", e);
-        })
-    }, []);
+
+        if (registerForPushNotifications) {
+            registerForPushNotifications().catch((e) => {
+                console.error("Error registering for push notifications:", e);
+            });
+        }
+    }, [checkNetworkStatus, syncPendingMatches, registerForPushNotifications]);
 
     const navigateToSection = (section: string) => {
         switch (section) {
@@ -66,12 +91,12 @@ export default function HomeScreen() {
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
             <NetworkStatusBar/>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title}>Grey Zone PingPong StatKeeper</Text>
                         <Pressable
+                            testID="notification-bell-button"
                             style={styles.notificationButton}
                             onPress={() => navigateToSection("notifications")}
                         >
@@ -87,7 +112,6 @@ export default function HomeScreen() {
                     </View>
                     <Text style={styles.subtitle}>Track your matches and rankings</Text>
                 </View>
-
                 <View style={styles.quickActions}>
                     <Pressable
                         style={styles.quickAction}
@@ -118,6 +142,7 @@ export default function HomeScreen() {
                             variant="text"
                             size="small"
                             onPress={() => navigateToSection("players")}
+                            testID="view-all-players-button"
                         />
                     </View>
 
@@ -134,8 +159,6 @@ export default function HomeScreen() {
                             title="No Players Yet"
                             message="Add players to start tracking their stats"
                             icon={<Users size={40} color={colors.textLight}/>}
-                            actionLabel="Add Player"
-                            onAction={() => router.push("/player/create")}
                         />
                     )}
                 </View>
@@ -148,6 +171,7 @@ export default function HomeScreen() {
                             variant="text"
                             size="small"
                             onPress={() => navigateToSection("matches")}
+                            testID="view-all-matches-button"
                         />
                     </View>
 
@@ -174,6 +198,7 @@ export default function HomeScreen() {
                             variant="text"
                             size="small"
                             onPress={() => navigateToSection("tournaments")}
+                            testID="view-all-tournaments-button"
                         />
                     </View>
 
@@ -214,9 +239,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     title: {
-        fontSize: 28,
+        fontSize: 22,
         fontWeight: "bold",
         color: colors.text,
+        flexShrink: 1,
     },
     subtitle: {
         fontSize: 16,

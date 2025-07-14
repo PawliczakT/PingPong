@@ -1,9 +1,10 @@
+//components/MatchCard.tsx
 import React from "react";
 import {Pressable, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {ArrowRight} from "lucide-react-native";
 import PlayerAvatar from "./PlayerAvatar";
-import {Match} from "@/types";
+import {Match} from "@/backend/types";
 import {colors} from "@/constants/colors";
 import {formatDate} from "@/utils/formatters";
 import {usePlayerStore} from "@/store/playerStore";
@@ -45,7 +46,6 @@ export default function MatchCard({match, onPress}: MatchCardProps) {
             <View style={styles.dateContainer}>
                 <Text style={styles.dateText}>{formatDate(match.date)}</Text>
             </View>
-
             <View style={styles.matchContainer}>
                 <View style={styles.playerContainer}>
                     <PlayerAvatar name={player1.name} avatarUrl={player1.avatarUrl} size={40}/>
@@ -56,7 +56,6 @@ export default function MatchCard({match, onPress}: MatchCardProps) {
                         {player1.name}
                     </Text>
                 </View>
-
                 <View style={styles.scoreContainer}>
                     <Text style={styles.scoreText}>
                         {match.player1Score} - {match.player2Score}
@@ -71,7 +70,6 @@ export default function MatchCard({match, onPress}: MatchCardProps) {
                         </View>
                     )}
                 </View>
-
                 <View style={styles.playerContainer}>
                     <PlayerAvatar name={player2.name} avatarUrl={player2.avatarUrl} size={40}/>
                     <Text style={[
@@ -82,7 +80,6 @@ export default function MatchCard({match, onPress}: MatchCardProps) {
                     </Text>
                 </View>
             </View>
-
             <ArrowRight size={20} color={colors.textLight}/>
         </Pressable>
     );

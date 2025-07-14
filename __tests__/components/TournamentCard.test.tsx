@@ -1,7 +1,7 @@
 import React from 'react';
 import {fireEvent, render, screen} from '@testing-library/react-native';
 import TournamentCard from '@/components/TournamentCard';
-import {Tournament, TournamentFormat, TournamentStatus} from '@/types';
+import {Tournament, TournamentFormat, TournamentStatus} from '@/backend/types';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({

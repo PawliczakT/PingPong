@@ -1,4 +1,4 @@
-import {AchievementType, Match, Set as MatchSet, Tournament, TournamentFormat, TournamentStatus} from '@/types';
+import {AchievementType, Match, Set as MatchSet, Tournament, TournamentFormat, TournamentStatus} from '@/backend/types';
 import {useAchievementStore} from '@/store/achievementStore';
 import {achievements as allAchievementDefinitions} from '../../constants/achievements';
 
@@ -31,6 +31,8 @@ jest.mock('@/store/tournamentStore', () => ({
         getState: mockGetTournamentState,
     },
 }));
+
+jest.mock('@/backend/server/trpc/services/notificationService');
 
 // Define our own initial state for testing
 const initialAchievementState = {
@@ -89,6 +91,7 @@ const createMockMatch = (id: string, p1: string, p2: string, winnerId: string, s
     date,
     isComplete: true,
     tournamentId,
+    winnerId: ''
 });
 
 // Helper to create a mock set
@@ -194,7 +197,7 @@ describe('achievementStore - checkAndUpdateAchievements', () => {
 
         // Configure checkAndUpdateAchievements to simulate unlocking FIRST_WIN
         mockCheckAndUpdateAchievements.mockImplementationOnce(async () => {
-            const unlockedAchievements = [
+            return [
                 {
                     type: AchievementType.FIRST_WIN,
                     unlocked: true,
@@ -203,7 +206,6 @@ describe('achievementStore - checkAndUpdateAchievements', () => {
                     unlockedAt: expect.any(String)
                 }
             ];
-            return unlockedAchievements;
         });
 
         // Call the function
@@ -544,10 +546,46 @@ describe('achievementStore - checkAndUpdateAchievements', () => {
     it('should unlock DEFEAT_TOP_PLAYER after defeating a top 3 ranked player', async () => {
         // Przygotowujemy top graczy w rankingu
         const topPlayers = [
-            { id: 'top1', name: 'Top Player 1', eloRating: 1800, wins: 30, losses: 5, active: true, createdAt: '', updatedAt: '' },
-            { id: 'top2', name: 'Top Player 2', eloRating: 1750, wins: 25, losses: 8, active: true, createdAt: '', updatedAt: '' },
-            { id: 'top3', name: 'Top Player 3', eloRating: 1700, wins: 22, losses: 10, active: true, createdAt: '', updatedAt: '' },
-            { id: mockPlayerId, name: 'Test Player', eloRating: 1500, wins: 15, losses: 12, active: true, createdAt: '', updatedAt: '' }
+            {
+                id: 'top1',
+                name: 'Top Player 1',
+                eloRating: 1800,
+                wins: 30,
+                losses: 5,
+                active: true,
+                createdAt: '',
+                updatedAt: ''
+            },
+            {
+                id: 'top2',
+                name: 'Top Player 2',
+                eloRating: 1750,
+                wins: 25,
+                losses: 8,
+                active: true,
+                createdAt: '',
+                updatedAt: ''
+            },
+            {
+                id: 'top3',
+                name: 'Top Player 3',
+                eloRating: 1700,
+                wins: 22,
+                losses: 10,
+                active: true,
+                createdAt: '',
+                updatedAt: ''
+            },
+            {
+                id: mockPlayerId,
+                name: 'Test Player',
+                eloRating: 1500,
+                wins: 15,
+                losses: 12,
+                active: true,
+                createdAt: '',
+                updatedAt: ''
+            }
         ];
 
         // Symulujemy, że playerStore zwraca listę graczy
@@ -633,15 +671,99 @@ describe('achievementStore - checkAndUpdateAchievements', () => {
                 ...createMockTournament('tournament1', TournamentStatus.COMPLETED, [mockPlayerId, 'player2', 'player3', 'player4', 'player5', 'player6', 'player7', 'player8'], 'player2'),
                 matches: [
                     // Ćwierćfinały (round = 1)
-                    { id: 'q1', tournamentId: 'tournament1', round: 1, player1Id: mockPlayerId, player2Id: 'player5', player1Score: 3, player2Score: 1, winner: mockPlayerId, matchId: null, nextMatchId: 's1', status: 'completed' },
-                    { id: 'q2', tournamentId: 'tournament1', round: 1, player1Id: 'player2', player2Id: 'player6', player1Score: 3, player2Score: 0, winner: 'player2', matchId: null, nextMatchId: 's1', status: 'completed' },
-                    { id: 'q3', tournamentId: 'tournament1', round: 1, player1Id: 'player3', player2Id: 'player7', player1Score: 3, player2Score: 2, winner: 'player3', matchId: null, nextMatchId: 's2', status: 'completed' },
-                    { id: 'q4', tournamentId: 'tournament1', round: 1, player1Id: 'player4', player2Id: 'player8', player1Score: 0, player2Score: 3, winner: 'player8', matchId: null, nextMatchId: 's2', status: 'completed' },
+                    {
+                        id: 'q1',
+                        tournamentId: 'tournament1',
+                        round: 1,
+                        player1Id: mockPlayerId,
+                        player2Id: 'player5',
+                        player1Score: 3,
+                        player2Score: 1,
+                        winner: mockPlayerId,
+                        matchId: null,
+                        nextMatchId: 's1',
+                        status: 'completed'
+                    },
+                    {
+                        id: 'q2',
+                        tournamentId: 'tournament1',
+                        round: 1,
+                        player1Id: 'player2',
+                        player2Id: 'player6',
+                        player1Score: 3,
+                        player2Score: 0,
+                        winner: 'player2',
+                        matchId: null,
+                        nextMatchId: 's1',
+                        status: 'completed'
+                    },
+                    {
+                        id: 'q3',
+                        tournamentId: 'tournament1',
+                        round: 1,
+                        player1Id: 'player3',
+                        player2Id: 'player7',
+                        player1Score: 3,
+                        player2Score: 2,
+                        winner: 'player3',
+                        matchId: null,
+                        nextMatchId: 's2',
+                        status: 'completed'
+                    },
+                    {
+                        id: 'q4',
+                        tournamentId: 'tournament1',
+                        round: 1,
+                        player1Id: 'player4',
+                        player2Id: 'player8',
+                        player1Score: 0,
+                        player2Score: 3,
+                        winner: 'player8',
+                        matchId: null,
+                        nextMatchId: 's2',
+                        status: 'completed'
+                    },
                     // Półfinały (round = 2)
-                    { id: 's1', tournamentId: 'tournament1', round: 2, player1Id: mockPlayerId, player2Id: 'player2', player1Score: 1, player2Score: 3, winner: 'player2', matchId: null, nextMatchId: 'f1', status: 'completed' },
-                    { id: 's2', tournamentId: 'tournament1', round: 2, player1Id: 'player3', player2Id: 'player8', player1Score: 3, player2Score: 0, winner: 'player3', matchId: null, nextMatchId: 'f1', status: 'completed' },
+                    {
+                        id: 's1',
+                        tournamentId: 'tournament1',
+                        round: 2,
+                        player1Id: mockPlayerId,
+                        player2Id: 'player2',
+                        player1Score: 1,
+                        player2Score: 3,
+                        winner: 'player2',
+                        matchId: null,
+                        nextMatchId: 'f1',
+                        status: 'completed'
+                    },
+                    {
+                        id: 's2',
+                        tournamentId: 'tournament1',
+                        round: 2,
+                        player1Id: 'player3',
+                        player2Id: 'player8',
+                        player1Score: 3,
+                        player2Score: 0,
+                        winner: 'player3',
+                        matchId: null,
+                        nextMatchId: 'f1',
+                        status: 'completed'
+                    },
                     // Finał (round = 3)
-                    { id: 'f1', tournamentId: 'tournament1', round: 3, player1Id: 'player2', player2Id: 'player3', player1Score: 3, player2Score: 1, winner: 'player2', matchId: null, nextMatchId: null, status: 'completed' }
+                    {
+                        id: 'f1',
+                        tournamentId: 'tournament1',
+                        round: 3,
+                        player1Id: 'player2',
+                        player2Id: 'player3',
+                        player1Score: 3,
+                        player2Score: 1,
+                        winner: 'player2',
+                        matchId: null,
+                        nextMatchId: null,
+                        status: 'completed'
+                    }
                 ]
             },
             // Dodajemy drugi turniej gdzie gracz również dotarł do ćwierćfinału
@@ -649,7 +771,19 @@ describe('achievementStore - checkAndUpdateAchievements', () => {
                 ...createMockTournament('tournament2', TournamentStatus.COMPLETED, [mockPlayerId, 'player2', 'player3', 'player4', 'player5', 'player6', 'player7', 'player8'], 'player3'),
                 matches: [
                     // Ćwierćfinały (round = 1)
-                    { id: 'q1_t2', tournamentId: 'tournament2', round: 1, player1Id: mockPlayerId, player2Id: 'player5', player1Score: 3, player2Score: 2, winner: mockPlayerId, matchId: null, nextMatchId: 's1_t2', status: 'completed' },
+                    {
+                        id: 'q1_t2',
+                        tournamentId: 'tournament2',
+                        round: 1,
+                        player1Id: mockPlayerId,
+                        player2Id: 'player5',
+                        player1Score: 3,
+                        player2Score: 2,
+                        winner: mockPlayerId,
+                        matchId: null,
+                        nextMatchId: 's1_t2',
+                        status: 'completed'
+                    },
                     // Półfinały i inne mecze pomijamy dla uproszczenia
                 ]
             }
@@ -930,9 +1064,27 @@ describe('achievementStore - checkAndUpdateAchievements', () => {
         // Symulujemy gracza, który ma 25 zwycięstw
         mockGetPlayerState.mockReturnValue({
             players: [
-                { id: mockPlayerId, name: 'Player 1', eloRating: 1500, wins: 25, losses: 10, active: true, createdAt: '', updatedAt: '' }
+                {
+                    id: mockPlayerId,
+                    name: 'Player 1',
+                    eloRating: 1500,
+                    wins: 25,
+                    losses: 10,
+                    active: true,
+                    createdAt: '',
+                    updatedAt: ''
+                }
             ],
-            getPlayerById: jest.fn().mockImplementation(id => ({ id, name: 'Player 1', eloRating: 1500, wins: 25, losses: 10, active: true, createdAt: '', updatedAt: '' }))
+            getPlayerById: jest.fn().mockImplementation(id => ({
+                id,
+                name: 'Player 1',
+                eloRating: 1500,
+                wins: 25,
+                losses: 10,
+                active: true,
+                createdAt: '',
+                updatedAt: ''
+            }))
         });
 
         // Tworzymy 25 wygranych meczy
@@ -1512,7 +1664,19 @@ describe('achievementStore - checkAndUpdateAchievements - match specific achieve
 
             // Dodajemy mecze, w tym finał, w którym gracz przegrał
             tournament.matches = [
-                { id: `final${i}`, tournamentId: `tournament${i}`, round: 2, player1Id: mockPlayerId, player2Id: 'player2', player1Score: 1, player2Score: 3, winner: 'player2', matchId: null, nextMatchId: null, status: 'completed' }
+                {
+                    id: `final${i}`,
+                    tournamentId: `tournament${i}`,
+                    round: 2,
+                    player1Id: mockPlayerId,
+                    player2Id: 'player2',
+                    player1Score: 1,
+                    player2Score: 3,
+                    winner: 'player2',
+                    matchId: null,
+                    nextMatchId: null,
+                    status: 'completed'
+                }
             ];
 
             tournaments.push(tournament);
@@ -1556,9 +1720,45 @@ describe('achievementStore - checkAndUpdateAchievements - match specific achieve
 
         // Dodajemy mecze, które gracz wygrał
         tournament.matches = [
-            { id: 'semi1', tournamentId: 'tournament1', round: 1, player1Id: mockPlayerId, player2Id: 'player3', player1Score: 3, player2Score: 0, winner: mockPlayerId, matchId: null, nextMatchId: 'final', status: 'completed' },
-            { id: 'semi2', tournamentId: 'tournament1', round: 1, player1Id: 'player2', player2Id: 'player4', player1Score: 3, player2Score: 1, winner: 'player2', matchId: null, nextMatchId: 'final', status: 'completed' },
-            { id: 'final', tournamentId: 'tournament1', round: 2, player1Id: mockPlayerId, player2Id: 'player2', player1Score: 3, player2Score: 1, winner: mockPlayerId, matchId: null, nextMatchId: null, status: 'completed' }
+            {
+                id: 'semi1',
+                tournamentId: 'tournament1',
+                round: 1,
+                player1Id: mockPlayerId,
+                player2Id: 'player3',
+                player1Score: 3,
+                player2Score: 0,
+                winner: mockPlayerId,
+                matchId: null,
+                nextMatchId: 'final',
+                status: 'completed'
+            },
+            {
+                id: 'semi2',
+                tournamentId: 'tournament1',
+                round: 1,
+                player1Id: 'player2',
+                player2Id: 'player4',
+                player1Score: 3,
+                player2Score: 1,
+                winner: 'player2',
+                matchId: null,
+                nextMatchId: 'final',
+                status: 'completed'
+            },
+            {
+                id: 'final',
+                tournamentId: 'tournament1',
+                round: 2,
+                player1Id: mockPlayerId,
+                player2Id: 'player2',
+                player1Score: 3,
+                player2Score: 1,
+                winner: mockPlayerId,
+                matchId: null,
+                nextMatchId: null,
+                status: 'completed'
+            }
         ];
 
         mockGetTournamentState.mockReturnValue({

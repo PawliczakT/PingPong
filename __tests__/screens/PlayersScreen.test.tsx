@@ -30,19 +30,44 @@ let mockPlayers = [
     {id: '4', name: 'Inactive Player', eloRating: 1300, wins: 2, losses: 8, active: false},
 ];
 
+// Mock player store data and functions
+const mockPlayerState = {
+    players: mockPlayers,
+    getPlayerById: (id: string) => mockPlayers.find(p => p.id === id),
+};
+
+// Mock ELO store data and functions
+const mockLeaderboard = [...mockPlayers]
+    .filter(p => p.active)
+    .sort((a, b) => b.eloRating - a.eloRating)
+    .map(p => ({id: p.id, rating: p.eloRating}));
+
+const mockEloState = {
+    isInitialized: true,
+    getLeaderboard: () => mockLeaderboard,
+};
+
 jest.mock('@/store/playerStore', () => ({
-    usePlayerStore: () => ({
-        players: mockPlayers,
-    }),
+    usePlayerStore: jest.fn(),
 }));
+
+jest.mock('@/store/eloStore', () => ({
+    useEloStore: jest.fn(),
+}));
+
+const usePlayerStore = require('@/store/playerStore').usePlayerStore;
+const useEloStore = require('@/store/eloStore').useEloStore;
 
 describe('PlayersScreen', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        usePlayerStore.mockReturnValue(mockPlayerState);
+        useEloStore.mockReturnValue(mockEloState);
     });
 
     it('renders the list of active players', () => {
         const {UNSAFE_getAllByType} = render(<PlayersScreen/>);
+        // @ts-ignore
         const playerCards = UNSAFE_getAllByType('PlayerCard');
         expect(playerCards.length).toBe(3); // 3 active players
         expect(playerCards[0].props.player.id).toBe('1'); // Highest ELO
@@ -51,22 +76,28 @@ describe('PlayersScreen', () => {
     });
 
     it('displays EmptyState when there are no active players', () => {
-        const originalPlayers = [...mockPlayers];
-        mockPlayers = [{id: '4', name: 'Inactive Player', eloRating: 1300, wins: 2, losses: 8, active: false}];
+        usePlayerStore.mockReturnValue({
+            ...mockPlayerState,
+            players: [{id: '4', name: 'Inactive Player', eloRating: 1300, wins: 2, losses: 8, active: false}],
+        });
+        useEloStore.mockReturnValue({...mockEloState, getLeaderboard: () => []});
+
         const {UNSAFE_getAllByType} = render(<PlayersScreen/>);
+        // @ts-ignore
         const emptyState = UNSAFE_getAllByType('EmptyState');
         expect(emptyState.length).toBe(1);
-        mockPlayers = originalPlayers;
     });
 
     it('filters players based on search query', () => {
         const {getByPlaceholderText, UNSAFE_getAllByType} = render(<PlayersScreen/>);
         const searchInput = getByPlaceholderText('Search players...');
         fireEvent.changeText(searchInput, 'Jane');
+        // @ts-ignore
         const playerCards = UNSAFE_getAllByType('PlayerCard');
         expect(playerCards.length).toBe(1);
         expect(playerCards[0].props.player.name).toBe('Jane Smith');
         fireEvent.changeText(searchInput, 'Johnny');
+        // @ts-ignore
         const playerCardsAfterNicknameSearch = UNSAFE_getAllByType('PlayerCard');
         expect(playerCardsAfterNicknameSearch.length).toBe(1);
         expect(playerCardsAfterNicknameSearch[0].props.player.nickname).toBe('Johnny');
@@ -83,19 +114,15 @@ describe('PlayersScreen', () => {
         const {getByPlaceholderText, UNSAFE_getAllByType} = render(<PlayersScreen/>);
         const searchInput = getByPlaceholderText('Search players...');
         fireEvent.changeText(searchInput, 'Jane');
+        // @ts-ignore
         let playerCards = UNSAFE_getAllByType('PlayerCard');
         expect(playerCards.length).toBe(1);
+        // @ts-ignore
         const xButton = screen.UNSAFE_getByType('X').parent;
         fireEvent.press(xButton);
+        // @ts-ignore
         playerCards = UNSAFE_getAllByType('PlayerCard');
         expect(playerCards.length).toBe(3);
         expect(searchInput.props.value).toBe('');
-    });
-
-    it('navigates to player creation screen when Add Player button is pressed', () => {
-        const {UNSAFE_getByType} = render(<PlayersScreen/>);
-        const addButton = UNSAFE_getByType('Button');
-        fireEvent(addButton, 'press');
-        expect(mockPush).toHaveBeenCalledWith('/player/create');
     });
 });

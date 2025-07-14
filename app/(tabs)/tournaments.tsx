@@ -1,5 +1,6 @@
+//app/(tabs)/tournaments.tsx
 import React, {useState} from "react";
-import {FlatList, Pressable, StyleSheet, Text, View} from "react-native";
+import {FlatList, Pressable, RefreshControl, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Plus, Trophy} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
@@ -15,7 +16,8 @@ export default function TournamentsScreen() {
         tournaments,
         getUpcomingTournaments,
         getActiveTournaments,
-        getCompletedTournaments
+        getCompletedTournaments,
+        fetchTournaments
     } = useTournamentStore();
 
     const [activeTab, setActiveTab] = useState<"upcoming" | "active" | "completed">("upcoming");
@@ -23,6 +25,19 @@ export default function TournamentsScreen() {
     const upcomingTournaments = getUpcomingTournaments();
     const activeTournaments = getActiveTournaments();
     const completedTournaments = getCompletedTournaments();
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await fetchTournaments({force: true});
+        } catch (e) {
+            console.warn("Failed to refresh tournaments", e);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const renderTournaments = () => {
         let data = [];
@@ -73,6 +88,7 @@ export default function TournamentsScreen() {
                     <TournamentCard tournament={item}/>
                 )}
                 contentContainerStyle={styles.listContent}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>} 
             />
         );
     };

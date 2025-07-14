@@ -1,7 +1,7 @@
 import React from "react";
 import {Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import {colors} from "@/constants/colors";
-import {Set as MatchSet, TournamentMatch} from "@/types";
+import {Set as MatchSet, TournamentMatch} from "@/backend/types";
 import {usePlayerStore} from "@/store/playerStore";
 import PlayerAvatar from "./PlayerAvatar";
 

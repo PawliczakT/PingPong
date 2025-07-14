@@ -1,12 +1,13 @@
+//app/achievements/index.tsx
 import {Pressable, ScrollView, Text, TouchableWithoutFeedback, View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {Stack} from 'expo-router';
 import {useAchievementStore} from '@/store/achievementStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useEffect, useRef, useState} from 'react';
-import {getAchievementIcon} from '@/constants/achievements';
-import {AchievementType} from '@/types';
+import {AchievementType} from '@/backend/types';
 import {ChevronDown, LucideIcon, User} from 'lucide-react-native';
+import {getAchievementIcon} from "@utils/iconHelpers";
 
 type DisplayAchievement = {
     type: AchievementType;

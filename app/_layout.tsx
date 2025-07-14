@@ -1,107 +1,125 @@
+//app/_layout.tsx
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {useFonts} from "expo-font";
-import {Stack} from "expo-router";
+import {Stack, useRootNavigationState, useRouter} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, {useEffect} from "react";
-import {ActivityIndicator, StyleSheet, View} from "react-native";
+import React, {useCallback, useEffect, useState} from "react";
+import {Linking, Platform} from "react-native";
 import {ErrorBoundary} from "./error-boundary";
-import {useNetworkStore} from "@/store/networkStore";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
-import {trpc, trpcClient} from "@/lib/trpc";
-import AuthGuard from "@/components/AuthGuard";
+import {trpc, trpcClient} from "@/backend/api/lib/trpc";
+import {supabase} from '@/app/lib/supabase';
+import {useAuth} from "@/store/authStore";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";
 import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
 import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
-import {fetchNotificationsFromSupabase, useNotificationsRealtime} from "@/store/notificationStore";
-import GlobalTabBar from "@/components/GlobalTabBar";
-import LogRocket from '@logrocket/react-native';
-import * as Updates from 'expo-updates';
-
+import {useNotificationStore} from "@/store/notificationStore";
+import {useNotificationsRealtime} from "@hooks/useNotificationsRealtime";
+// import {Analytics} from "@vercel/analytics/react"
+// import {SpeedInsights} from "@vercel/speed-insights/react"
 
 const queryClient = new QueryClient();
-
-SplashScreen.preventAutoHideAsync().catch((e) => {
-    console.warn("Error preventing auto-hide of splash screen:", e);
-});
+SplashScreen.preventAutoHideAsync().catch((e) => console.warn("SplashScreen error:", e));
 
 export default function RootLayout() {
-    useEffect(() => {
-        LogRocket.init('y1vslm/pingpong', {
-            updateId: Updates.isEmbeddedLaunch ? null : Updates.updateId,
-            expoChannel: Updates.channel,
-        });
+    const router = useRouter();
+    const navigationState = useRootNavigationState();
+    const [loaded, fontError] = useFonts({...FontAwesome.font});
+    const {user, isInitialized, isLoading} = useAuth();
+    const [hasProfile, setHasProfile] = useState<boolean | null>(null);
+    const [isCheckingProfile, setIsCheckingProfile] = useState(true);
 
-        LogRocket.identify('generic-user-id', {
-          name: 'Generic User',
-          email: 'generic.user@example.com',
-        });
-        console.log('LogRocket identified generic user');
 
-    }, []);
-
-    const [loaded, error] = useFonts({
-        ...FontAwesome.font,
-    });
-
-    const {checkNetworkStatus, syncPendingMatches} = useNetworkStore();
-
-    useEffect(() => {
-        if (error) {
-            console.error("Font loading error:", error);
+    const checkProfile = useCallback(async () => {
+        if (!user?.id) {
+            console.log('🔍 No user ID available for profile check');
+            setHasProfile(false);
+            setIsCheckingProfile(false);
+            return;
         }
-    }, [error]);
+
+        console.log(`🔍 Checking profile for user: ${user.id}`);
+        setIsCheckingProfile(true);
+
+        try {
+            const {data: existingPlayer, error} = await supabase
+                .from('players')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (error) {
+                console.error('🔍 Profile check error:', error.message, error.details);
+                throw error;
+            }
+
+            const hasProfile = !!existingPlayer;
+            console.log(`🔍 Profile check result: ${hasProfile ? 'found' : 'not found'}`);
+            setHasProfile(hasProfile);
+
+        } catch (error) {
+            console.error('🔍 Error checking profile:', error);
+            setHasProfile(false);
+        } finally {
+            setIsCheckingProfile(false);
+        }
+    }, [user]);
 
     useEffect(() => {
-        const hideSplash = async () => {
-            if (loaded) {
-                try {
-                    await SplashScreen.hideAsync();
-                    console.log("Splash screen hidden.");
-                } catch (e) {
-                    console.warn("SplashScreen.hideAsync error:", e);
+        const handleDeepLink = async (event: { url: string }) => {
+            if (Platform.OS === 'web') return;
+
+            const url = new URL(event.url);
+            const path = url.pathname;
+
+            try {
+                if (path.includes('/auth/callback')) {
+                    const accessToken = url.searchParams.get('access_token') ||
+                        new URLSearchParams(url.hash.substring(1)).get('access_token');
+                    const refreshToken = url.searchParams.get('refresh_token') ||
+                        new URLSearchParams(url.hash.substring(1)).get('refresh_token');
+
+                    if (accessToken && refreshToken) {
+                        await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken,
+                        });
+                        router.replace('/(tabs)');
+                    }
+                    return;
                 }
+
+                if (path.startsWith('/reset-password')) {
+                    const accessToken = url.searchParams.get('access_token');
+                    const refreshToken = url.searchParams.get('refresh_token');
+                    if (accessToken && refreshToken) {
+                        await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken,
+                        });
+                        router.replace('/');
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling deep link:', error);
+                router.replace('/(auth)/login');
             }
         };
-        hideSplash().catch((e) => {
-            console.warn("Error hiding splash screen:", e);
+
+        const subscription = Linking.addEventListener('url', handleDeepLink);
+        Linking.getInitialURL().then(url => {
+            if (url) handleDeepLink({url});
         });
-    }, [loaded]);
+
+        return () => subscription.remove();
+    }, [router]);
 
     useEffect(() => {
-        const initializeNetwork = async () => {
-            console.log("Initializing network check...");
-            try {
-                const isOnline = await checkNetworkStatus();
-                if (isOnline) {
-                    console.log("App start: Online, syncing pending matches...");
-                    await syncPendingMatches();
-                    console.log("App start: Sync complete.");
-                } else {
-                    console.log("App start: Offline.");
-                }
-            } catch (err) {
-                console.error("Error during initial network check/sync:", err);
-            }
-        };
-
-        initializeNetwork().catch((e) => {
-            console.warn("Error during network initialization:", e);
-        });
-
-        const interval = setInterval(async () => {
-            try {
-                const isOnline = await checkNetworkStatus();
-                if (isOnline) {
-                    await syncPendingMatches();
-                }
-            } catch (err) {
-                console.error("Error during periodic network check/sync:", err);
-            }
-        }, 60000);
-
-        return () => clearInterval(interval);
-    }, [checkNetworkStatus, syncPendingMatches]);
+        if (isInitialized) {
+            checkProfile();
+        }
+    }, [user, isInitialized, checkProfile]);
 
     usePlayersRealtime();
     useMatchesRealtime();
@@ -110,77 +128,114 @@ export default function RootLayout() {
     useNotificationsRealtime();
 
     useEffect(() => {
-        const fetchInitialData = async () => {
-            console.log("Fetching initial data (Players, Tournaments, Achievements, Notifications, Matches)...");
-            try {
-                await Promise.all([
-                    fetchPlayersFromSupabase(),
-                    useTournamentStore.getState().fetchTournaments(),
-                    fetchAchievementsFromSupabase(),
-                    fetchNotificationsFromSupabase(),
-                    fetchMatchesFromSupabase(),
-                ]);
-                console.log("Initial data fetching complete.");
-            } catch (fetchError) {
-                console.error("Error fetching initial data:", fetchError);
-            }
-        };
+        if (user) {
+            const fetchData = async () => {
+                try {
+                    await fetchPlayersFromSupabase();
+                    console.log('✅ Players loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching players:", error);
+                }
 
-        fetchInitialData().catch((e) => {
-            console.warn("Error during initial data fetching:", e);
+                try {
+                    await useTournamentStore.getState().fetchTournaments();
+                    console.log('✅ Tournaments loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching tournaments:", error);
+                }
+
+                try {
+                    await fetchAchievementsFromSupabase();
+                    console.log('✅ Achievements loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching achievements:", error);
+                }
+
+                try {
+                    await useNotificationStore.getState().fetchNotifications();
+                    console.log('✅ Notifications loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching notifications:", error);
+                }
+
+                try {
+                    await fetchMatchesFromSupabase();
+                    console.log('✅ Matches loaded successfully');
+                } catch (error) {
+                    console.error("❌ Error fetching matches:", error);
+                }
+            };
+
+            fetchData();
+        }
+    }, [user]);
+
+    useEffect(() => {
+        const isFontsReady = loaded || fontError;
+        const canNavigate = navigationState?.key;
+
+        console.log("--- NAVIGATE CHECK ---", {
+            isFontsReady,
+            canNavigate: !!canNavigate,
+            isInitialized,
+            isCheckingProfile,
+            isLoading,
+            user: user ? user.id : null,
+            hasProfile,
         });
-    }, []);
 
-    if (!loaded) {
-        return <ActivityIndicator size="large" style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}/>;
-    }
+        if (isFontsReady && canNavigate && isInitialized && !isLoading && !isCheckingProfile) {
+            SplashScreen.hideAsync().catch(e => console.warn("SplashScreen.hideAsync error:", e));
+
+            if (user) {
+                if (hasProfile) {
+                    if (router.canGoBack()) {
+                        router.back();
+                    } else {
+                        router.replace('/(tabs)');
+                    }
+                } else {
+                    router.replace('/player/setup');
+                }
+            } else {
+                router.replace('/(auth)/login');
+            }
+        }
+    }, [loaded, fontError, isInitialized, isLoading, navigationState?.key, user, hasProfile, isCheckingProfile, router]);
 
     return (
         <ErrorBoundary>
             <trpc.Provider client={trpcClient} queryClient={queryClient}>
                 <QueryClientProvider client={queryClient}>
-                    <AuthGuard>
-                        <RootLayoutNav/>
-                    </AuthGuard>
+                    <Stack screenOptions={{headerBackTitle: "Back", headerShadowVisible: false}}>
+                        <Stack.Screen name="(auth)" options={{headerShown: false}}/>
+                        <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
+                        <Stack.Screen
+                            name="player/setup"
+                            options={{
+                                title: "Setup Profile",
+                                headerShown: false,
+                                gestureEnabled: false,
+                            }}
+                        />
+                        <Stack.Screen name="modal" options={{presentation: "modal", title: "Modal Screen"}}/>
+                        <Stack.Screen name="player/[id]" options={{title: "Player Details"}}/>
+                        <Stack.Screen name="player/create" options={{title: "Add Player"}}/>
+                        <Stack.Screen name="player/edit/[id]" options={{title: "Edit Player"}}/>
+                        <Stack.Screen name="player/edit-profile" options={{title: "Edit My Profile"}}/>
+                        <Stack.Screen name="match/[id]" options={{title: "Match Details"}}/>
+                        <Stack.Screen name="matches/index" options={{title: "All Matches"}}/>
+                        <Stack.Screen name="tournament/[id]" options={{title: "Tournament Details"}}/>
+                        <Stack.Screen name="tournament/create" options={{title: "Create Tournament"}}/>
+                        <Stack.Screen name="tournament/record-match" options={{title: "Record Tournament Match"}}/>
+                        <Stack.Screen name="stats/head-to-head" options={{title: "Head-to-Head"}}/>
+                        <Stack.Screen name="notifications/index" options={{title: "Notifications"}}/>
+                        <Stack.Screen name="settings/index" options={{title: "Settings"}}/>
+                    </Stack>
+                    {/*<Analytics/>*/}
+                    {/*<SpeedInsights/>*/}
                 </QueryClientProvider>
             </trpc.Provider>
         </ErrorBoundary>
     );
 }
-
-function RootLayoutNav() {
-    return (
-        <View style={styles.container}>
-            <Stack
-                screenOptions={{
-                    headerBackTitle: "Back",
-                    headerShadowVisible: false,
-                    contentStyle: {paddingBottom: 60},
-                }}
-            >
-                <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
-                <Stack.Screen name="modal" options={{presentation: "modal", title: "Modal Screen"}}/>
-                <Stack.Screen name="player/[id]" options={{title: "Player Details"}}/>
-                <Stack.Screen name="player/create" options={{title: "Add Player"}}/>
-                <Stack.Screen name="player/edit/[id]" options={{title: "Edit Player"}}/>
-                <Stack.Screen name="match/[id]" options={{title: "Match Details"}}/>
-                <Stack.Screen name="matches/index" options={{title: "All Matches"}}/>
-                <Stack.Screen name="tournament/[id]" options={{title: "Tournament Details"}}/>
-                <Stack.Screen name="tournament/create" options={{title: "Create Tournament"}}/>
-                <Stack.Screen name="tournament/record-match" options={{title: "Record Tournament Match"}}/>
-                <Stack.Screen name="stats/head-to-head" options={{title: "Head-to-Head"}}/>
-                <Stack.Screen name="notifications/index" options={{title: "Notifications"}}/>
-                <Stack.Screen name="settings/index" options={{title: "Settings"}}/>
-                <Stack.Screen name="auth/login" options={{headerShown: false}}/>
-            </Stack>
-            <GlobalTabBar/>
-        </View>
-    );
-}
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        position: 'relative',
-    },
-});

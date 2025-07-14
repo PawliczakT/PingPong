@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
-import { BarChart, Home, PlusCircle, Trophy, Users } from 'lucide-react-native';
-import { useColorScheme } from 'react-native';
+import {StyleSheet, Text, TouchableOpacity, useColorScheme, View} from 'react-native';
+import {usePathname, useRouter} from 'expo-router';
+import {BarChart, Home, PlusCircle, Trophy, Users} from 'lucide-react-native';
 
 export default function GlobalTabBar() {
     const router = useRouter();
@@ -18,14 +17,14 @@ export default function GlobalTabBar() {
     const backgroundColor = colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7';
 
     return (
-        <View style={[styles.container, { backgroundColor }]}>
+        <View style={[styles.container, {backgroundColor}]}>
             <TouchableOpacity
                 style={styles.tab}
                 onPress={() => router.push('/')}
                 activeOpacity={0.7}
             >
-                <Home size={24} color={isActive('') ? activeColor : inactiveColor} />
-                <Text style={[styles.label, { color: isActive('') ? activeColor : inactiveColor }]}>Home</Text>
+                <Home size={24} color={isActive('') ? activeColor : inactiveColor}/>
+                <Text style={[styles.label, {color: isActive('') ? activeColor : inactiveColor}]}>Home</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -33,8 +32,8 @@ export default function GlobalTabBar() {
                 onPress={() => router.push('/players')}
                 activeOpacity={0.7}
             >
-                <Users size={24} color={isActive('players') ? activeColor : inactiveColor} />
-                <Text style={[styles.label, { color: isActive('players') ? activeColor : inactiveColor }]}>Players</Text>
+                <Users size={24} color={isActive('players') ? activeColor : inactiveColor}/>
+                <Text style={[styles.label, {color: isActive('players') ? activeColor : inactiveColor}]}>Players</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -42,8 +41,9 @@ export default function GlobalTabBar() {
                 onPress={() => router.push('/add-match')}
                 activeOpacity={0.7}
             >
-                <PlusCircle size={24} color={isActive('add-match') ? activeColor : inactiveColor} />
-                <Text style={[styles.label, { color: isActive('add-match') ? activeColor : inactiveColor }]}>Add Match</Text>
+                <PlusCircle size={24} color={isActive('add-match') ? activeColor : inactiveColor}/>
+                <Text style={[styles.label, {color: isActive('add-match') ? activeColor : inactiveColor}]}>Add
+                    Match</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -51,8 +51,9 @@ export default function GlobalTabBar() {
                 onPress={() => router.push('/tournaments')}
                 activeOpacity={0.7}
             >
-                <Trophy size={24} color={isActive('tournaments') ? activeColor : inactiveColor} />
-                <Text style={[styles.label, { color: isActive('tournaments') ? activeColor : inactiveColor }]}>Tournaments</Text>
+                <Trophy size={24} color={isActive('tournaments') ? activeColor : inactiveColor}/>
+                <Text
+                    style={[styles.label, {color: isActive('tournaments') ? activeColor : inactiveColor}]}>Tournaments</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -60,8 +61,8 @@ export default function GlobalTabBar() {
                 onPress={() => router.push('/stats')}
                 activeOpacity={0.7}
             >
-                <BarChart size={24} color={isActive('stats') ? activeColor : inactiveColor} />
-                <Text style={[styles.label, { color: isActive('stats') ? activeColor : inactiveColor }]}>Stats</Text>
+                <BarChart size={24} color={isActive('stats') ? activeColor : inactiveColor}/>
+                <Text style={[styles.label, {color: isActive('stats') ? activeColor : inactiveColor}]}>Stats</Text>
             </TouchableOpacity>
         </View>
     );
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
         right: 0,
         elevation: 8,
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: -2 },
+        shadowOffset: {width: 0, height: -2},
         shadowOpacity: 0.3,
         shadowRadius: 4,
         zIndex: 999,

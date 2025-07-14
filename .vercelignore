@@ -1,0 +1,62 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Expo
+.expo
+.expo-shared
+dist
+web-build
+
+# Build artifacts
+android
+ios
+*.apk
+*.ipa
+*.aab
+
+# Development
+.env.local
+env.development
+.env.test
+
+# Cache
+.cache
+*.tsbuildinfo
+.turbo
+
+# Media
+assets/videos/*
+assets/large-images/*
+
+# Tests
+coverage
+e2e/artifacts
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Credentials
+credentials/
+*.key
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+pingpong-d4f52-firebase-adminsdk-fbsvc-380b824200.json
+google-services.json
+*.jks

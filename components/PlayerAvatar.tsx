@@ -2,11 +2,11 @@ import React from "react";
 import {StyleSheet, Text, View} from "react-native";
 import {Image} from "expo-image";
 import {colors} from "@/constants/colors";
-import {Player} from "@/types";
+import {Player} from "@/backend/types";
 
 type PlayerAvatarProps = {
     name: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
     size?: number;
     player?: Player;
     borderColor?: string;

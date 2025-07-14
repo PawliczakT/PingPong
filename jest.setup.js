@@ -1,3 +1,7 @@
+if (typeof self === 'undefined') {
+  global.self = global;
+}
+
 import 'react-native-gesture-handler/jestSetup';
 
 // Silence the warning: Animated: `useNativeDriver` is not supported because the native animated module is missing
@@ -33,7 +37,7 @@ jest.mock('@react-native-community/netinfo', () => ({
 }));
 
 // Mock Supabase
-jest.mock('@/lib/supabase', () => ({
+jest.mock('./app/lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => ({
       select: jest.fn(() => ({
@@ -59,6 +63,12 @@ jest.mock('@/lib/supabase', () => ({
     })),
     removeChannel: jest.fn(() => Promise.resolve()),
   },
+}));
+
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 // Silence console.error and console.warn during tests

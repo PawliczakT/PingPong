@@ -1,8 +1,9 @@
+//store/networkStore.ts
 import {create} from "zustand";
 import {createJSONStorage, persist} from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
-import {Set} from "@/types";
+import {Set} from "@/backend/types";
 import {useMatchStore} from "./matchStore";
 
 interface PendingMatch {
@@ -64,13 +65,13 @@ export const useNetworkStore = create<NetworkState>()(
 
                 for (const pendingMatch of pendingMatches) {
                     try {
-                        await matchStore.addMatch(
-                            pendingMatch.player1Id,
-                            pendingMatch.player2Id,
-                            pendingMatch.player1Score,
-                            pendingMatch.player2Score,
-                            pendingMatch.sets
-                        );
+                        await matchStore.addMatch({
+                            player1Id: pendingMatch.player1Id,
+                            player2Id: pendingMatch.player2Id,
+                            player1Score: pendingMatch.player1Score,
+                            player2Score: pendingMatch.player2Score,
+                            sets: pendingMatch.sets,
+                        });
 
                         get().removePendingMatch(pendingMatch.id);
                     } catch (error) {

@@ -1,9 +1,17 @@
 import React from 'react';
 import {render} from '@testing-library/react-native';
+
+// Mock notification service to prevent WebSocket errors
+jest.mock('@/backend/server/trpc/services/notificationService', () => ({
+    notificationService: {
+        sendNotification: jest.fn(),
+    },
+}));
+
 import {usePlayerStore} from '@/store/playerStore';
 import {useMatchStore} from '@/store/matchStore';
 import {useAchievementStore} from '@/store/achievementStore';
-import {AchievementType} from '@/types';
+import {AchievementType} from '@/backend/types';
 
 // Mock the screen components
 const PlayerProfileScreen = () => <React.Fragment/>;
@@ -26,7 +34,7 @@ const mockSupabaseSelect = jest.fn();
 const mockSupabaseInsert = jest.fn();
 const mockSupabaseUpdate = jest.fn();
 
-jest.mock('../../lib/supabase', () => ({
+jest.mock('../../app/lib/supabase', () => ({
     supabase: {
         from: (...args: any) => {
             mockSupabaseFrom(...args);
@@ -84,7 +92,10 @@ const calculatePlayerStats = (playerId: string, matches: any[]) => {
         match => match.player1Id === playerId || match.player2Id === playerId
     );
 
-    const wins = playerMatches.filter(match => match.winnerId === 1 && match.player1Id === playerId || match.winnerId === 2 && match.player2Id === playerId).length;
+    const wins = playerMatches.filter(match => {
+        return (match.player1Id === playerId && match.winnerId === 1) || (match.player2Id === playerId && match.winnerId === 2);
+    }).length;
+
     const matches_played = playerMatches.length;
     const losses = matches_played - wins;
     const winRate = matches_played > 0 ? Math.round((wins / matches_played) * 100) : 0;
@@ -108,12 +119,16 @@ const setupTestData = () => {
             return {
                 id: 'player1',
                 name: 'John Doe',
+                nickname: 'JD',
                 email: 'john@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1000,
                 wins: 1,
                 losses: 1,
+                gamesPlayed: 0,
+                dailyDelta: 0,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -122,12 +137,16 @@ const setupTestData = () => {
             return {
                 id: 'player2',
                 name: 'Jane Smith',
+                nickname: 'Jane',
                 email: 'jane@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 950,
                 wins: 1,
                 losses: 1,
+                gamesPlayed: 0,
+                dailyDelta: 0,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -136,12 +155,16 @@ const setupTestData = () => {
             return {
                 id: 'player3',
                 name: 'Bob Johnson',
+                nickname: 'Bobby',
                 email: 'bob@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 900,
                 wins: 0,
                 losses: 2,
+                gamesPlayed: 2,
+                dailyDelta: 0,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -150,12 +173,16 @@ const setupTestData = () => {
             return {
                 id: 'player4',
                 name: 'Alice Brown',
+                nickname: 'Ali',
                 email: 'alice@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 850,
                 wins: 0,
                 losses: 0,
+                gamesPlayed: 0,
+                dailyDelta: 0,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -169,48 +196,64 @@ const setupTestData = () => {
             {
                 id: 'player1',
                 name: 'John Doe',
+                nickname: 'JD',
                 email: 'john@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1100,
                 wins: 1,
                 losses: 1,
+                gamesPlayed: 2,
+                dailyDelta: 0,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             },
             {
                 id: 'player2',
                 name: 'Jane Smith',
+                nickname: 'Jane',
                 email: 'jane@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1050,
                 wins: 1,
                 losses: 1,
+                gamesPlayed: 2,
+                dailyDelta: 0,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             },
             {
                 id: 'player3',
                 name: 'Bob Johnson',
+                nickname: 'Bobby',
                 email: 'bob@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 1000,
                 wins: 1,
                 losses: 1,
+                gamesPlayed: 2,
+                dailyDelta: 0,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             },
             {
                 id: 'player4',
                 name: 'Alice Brown',
+                nickname: 'Ali',
                 email: 'alice@example.com',
                 avatarUrl: undefined,
                 active: true,
                 eloRating: 950,
                 wins: 0,
                 losses: 0,
+                gamesPlayed: 0,
+                dailyDelta: 0,
+                lastMatchDay: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             },
@@ -223,12 +266,15 @@ const setupTestData = () => {
             id: 'new-player-id',
             name,
             nickname: nickname || undefined,
+            email: 'new.player@example.com',
             avatarUrl: avatarUrl || undefined,
-            email: '',
             active: true,
             eloRating: 1000,
             wins: 0,
             losses: 0,
+            gamesPlayed: 0,
+            dailyDelta: 0,
+            lastMatchDay: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -256,6 +302,7 @@ const setupTestData = () => {
                 date: new Date().toISOString(),
                 tournamentId: 'tournament1',
                 tournamentName: 'Test Tournament',
+                sets: [{ player1Score: 11, player2Score: 5 }],
             },
             {
                 id: 'match2',
@@ -267,6 +314,7 @@ const setupTestData = () => {
                 date: new Date().toISOString(),
                 tournamentId: 'tournament1',
                 tournamentName: 'Test Tournament',
+                sets: [{ player1Score: 7, player2Score: 11 }],
             },
             {
                 id: 'match3',
@@ -278,6 +326,7 @@ const setupTestData = () => {
                 date: new Date().toISOString(),
                 tournamentId: 'tournament1',
                 tournamentName: 'Test Tournament',
+                sets: [{ player1Score: 11, player2Score: 9 }],
             },
         ]),
     });
@@ -374,12 +423,16 @@ describe('Player Management E2E Flow', () => {
         const updatedPlayer = {
             id: 'player1',
             name: 'John Doe Updated',
+            nickname: 'JD Updated',
             email: 'john.updated@example.com',
             avatarUrl: 'new-avatar-url',
             active: true,
             eloRating: 1000,
             wins: 1,
             losses: 1,
+            gamesPlayed: 0,
+            dailyDelta: 0,
+            lastMatchDay: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };

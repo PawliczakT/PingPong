@@ -2,7 +2,7 @@ import React from "react";
 import {Pressable, StyleSheet, Text, View} from "react-native";
 import {MinusCircle, PlusCircle} from "lucide-react-native";
 import {colors} from "@/constants/colors";
-import {Set} from "@/types";
+import {Set} from "@/backend/types";
 
 type SetScoreInputProps = {
     setNumber: number;

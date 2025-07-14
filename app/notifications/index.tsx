@@ -1,17 +1,33 @@
-import React from "react";
-import {StyleSheet} from "react-native";
+// app/notifications/index.tsx
+import React, {useCallback} from "react";
+import {ActivityIndicator, StyleSheet, Text, View} from "react-native";
 import {Stack, useRouter} from "expo-router";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {useNotificationStore} from "@/store/notificationStore";
+import {useAuth} from "@/store/authStore";
 import NotificationsList from "@/components/NotificationsList";
-import {Notification} from "@/types";
+import {Notification} from "@/backend/types";
 
 export default function NotificationsScreen() {
     const router = useRouter();
-    const {notificationHistory, clearNotificationHistory} = useNotificationStore();
+    const {user} = useAuth();
+    const isLoading = useNotificationStore(state => state.isLoading);
+    const notificationHistory = useNotificationStore(state => state.notificationHistory);
+    const clearHistory = useNotificationStore(state => state.clearHistory);
 
-    const notifications: Notification[] = notificationHistory.map(notification => ({
+    React.useEffect(() => {
+        if (user?.id) {
+            console.log('🔔 NotificationsScreen render:', {
+                isLoading,
+                notificationCount: notificationHistory.length,
+                userId: user?.id,
+                hasUser: !!user
+            });
+        }
+    }, [isLoading, notificationHistory.length, user?.id]);
+
+    const notificationsToDisplay: Notification[] = notificationHistory.map(notification => ({
         ...notification,
         message: notification.body,
         createdAt: notification.timestamp || new Date().toISOString(),
@@ -42,6 +58,27 @@ export default function NotificationsScreen() {
         }
     };
 
+    const handleClearAll = useCallback(() => {
+        console.log('🔔 Clear all notifications clicked');
+        if (user?.id) {
+            console.log('🔔 Calling clearHistory with user.id:', user.id);
+            clearHistory(user.id);
+        } else {
+            console.log('🔔 No user.id available for clearHistory');
+        }
+    }, [clearHistory, user?.id]);
+
+    if (isLoading && notificationHistory.length === 0) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary}/>
+                    <Text>Loading notifications...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
             <Stack.Screen
@@ -55,9 +92,9 @@ export default function NotificationsScreen() {
             />
 
             <NotificationsList
-                notifications={notifications}
+                notifications={notificationsToDisplay}
                 onPress={handleNotificationPress}
-                onClear={clearNotificationHistory}
+                onClear={handleClearAll}
             />
         </SafeAreaView>
     );
@@ -68,4 +105,9 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    }
 });

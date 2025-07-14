@@ -1,3 +1,4 @@
+//app/player/edit/[id].tsx
 import React, {useEffect, useState} from "react";
 import {Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from "react-native";
 import {Stack, useLocalSearchParams, useRouter} from "expo-router";
@@ -6,7 +7,8 @@ import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import Button from "@/components/Button";
 import * as Haptics from "expo-haptics";
-import {pickAndProcessAvatarWithAWS, uploadImageToSupabase} from "@/utils/imageUpload";
+import {uploadImageToSupabase} from "@/utils/imageUpload";
+import {pickAndProcessAvatarWithAWS} from "@/utils/pickAndProcessAvatarWithAWS";
 import {Image as ExpoImage} from "expo-image";
 
 export default function EditPlayerScreen() {
@@ -32,19 +34,18 @@ export default function EditPlayerScreen() {
         }
     }, [player]);
 
-    // Pick and process image with face detection
     const handlePickImage = async () => {
         try {
             setIsSubmitting(true);
+            console.log('AWS recognition: selectedImageUri', selectedImageUri)
             const result = await pickAndProcessAvatarWithAWS();
 
             if (!result.canceled && result.uri) {
+                console.log('AWS recognition: result.uri', result.uri)
                 setSelectedImageUri(result.uri);
                 setSelectedImageBase64(result.base64);
-                // Set avatarUrl temporarily to show the image in the form
-                setAvatarUrl(result.uri); // result.uri jest tutaj string, więc jest zgodny z SetStateAction<string | undefined>
+                setAvatarUrl(result.uri);
 
-                // Inform the user that the image was processed using AWS
                 if (result.awsProcessed) {
                     Alert.alert(
                         'Success',
@@ -78,7 +79,7 @@ export default function EditPlayerScreen() {
     }
 
     const handleSubmit = async () => {
-        if (!name.trim()) {
+        if (!name?.trim()) {
             Alert.alert("Error", "Player name is required");
             return;
         }
@@ -88,11 +89,9 @@ export default function EditPlayerScreen() {
         try {
             let finalAvatarUrl = avatarUrl;
 
-            // If a local image was selected, use it directly or attempt to upload
             if (selectedImageUri) {
                 setUploadingImage(true);
 
-                // Use the selected image URI directly or try to upload
                 const {url, error} = await uploadImageToSupabase(
                     selectedImageUri,
                     selectedImageBase64,
@@ -114,8 +113,8 @@ export default function EditPlayerScreen() {
 
             await updatePlayer({
                 ...player,
-                name: name.trim(),
-                nickname: nickname.trim() || undefined,
+                name: name?.trim(),
+                nickname: nickname?.trim() || undefined,
                 avatarUrl: finalAvatarUrl || undefined,
             });
 
@@ -219,7 +218,7 @@ export default function EditPlayerScreen() {
                     title={uploadingImage ? "Uploading Image..." : "Save Changes"}
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={!name.trim() || uploadingImage}
+                    disabled={!name?.trim() || uploadingImage}
                     style={styles.button}
                 />
             </ScrollView>

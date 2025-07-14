@@ -1,8 +1,9 @@
+//components/TournamentCard.tsx
 import React from "react";
 import {Pressable, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {ArrowRight, Calendar, Trophy, Users} from "lucide-react-native";
-import {Tournament, TournamentStatus} from "@/types";
+import {Tournament, TournamentStatus} from "@/backend/types";
 import {colors} from "@/constants/colors";
 import {formatDate} from "@/utils/formatters";
 import {usePlayerStore} from "@/store/playerStore";
@@ -50,6 +51,8 @@ export default function TournamentCard({tournament, onPress}: TournamentCardProp
         }
     };
 
+    const participantsCount = tournament.participants?.length || 0;
+
     return (
         <Pressable
             style={({pressed}) => [
@@ -73,7 +76,7 @@ export default function TournamentCard({tournament, onPress}: TournamentCardProp
 
                 <View style={styles.infoItem}>
                     <Users size={16} color={colors.textLight}/>
-                    <Text style={styles.infoText}>{tournament.participants.length} players</Text>
+                    <Text style={styles.infoText}>{participantsCount} players</Text>
                 </View>
 
                 {tournament.winner && (

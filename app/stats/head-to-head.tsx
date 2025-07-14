@@ -1,3 +1,4 @@
+//app/stats/head-to-head.tsx
 import React, {useState} from "react";
 import {ScrollView, StyleSheet, Text, View} from "react-native";
 import {Stack, useRouter} from "expo-router";
@@ -9,7 +10,7 @@ import PlayerSelector from "@/components/PlayerSelector";
 import HeadToHeadStats from "@/components/HeadToHeadStats";
 import MatchCard from "@/components/MatchCard";
 import Button from "@/components/Button";
-import {Player} from "@/types";
+import {Player} from "@/backend/types";
 
 export default function HeadToHeadScreen() {
     const router = useRouter();

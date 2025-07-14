@@ -1,9 +1,11 @@
+//app/settings/index.tsx
 import React from 'react';
 import {ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View} from 'react-native';
 import {useSettingsStore} from '@/store/settingsStore';
 import {useAuthStore} from '@/store/authStore';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {Bell, Info, LogOut, Moon, Shield, Wifi} from 'lucide-react-native';
+import {Bell, Info, LogOut, Moon, Shield, User, Wifi} from 'lucide-react-native';
+import {Link} from 'expo-router';
 
 export default function SettingsScreen() {
     const {
@@ -93,6 +95,17 @@ export default function SettingsScreen() {
                 </View>
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Account</Text>
+
+                    {user && (
+                        <Link href="/player/edit-profile" asChild>
+                            <TouchableOpacity style={styles.settingItem}>
+                                <View style={styles.settingLabelContainer}>
+                                    <User size={20} color="#007AFF"/>
+                                    <Text style={styles.settingLabel}>Edit My Profile</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </Link>
+                    )}
 
                     <TouchableOpacity
                         style={[styles.settingItem, styles.logoutButton, !user && styles.disabledButton]}

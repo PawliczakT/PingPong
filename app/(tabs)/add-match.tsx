@@ -1,21 +1,24 @@
+//app/(tabs)/add-match.tsx
 import React, {useEffect, useState} from "react";
 import {Alert, Platform, ScrollView, StyleSheet, Text, View} from "react-native";
-import {useRouter} from "expo-router";
+import {Link, useRouter} from "expo-router";
 import {PlusCircle} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import {useMatchStore} from "@/store/matchStore";
 import {useNetworkStore} from "@/store/networkStore";
-import {Player, Set} from "@/types";
+import {Player, Set} from "@/backend/types";
 import PlayerSelector from "@/components/PlayerSelector";
 import SetScoreInput from "@/components/SetScoreInput";
 import Button from "@/components/Button";
 import NetworkStatusBar from "@/components/NetworkStatusBar";
 import * as Haptics from "expo-haptics";
+import {useAuthStore} from "@/store/authStore";
 
 export default function AddMatchScreen() {
     const router = useRouter();
+    const {user} = useAuthStore(); // Get user from auth store
     const {getActivePlayersSortedByRating} = usePlayerStore();
     const {addMatch} = useMatchStore();
     const {isOnline, addPendingMatch} = useNetworkStore();
@@ -30,7 +33,7 @@ export default function AddMatchScreen() {
     const activePlayers = getActivePlayersSortedByRating();
 
     useEffect(() => {
-        // Check if we have at least 2 players
+        if (!user) return;
         if (activePlayers.length < 2) {
             Alert.alert(
                 "Not Enough Players",
@@ -41,7 +44,7 @@ export default function AddMatchScreen() {
                 ]
             );
         }
-    }, [activePlayers.length]);
+    }, [activePlayers.length, user]);
 
     const addSet = () => {
         if (Platform.OS !== "web") {
@@ -89,7 +92,6 @@ export default function AddMatchScreen() {
             return;
         }
 
-        // Check if any set has a score of 0-0
         const hasEmptySet = sets.some(set => set.player1Score === 0 && set.player2Score === 0);
         if (hasEmptySet) {
             Alert.alert("Error", "All sets must have scores");
@@ -98,7 +100,6 @@ export default function AddMatchScreen() {
 
         const {player1Sets, player2Sets} = calculateFinalScore();
 
-        // Check if there's a winner
         if (player1Sets === player2Sets) {
             Alert.alert("Error", "Match must have a winner");
             return;
@@ -108,16 +109,14 @@ export default function AddMatchScreen() {
 
         try {
             if (isOnline) {
-                // Online mode - add match directly
-                await addMatch(
-                    player1.id,
-                    player2.id,
-                    player1Sets,
-                    player2Sets,
-                    sets
-                );
+                await addMatch({
+                    player1Id: player1.id,
+                    player2Id: player2.id,
+                    player1Score: player1Sets,
+                    player2Score: player2Sets,
+                    sets: sets,
+                });
             } else {
-                // Offline mode - store match locally
                 addPendingMatch({
                     id: `pending-${Date.now()}`,
                     player1Id: player1.id,
@@ -129,7 +128,6 @@ export default function AddMatchScreen() {
                 });
             }
 
-            // Resetuj stan po sukcesie
             setPlayer1(null);
             setPlayer2(null);
             setSets([{player1Score: 0, player2Score: 0}]);
@@ -151,6 +149,26 @@ export default function AddMatchScreen() {
             setIsSubmitting(false);
         }
     };
+
+    if (!user) {
+        return (
+            <SafeAreaView style={styles.container} edges={["bottom"]}>
+                <View style={[styles.content, styles.centeredContent]}>
+                    <Text style={styles.loginPromptText}>
+                        Please log in to record a match.
+                    </Text>
+                    <Link href="/(auth)/login" asChild>
+                        <Button
+                            title="Log In"
+                            style={styles.loginButton}
+                            onPress={() => {
+                            }}
+                        />
+                    </Link>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -257,6 +275,20 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 16,
+    },
+    centeredContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loginPromptText: {
+        fontSize: 18,
+        color: colors.text,
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    loginButton: {
+        minWidth: 200,
     },
     title: {
         fontSize: 24,

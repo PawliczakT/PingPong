@@ -1,3 +1,4 @@
+//app/tournament/create.tsx
 import React, {useState} from "react";
 import {Alert, Platform, ScrollView, StyleSheet, Text, TextInput, View} from "react-native";
 import {Stack, useRouter} from "expo-router";
@@ -6,7 +7,7 @@ import {Calendar, Users} from "lucide-react-native";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
 import {useTournamentStore} from "@/store/tournamentStore";
-import {TournamentFormat} from "@/types";
+import {TournamentFormat} from "@/backend/types";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import * as Haptics from "expo-haptics";
@@ -52,7 +53,7 @@ export default function CreateTournamentScreen() {
 
         try {
             await createTournament(
-                name.trim(), // Może być puste - nazwa zostanie wygenerowana w store
+                name.trim(),
                 new Date(date).toISOString(),
                 format,
                 selectedPlayerIds

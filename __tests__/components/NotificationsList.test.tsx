@@ -1,7 +1,7 @@
 import React from 'react';
 import {fireEvent, render, screen} from '@testing-library/react-native';
 import NotificationsList from '@/components/NotificationsList';
-import {Notification} from '@/types';
+import {Notification} from '@/backend/types';
 
 jest.mock('lucide-react-native', () => ({
     Bell: 'Bell',

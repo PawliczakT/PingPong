@@ -1,19 +1,25 @@
+//tsconfig.json
 {
   "compilerOptions": {
-    "strict": true,
-    "jsx": "react-native",
-    "esModuleInterop": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"],
+      "@components/*": ["./components/*"],
+      "@lib/*": ["./app/lib/*"],
+      "@store/*": ["./store/*"],
+      "@constants/*": ["./constants/*"],
+      "@hooks/*": ["./hooks/*"],
+      "@types/*": ["./types/*"],
+      "@screens/*": ["./screens/*"],
+      "@utils/*": ["./utils/*"]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "types/**/*"
   ],
   "extends": "expo/tsconfig.base"
 }

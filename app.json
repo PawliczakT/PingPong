@@ -18,14 +18,33 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mosinacity.pingpongstatkeeper"
+      "bundleIdentifier": "com.mosinacity.pingpongstatkeeper",
+      "associatedDomains": [
+        "applinks:msiemlfljcnhnwkwwpvhm.supabase.co"
+      ]
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.mosinacity.pingpongstatkeeper"
+      "package": "com.mosinacity.pingpongstatkeeper",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "pingpongstatkeeper",
+              "host": "auth"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -38,7 +57,7 @@
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 25
+            "minSdkVersion": 26
           }
         }
       ]
@@ -47,6 +66,12 @@
       "typedRoutes": true
     },
     "extra": {
+      "supabaseUrl": "${EXPO_PUBLIC_SUPABASE_URL}",
+      "supabaseAnonKey": "${EXPO_PUBLIC_SUPABASE_ANON_KEY}",
+      "supabaseServiceKey": "${EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}",
+      "apiUrl": "https://ping-pong-three-woad.vercel.app/api/trpc",
+      "apiUrlDev": "http://localhost:8081/api/trpc",
+      "vercelUrl": "https://ping-pong-three-woad.vercel.app",
       "router": {
         "origin": false
       },
@@ -56,4 +81,3 @@
     }
   }
 }
-

@@ -1,5 +1,5 @@
-import {Achievement, AchievementType} from "@/types";
-import {Award, Crown, Flame, Medal, Star, Target, Trophy, Zap, Users, ArrowUp} from "lucide-react-native";
+//constants/achievements.ts
+import { Achievement, AchievementType } from './../backend/types';
 
 export const achievements: Achievement[] = [
     {
@@ -9,7 +9,8 @@ export const achievements: Achievement[] = [
         icon: 'award',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'first_win'
     },
     {
         type: AchievementType.WINS_10,
@@ -18,7 +19,8 @@ export const achievements: Achievement[] = [
         icon: 'award',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'wins_10'
     },
     {
         type: AchievementType.MATCHES_5,
@@ -27,7 +29,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'matches_5'
     },
     {
         type: AchievementType.WIN_STREAK_3,
@@ -36,7 +39,8 @@ export const achievements: Achievement[] = [
         icon: 'flame',
         target: 3,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'win_streak_3'
     },
     {
         type: AchievementType.TOURNAMENT_WIN,
@@ -45,7 +49,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_win'
     },
     {
         type: AchievementType.TOURNAMENT_HOST,
@@ -54,7 +59,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_host'
     },
     {
         type: AchievementType.TOURNAMENT_SERIES,
@@ -63,7 +69,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_series'
     },
     {
         type: AchievementType.TOURNAMENT_MULTI_FORMAT,
@@ -72,7 +79,8 @@ export const achievements: Achievement[] = [
         icon: 'target',
         target: 2,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_multi_format'
     },
     {
         type: AchievementType.TOURNAMENT_OVERSEER,
@@ -81,7 +89,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_overseer'
     },
     {
         type: AchievementType.TOURNAMENT_PARTY,
@@ -90,7 +99,8 @@ export const achievements: Achievement[] = [
         icon: 'users',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_party'
     },
     {
         type: AchievementType.TOURNAMENT_UNDERDOG,
@@ -99,7 +109,8 @@ export const achievements: Achievement[] = [
         icon: 'arrow-up',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_underdog'
     },
     {
         type: AchievementType.COMEBACK_KING,
@@ -108,7 +119,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'comeback_king'
     },
     {
         type: AchievementType.CLEAN_SWEEP,
@@ -117,7 +129,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'clean_sweep'
     },
     {
         type: AchievementType.MARATHON_MATCH,
@@ -126,7 +139,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'marathon_match'
     },
     {
         type: AchievementType.SOCIAL_BUTTERFLY_5,
@@ -135,7 +149,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'social_butterfly_5'
     },
     {
         type: AchievementType.LOSS_STREAK_3,
@@ -144,7 +159,8 @@ export const achievements: Achievement[] = [
         icon: 'medal',
         target: 3,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'loss_streak_3'
     },
     {
         type: AchievementType.PERFECT_SET,
@@ -153,7 +169,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'perfect_set'
     },
     {
         type: AchievementType.META_UNLOCK_5,
@@ -162,7 +179,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'meta_unlock_5'
     },
     {
         type: AchievementType.WIN_STREAK_5,
@@ -171,7 +189,8 @@ export const achievements: Achievement[] = [
         icon: 'flame',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'win_streak_5'
     },
     {
         type: AchievementType.WIN_STREAK_10,
@@ -180,7 +199,8 @@ export const achievements: Achievement[] = [
         icon: 'flame',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'win_streak_10'
     },
     {
         type: AchievementType.WINS_25,
@@ -189,7 +209,8 @@ export const achievements: Achievement[] = [
         icon: 'award',
         target: 25,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'wins_25'
     },
     {
         type: AchievementType.CLUTCH_PERFORMER,
@@ -198,7 +219,8 @@ export const achievements: Achievement[] = [
         icon: 'target',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'clutch_performer'
     },
     {
         type: AchievementType.MATCHES_25,
@@ -207,7 +229,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 25,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'matches_25'
     },
     {
         type: AchievementType.MATCHES_50,
@@ -216,7 +239,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 50,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'matches_50'
     },
     {
         type: AchievementType.TOURNAMENT_PARTICIPATE_3,
@@ -225,7 +249,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 3,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_participate_3'
     },
     {
         type: AchievementType.TOURNAMENT_PARTICIPATE_10,
@@ -234,7 +259,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_participate_10'
     },
     {
         type: AchievementType.SOCIAL_BUTTERFLY_10,
@@ -243,7 +269,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'social_butterfly_10'
     },
     {
         type: AchievementType.WIN_KNOCKOUT_TOURNAMENT,
@@ -252,7 +279,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'win_knockout_tournament'
     },
     {
         type: AchievementType.WIN_ROUND_ROBIN_TOURNAMENT,
@@ -261,7 +289,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'win_round_robin_tournament'
     },
     {
         type: AchievementType.WIN_GROUP_TOURNAMENT,
@@ -270,7 +299,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'win_group_tournament'
     },
     {
         type: AchievementType.TOURNAMENT_FINALIST,
@@ -279,7 +309,8 @@ export const achievements: Achievement[] = [
         icon: 'medal',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_finalist'
     },
     {
         type: AchievementType.DEFEAT_TOP_SEED_TOURNAMENT,
@@ -288,7 +319,8 @@ export const achievements: Achievement[] = [
         icon: 'target',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'defeat_top_seed_tournament'
     },
     {
         type: AchievementType.TOURNAMENT_WIN_FLAWLESS,
@@ -297,7 +329,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_win_flawless'
     },
     {
         type: AchievementType.DEUCE_SET_WIN,
@@ -306,7 +339,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'deuce_set_win'
     },
     {
         type: AchievementType.SET_COMEBACK_5_POINTS,
@@ -315,7 +349,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'set_comeback_5_points'
     },
     {
         type: AchievementType.NEAR_PERFECT_SET,
@@ -324,7 +359,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'near_perfect_set'
     },
     {
         type: AchievementType.TOURNAMENT_RUNNER_UP_3,
@@ -333,7 +369,8 @@ export const achievements: Achievement[] = [
         icon: 'medal',
         target: 3,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_runner_up_3'
     },
     {
         type: AchievementType.HEARTBREAKER_LOSS,
@@ -342,7 +379,8 @@ export const achievements: Achievement[] = [
         icon: 'medal',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'heartbreaker_loss'
     },
     {
         type: AchievementType.STRATEGIST_WIN,
@@ -351,7 +389,8 @@ export const achievements: Achievement[] = [
         icon: 'award',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'strategist_win'
     },
     {
         type: AchievementType.DOUBLE_DUTY_MATCHES,
@@ -360,7 +399,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 2,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'double_duty_matches'
     },
     {
         type: AchievementType.BOUNCE_BACK_WIN,
@@ -369,7 +409,8 @@ export const achievements: Achievement[] = [
         icon: 'flame',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'bounce_back_win'
     },
     {
         type: AchievementType.META_UNLOCK_10,
@@ -378,7 +419,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'meta_unlock_10'
     },
     {
         type: AchievementType.META_UNLOCK_20,
@@ -387,7 +429,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 20,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'meta_unlock_20'
     },
     {
         type: AchievementType.META_UNLOCK_35,
@@ -396,7 +439,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 35,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'meta_unlock_35'
     },
     {
         type: AchievementType.META_UNLOCK_15,
@@ -405,7 +449,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 15,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'meta_unlock_15'
     },
     {
         type: AchievementType.META_UNLOCK_25,
@@ -414,7 +459,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 25,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'meta_unlock_25'
     },
     {
         type: AchievementType.META_UNLOCK_40,
@@ -423,7 +469,8 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 40,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'meta_unlock_40'
     },
     {
         type: AchievementType.MATCHES_75,
@@ -432,7 +479,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 75,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'matches_75'
     },
     {
         type: AchievementType.TOURNAMENT_PARTICIPATE_5,
@@ -441,7 +489,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_participate_5'
     },
     {
         type: AchievementType.RIVALRY_STARTER_3,
@@ -450,7 +499,8 @@ export const achievements: Achievement[] = [
         icon: 'target',
         target: 3,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'rivalry_starter_3'
     },
     {
         type: AchievementType.MATCHES_100,
@@ -459,7 +509,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 100,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'matches_100'
     },
     {
         type: AchievementType.CLEAN_SWEEPS_5,
@@ -468,7 +519,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'clean_sweeps_5'
     },
     {
         type: AchievementType.GRINDING_IT_OUT_10,
@@ -477,7 +529,8 @@ export const achievements: Achievement[] = [
         icon: 'flame',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'grinding_it_out_10'
     },
     {
         type: AchievementType.SOCIAL_BUTTERFLY_15,
@@ -486,7 +539,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 15,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'social_butterfly_15'
     },
     {
         type: AchievementType.TOURNAMENT_QUARTERFINALIST_3,
@@ -495,7 +549,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 3,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_quarterfinalist_3'
     },
     {
         type: AchievementType.WINS_50,
@@ -504,7 +559,8 @@ export const achievements: Achievement[] = [
         icon: 'award',
         target: 50,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'wins_50'
     },
     {
         type: AchievementType.MATCHES_10,
@@ -513,7 +569,8 @@ export const achievements: Achievement[] = [
         icon: 'zap',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'matches_10'
     },
     {
         type: AchievementType.LONGEST_STREAK_5,
@@ -522,7 +579,8 @@ export const achievements: Achievement[] = [
         icon: 'flame',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'longest_streak_5'
     },
     {
         type: AchievementType.LONGEST_STREAK_10,
@@ -531,7 +589,8 @@ export const achievements: Achievement[] = [
         icon: 'flame',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'longest_streak_10'
     },
     {
         type: AchievementType.TOURNAMENT_WINS_3,
@@ -540,7 +599,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 3,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_wins_3'
     },
     {
         type: AchievementType.TOURNAMENT_WINS_5,
@@ -549,7 +609,8 @@ export const achievements: Achievement[] = [
         icon: 'trophy',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'tournament_wins_5'
     },
     {
         type: AchievementType.CLEAN_SWEEPS_10,
@@ -558,7 +619,8 @@ export const achievements: Achievement[] = [
         icon: 'star',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'clean_sweeps_10'
     },
     {
         type: AchievementType.DEFEAT_TOP_PLAYER,
@@ -567,7 +629,8 @@ export const achievements: Achievement[] = [
         icon: 'target',
         target: 1,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'defeat_top_player'
     },
     {
         type: AchievementType.DEFEAT_TOP_PLAYERS_5,
@@ -576,7 +639,8 @@ export const achievements: Achievement[] = [
         icon: 'target',
         target: 5,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'defeat_top_players_5'
     },
     {
         type: AchievementType.DEFEAT_TOP_PLAYERS_10,
@@ -585,7 +649,8 @@ export const achievements: Achievement[] = [
         icon: 'target',
         target: 10,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'defeat_top_players_10'
     },
     {
         type: AchievementType.META_UNLOCK_ALL,
@@ -594,34 +659,195 @@ export const achievements: Achievement[] = [
         icon: 'crown',
         target: 59,
         progress: 0,
-        unlocked: false
+        unlocked: false,
+        id: 'meta_unlock_all'
     }
 ];
 
-export const getAchievementIcon = (type: AchievementType) => {
-    const achievement = achievements.find(a => a.type === type);
+export interface Rank {
+    id: number;
+    name: string;
+    icon: string;
+    requiredWins: number;
+    color: string;
+}
 
-    switch (achievement?.icon) {
-        case "trophy":
-            return Trophy;
-        case "zap":
-            return Zap;
-        case "target":
-            return Target;
-        case "medal":
-            return Medal;
-        case "flame":
-            return Flame;
-        case "crown":
-            return Crown;
-        case "star":
-            return Star;
-        case "award":
-        case "users":
-            return Users;
-        case "arrow-up":
-            return ArrowUp;
-        default:
-            return Award;
+export const ranks: Rank[] = [
+    {
+        id: 1,
+        name: "Beginner",
+        icon: "award",
+        requiredWins: 0,
+        color: "#8E8E8E" // Gray
+    },
+    {
+        id: 2,
+        name: "Novice",
+        icon: "zap",
+        requiredWins: 3,
+        color: "#CD7F32" // Bronze
+    },
+    {
+        id: 3,
+        name: "Amateur",
+        icon: "target",
+        requiredWins: 7,
+        color: "#CD7F32" // Bronze
+    },
+    {
+        id: 4,
+        name: "Competitor",
+        icon: "flame",
+        requiredWins: 12,
+        color: "#C0C0C0" // Silver
+    },
+    {
+        id: 5,
+        name: "Skilled",
+        icon: "shield",
+        requiredWins: 18,
+        color: "#C0C0C0" // Silver
+    },
+    {
+        id: 6,
+        name: "Expert",
+        icon: "sword",
+        requiredWins: 25,
+        color: "#C0C0C0" // Silver
+    },
+    {
+        id: 7,
+        name: "Veteran",
+        icon: "swords",
+        requiredWins: 35,
+        color: "#FFD700" // Gold
+    },
+    {
+        id: 8,
+        name: "Master",
+        icon: "medal",
+        requiredWins: 50,
+        color: "#FFD700" // Gold
+    },
+    {
+        id: 9,
+        name: "Elite",
+        icon: "star",
+        requiredWins: 75,
+        color: "#FFD700" // Gold
+    },
+    {
+        id: 10,
+        name: "Champion",
+        icon: "trophy",
+        requiredWins: 100,
+        color: "#B9F2FF" // Diamond
+    },
+    {
+        id: 11,
+        name: "Legend",
+        icon: "gem",
+        requiredWins: 150,
+        color: "#B9F2FF" // Diamond
+    },
+    {
+        id: 12,
+        name: "Grandmaster",
+        icon: "crown",
+        requiredWins: 200,
+        color: "#B9F2FF" // Diamond
+    },
+    {
+        id: 13,
+        name: "Mythic",
+        icon: "sparkles",
+        requiredWins: 275,
+        color: "#9B59B6" // Purple
+    },
+    {
+        id: 14,
+        name: "Titan",
+        icon: "award2",
+        requiredWins: 375,
+        color: "#9B59B6" // Purple
+    },
+    {
+        id: 15,
+        name: "Immortal",
+        icon: "crosshair",
+        requiredWins: 500,
+        color: "#9B59B6" // Purple
+    },
+    {
+        id: 16,
+        name: "Celestial",
+        icon: "star2",
+        requiredWins: 650,
+        color: "#E74C3C" // Red
+    },
+    {
+        id: 17,
+        name: "Phoenix",
+        icon: "flame",
+        requiredWins: 850,
+        color: "#E74C3C" // Red
+    },
+    {
+        id: 18,
+        name: "Dragon",
+        icon: "sword",
+        requiredWins: 1100,
+        color: "#E74C3C" // Red
+    },
+    {
+        id: 19,
+        name: "Eternal",
+        icon: "heart",
+        requiredWins: 1400,
+        color: "#E91E63" // Pink
+    },
+    {
+        id: 20,
+        name: "Transcendent",
+        icon: "moon",
+        requiredWins: 1800,
+        color: "#E91E63" // Pink
+    },
+    {
+        id: 21,
+        name: "Divine",
+        icon: "sun",
+        requiredWins: 2300,
+        color: "#E91E63" // Pink
+    },
+    {
+        id: 22,
+        name: "Supreme",
+        icon: "lightning",
+        requiredWins: 3000,
+        color: "#2ECC71" // Green
+    },
+    {
+        id: 23,
+        name: "Cosmic",
+        icon: "shield2",
+        requiredWins: 4000,
+        color: "#2ECC71" // Green
+    },
+    {
+        id: 24,
+        name: "Ultimate",
+        icon: "target2",
+        requiredWins: 5000,
+        color: "#2ECC71" // Green
     }
+];
+
+export const getRankByWins = (wins: number): Rank => {
+    for (let i = ranks.length - 1; i >= 0; i--) {
+        if (wins >= ranks[i].requiredWins) {
+            return ranks[i];
+        }
+    }
+    return ranks[0];
 };
