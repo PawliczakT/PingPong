@@ -6,7 +6,7 @@ import {PlusCircle} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useUpdateMatchResult} from "@/hooks/useTournaments";
 import {Set} from "@/backend/types";
 import SetScoreInput from "@/components/SetScoreInput";
 import Button from "@/components/Button";
@@ -17,12 +17,10 @@ export default function RecordTournamentMatchScreen() {
     const {tournamentId, matchId, player1Id, player2Id} = useLocalSearchParams();
     const router = useRouter();
     const {getPlayerById} = usePlayerStore();
-    const {updateMatchResult} = useTournamentStore();
-
+    const updateMatchMutation = useUpdateMatchResult();
     const [sets, setSets] = useState<Set[]>([
         {player1Score: 0, player2Score: 0}
     ]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const player1 = getPlayerById(player1Id as string);
     const player2 = getPlayerById(player2Id as string);
@@ -39,9 +37,7 @@ export default function RecordTournamentMatchScreen() {
 
     const addSet = () => {
         if (Platform.OS !== "web") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch((e) => {
-                console.error("Haptics error:", e);
-            });
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
         setSets([...sets, {player1Score: 0, player2Score: 0}]);
     };
@@ -54,13 +50,9 @@ export default function RecordTournamentMatchScreen() {
 
     const removeSet = (index: number) => {
         if (sets.length <= 1) return;
-
         if (Platform.OS !== "web") {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch((e) => {
-                console.error("Haptics error:", e);
-            });
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
-
         const newSets = [...sets];
         newSets.splice(index, 1);
         setSets(newSets);
@@ -69,15 +61,10 @@ export default function RecordTournamentMatchScreen() {
     const calculateFinalScore = () => {
         let player1Sets = 0;
         let player2Sets = 0;
-
         sets.forEach(set => {
-            if (set.player1Score > set.player2Score) {
-                player1Sets++;
-            } else if (set.player2Score > set.player1Score) {
-                player2Sets++;
-            }
+            if (set.player1Score > set.player2Score) player1Sets++;
+            else if (set.player2Score > set.player1Score) player2Sets++;
         });
-
         return {player1Sets, player2Sets};
     };
 
@@ -88,47 +75,43 @@ export default function RecordTournamentMatchScreen() {
         }
 
         const hasEmptySet = sets.some(set => set.player1Score === 0 && set.player2Score === 0);
-        if (hasEmptySet) {
+        if (hasEmptySet && sets.length > 1) {
             Alert.alert("Error", "All sets must have scores");
             return;
         }
 
         const {player1Sets, player2Sets} = calculateFinalScore();
-
         if (player1Sets === player2Sets) {
             Alert.alert("Error", "Match must have a winner");
             return;
         }
 
-        setIsSubmitting(true);
-
-        try {
-            console.log("handleSubmit: Calling updateMatchResult...");
-            await updateMatchResult(
-                tournamentId as string,
-                matchId as string,
-                {
+        updateMatchMutation.mutate(
+            {
+                tournamentId: tournamentId as string,
+                matchId: matchId as string,
+                scores: {
                     player1Score: player1Sets,
                     player2Score: player2Sets,
                     sets,
-                }
-            );
-
-            if (Platform.OS !== "web") {
-                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                },
+            },
+            {
+                onSuccess: () => {
+                    if (Platform.OS !== "web") {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                    Alert.alert(
+                        "Success",
+                        "Match recorded successfully",
+                        [{text: "OK", onPress: () => router.push(`/tournament/${tournamentId}`)}]
+                    );
+                },
+                onError: (error: any) => {
+                    Alert.alert("Error", error.message || "Failed to record match");
+                },
             }
-
-            Alert.alert(
-                "Success",
-                "Match recorded successfully",
-                [{text: "OK", onPress: () => router.push(`/tournament/${tournamentId}`)}]
-            );
-        } catch (error) {
-            console.error("handleSubmit: Error during updateMatchResult:", error);
-            Alert.alert("Error", "Failed to record match");
-        } finally {
-            setIsSubmitting(false);
-        }
+        );
     };
 
     if (!player1 || !player2) {
@@ -148,12 +131,9 @@ export default function RecordTournamentMatchScreen() {
                 options={{
                     title: "Record Tournament Match",
                     headerShadowVisible: false,
-                    headerStyle: {
-                        backgroundColor: colors.background,
-                    },
+                    headerStyle: {backgroundColor: colors.background},
                 }}
             />
-
             <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.content}>
                     <Text style={styles.title}>Tournament Match</Text>
@@ -163,11 +143,7 @@ export default function RecordTournamentMatchScreen() {
                             <PlayerAvatar name={player1.name} avatarUrl={player1.avatarUrl} size={60}/>
                             <Text style={styles.playerName}>{player1.name}</Text>
                         </View>
-
-                        <View style={styles.vsContainer}>
-                            <Text style={styles.vsText}>VS</Text>
-                        </View>
-
+                        <View style={styles.vsContainer}><Text style={styles.vsText}>VS</Text></View>
                         <View style={styles.playerInfo}>
                             <PlayerAvatar name={player2.name} avatarUrl={player2.avatarUrl} size={60}/>
                             <Text style={styles.playerName}>{player2.name}</Text>
@@ -185,7 +161,6 @@ export default function RecordTournamentMatchScreen() {
                                 onPress={addSet}
                             />
                         </View>
-
                         {sets.map((set, index) => (
                             <SetScoreInput
                                 key={index}
@@ -199,12 +174,8 @@ export default function RecordTournamentMatchScreen() {
 
                     <View style={styles.summary}>
                         <Text style={styles.summaryTitle}>Match Summary</Text>
-
                         <View style={styles.summaryContent}>
-                            <Text style={styles.summaryText}>
-                                {player1.name} vs {player2.name}
-                            </Text>
-
+                            <Text style={styles.summaryText}>{player1.name} vs {player2.name}</Text>
                             <View style={styles.finalScore}>
                                 <Text style={styles.finalScoreText}>
                                     {calculateFinalScore().player1Sets} - {calculateFinalScore().player2Sets}
@@ -216,7 +187,7 @@ export default function RecordTournamentMatchScreen() {
                     <Button
                         title="Record Match"
                         onPress={handleSubmit}
-                        loading={isSubmitting}
+                        loading={updateMatchMutation.isPending}
                         style={styles.submitButton}
                     />
                 </View>

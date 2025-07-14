@@ -6,7 +6,7 @@ import {SafeAreaView} from "react-native-safe-area-context";
 import {Calendar, Users} from "lucide-react-native";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useCreateTournament} from "@/hooks/useTournaments";
 import {TournamentFormat} from "@/backend/types";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
@@ -15,22 +15,17 @@ import * as Haptics from "expo-haptics";
 export default function CreateTournamentScreen() {
     const router = useRouter();
     const {getActivePlayersSortedByRating} = usePlayerStore();
-    const {createTournament} = useTournamentStore();
-
+    const createTournamentMutation = useCreateTournament();
     const [name, setName] = useState("");
     const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
     const [format, setFormat] = useState<TournamentFormat>(TournamentFormat.KNOCKOUT);
     const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
     const activePlayers = getActivePlayersSortedByRating();
-
     const togglePlayerSelection = (playerId: string) => {
         if (Platform.OS !== "web") {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch((e) =>
                 console.error("Haptics error:", e));
         }
-
         setSelectedPlayerIds(prev =>
             prev.includes(playerId)
                 ? prev.filter(id => id !== playerId)
@@ -43,36 +38,34 @@ export default function CreateTournamentScreen() {
             Alert.alert("Error", "At least 2 players are required");
             return;
         }
-
         if (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0) {
             Alert.alert("Error", "Knockout tournaments require a number of players divisible by 4");
             return;
         }
 
-        setIsSubmitting(true);
-
-        try {
-            await createTournament(
-                name.trim(),
-                new Date(date).toISOString(),
+        createTournamentMutation.mutate(
+            {
+                name: name.trim(),
+                date: new Date(date).toISOString(),
                 format,
-                selectedPlayerIds
-            );
-
-            if (Platform.OS !== "web") {
-                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                playerIds: selectedPlayerIds,
+            },
+            {
+                onSuccess: () => {
+                    if (Platform.OS !== "web") {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                    Alert.alert(
+                        "Success",
+                        "Tournament created successfully",
+                        [{text: "OK", onPress: () => router.push("/tournaments")}]
+                    );
+                },
+                onError: (error: any) => {
+                    Alert.alert("Error", error.message || "Failed to create tournament");
+                },
             }
-
-            Alert.alert(
-                "Success",
-                "Tournament created successfully",
-                [{text: "OK", onPress: () => router.push("/tournaments")}]
-            );
-        } catch (error) {
-            Alert.alert("Error", "Failed to create tournament");
-        } finally {
-            setIsSubmitting(false);
-        }
+        );
     };
 
     return (
@@ -117,7 +110,6 @@ export default function CreateTournamentScreen() {
                         onPress={() => setFormat(TournamentFormat.KNOCKOUT)}
                         style={styles.formatButton}
                     />
-
                     <Button
                         title="Round Robin"
                         variant={format === TournamentFormat.ROUND_ROBIN ? "primary" : "outline"}
@@ -134,7 +126,6 @@ export default function CreateTournamentScreen() {
                             {selectedPlayerIds.length} selected
                         </Text>
                     </View>
-
                     {activePlayers.length > 0 ? (
                         <View style={styles.playersList}>
                             {activePlayers.map(player => (
@@ -180,8 +171,8 @@ export default function CreateTournamentScreen() {
                 <Button
                     title="Create Tournament"
                     onPress={handleSubmit}
-                    loading={isSubmitting}
-                    disabled={selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
+                    loading={createTournamentMutation.isPending}
+                    disabled={createTournamentMutation.isPending || selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
                     style={styles.submitButton}
                 />
             </ScrollView>

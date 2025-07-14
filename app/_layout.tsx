@@ -12,7 +12,7 @@ import {supabase} from '@/app/lib/supabase';
 import {useAuth} from "@/store/authStore";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";
 import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
-import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentsRealtime} from '@/hooks/useTournamentsRealtime';
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
 import {useNotificationStore} from "@/store/notificationStore";
 import {useNotificationsRealtime} from "@hooks/useNotificationsRealtime";
@@ -138,8 +138,7 @@ export default function RootLayout() {
                 }
 
                 try {
-                    await useTournamentStore.getState().fetchTournaments();
-                    console.log('✅ Tournaments loaded successfully');
+                    console.log('✅ Tournaments will be fetched by TanStack Query on demand.');
                 } catch (error) {
                     console.error("❌ Error fetching tournaments:", error);
                 }

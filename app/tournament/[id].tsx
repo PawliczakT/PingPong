@@ -1,46 +1,42 @@
 //app/tournament/[id].tsx
 import React, {useEffect, useState} from "react";
-import {Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,} from "react-native";
+import {Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from "react-native";
 import {Stack, useLocalSearchParams, useRouter} from "expo-router";
 import {Ionicons} from '@expo/vector-icons';
-import {BarChart, Calendar, Home, Play, PlusCircle, Trophy, Users,} from "lucide-react-native";
+import {BarChart, Calendar, Home, Play, PlusCircle, Trophy, Users} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {colors} from "@/constants/colors";
-import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
 import {usePlayerStore} from "@/store/playerStore";
-import {Player, TournamentFormat, TournamentMatch} from "@/backend/types";
+import {Player, Tournament, TournamentFormat, TournamentMatch} from "@/backend/types";
 import {formatDate} from "@/utils/formatters";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import TournamentBracket from "@/components/TournamentBracket";
+import {
+    TOURNAMENTS_QUERY_KEY,
+    useGenerateMatches,
+    useSetTournamentWinner,
+    useStartTournament,
+    useTournament
+} from "@/hooks/useTournaments";
+import {getPlayerTournamentWins} from "@/selectors/tournamentSelectors";
+import {useQueryClient} from "@tanstack/react-query";
 
 export default function TournamentDetailScreen() {
     const {id} = useLocalSearchParams();
     const router = useRouter();
-
     const [showConfirmComplete, setShowConfirmComplete] = useState(false);
     const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"bracket" | "matches" | "players">(
-        "bracket"
-    );
-
-    useTournamentsRealtime();
-
-    const tournamentStore = useTournamentStore();
+    const [activeTab, setActiveTab] = useState<"bracket" | "matches" | "players">("bracket");
+    const {data: tournament, isLoading, refetch} = useTournament(id as string);
+    const queryClient = useQueryClient();
+    const startTournamentMutation = useStartTournament();
+    const setTournamentWinnerMutation = useSetTournamentWinner();
+    const generateMatchesMutation = useGenerateMatches();
     const playerStore = usePlayerStore();
-
-    const getPlayerTournamentWins = useTournamentStore(state => state.getPlayerTournamentWins);
-
-    const tournament = tournamentStore.getTournamentById(id as string);
     const tournamentMatches = tournament?.matches || [];
     const winner = tournament?.winner ? playerStore.getPlayerById(tournament.winner) : null;
-
-    useEffect(() => {
-        if (tournament?.status === 'completed') {
-            tournamentStore.fetchTournaments();
-        }
-    }, [tournament?.status]);
 
     useEffect(() => {
         if (!tournament || tournament.status === 'completed') return;
@@ -50,36 +46,27 @@ export default function TournamentDetailScreen() {
         const allGroupCompleted = groupMatches.length > 0 && groupMatches.every(m => m.status === 'completed');
         const hasKnockout = tournamentMatches.some(m => m.round > 1);
 
-        if (allGroupCompleted && !hasKnockout) {
-            (async () => {
-                try {
-                    await tournamentStore.generateTournamentMatches(tournament.id);
-                    await tournamentStore.fetchTournaments();
-                    Alert.alert('Knockout Phase', 'Knockout phase has been automatically created!');
-                } catch (err) {
-                    console.error('[KO] Error generating knockout:', err);
-                }
-            })();
+        if (allGroupCompleted && !hasKnockout && !generateMatchesMutation.isPending) {
+            generateMatchesMutation.mutate({tournamentId: tournament.id}, {
+                onSuccess: () => Alert.alert('Knockout Phase', 'Knockout phase has been automatically created!'),
+                onError: (err: any) => console.error('[KO] Error generating knockout:', err.message)
+            });
         }
-    }, [tournamentMatches, tournament]);
+    }, [tournamentMatches, tournament, generateMatchesMutation]);
 
     useEffect(() => {
         setShowConfirmComplete(false);
         setSelectedWinnerId(null);
     }, [tournament?.status]);
 
-    const [refreshing, setRefreshing] = useState(false);
-
     const onRefresh = async () => {
-        setRefreshing(true);
-        try {
-            await tournamentStore.fetchTournaments({force: true});
-        } catch (e) {
-            console.warn("Tournament detail refresh error", e);
-        } finally {
-            setRefreshing(false);
-        }
+        await refetch();
     };
+
+    if (isLoading && !tournament) {
+        return <SafeAreaView style={styles.container}><View style={styles.notFound}><Text style={styles.notFoundText}>Loading
+            Tournament...</Text></View></SafeAreaView>;
+    }
 
     if (!tournament) {
         return (
@@ -87,11 +74,7 @@ export default function TournamentDetailScreen() {
                 <Stack.Screen options={{title: "Tournament Not Found"}}/>
                 <View style={styles.notFound}>
                     <Text style={styles.notFoundText}>Tournament not found</Text>
-                    <Button
-                        title="Go Back"
-                        onPress={() => router.back()}
-                        variant="outline"
-                    />
+                    <Button title="Go Back" onPress={() => router.back()} variant="outline"/>
                 </View>
             </SafeAreaView>
         );
@@ -100,6 +83,17 @@ export default function TournamentDetailScreen() {
     const participants = (tournament.participants || [])
         .map((pId) => playerStore.getPlayerById(pId))
         .filter((player): player is Player => player !== undefined);
+
+    const handleStartTournament = () => {
+        startTournamentMutation.mutate(
+            {
+                tournamentId: tournament.id,
+                format: tournament.format,
+                playerIds: tournament.participants
+            },
+            {onError: (error: any) => Alert.alert("Error", error.message || "Failed to start tournament.")}
+        );
+    };
 
     const handleCompleteTournament = async () => {
         if (!selectedWinnerId) {
@@ -111,15 +105,13 @@ export default function TournamentDetailScreen() {
             await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
 
-        if (showConfirmComplete) {
-            try {
-                await tournamentStore.setTournamentWinner(tournament.id, selectedWinnerId);
-                Alert.alert("Success", "Tournament completed successfully");
-            } catch (error) {
-                console.error("Failed to complete tournament:", error);
-                Alert.alert("Error", "Failed to complete tournament. Please try again.");
+        setTournamentWinnerMutation.mutate(
+            {tournamentId: tournament.id, winnerId: selectedWinnerId},
+            {
+                onSuccess: () => Alert.alert("Success", "Tournament completed successfully"),
+                onError: (error: any) => Alert.alert("Error", error.message || "Failed to complete tournament.")
             }
-        }
+        );
     };
 
     const toggleWinnerSelection = () => {
@@ -223,8 +215,8 @@ export default function TournamentDetailScreen() {
             matches: 0,
             wins: 0,
             losses: 0,
-            tournamentPoints: 0, // Punkty za zwycięstwo w turnieju
-            points: 0, // Małe punkty (z setów)
+            tournamentPoints: 0,
+            points: 0,
             pointsAgainst: 0,
             pointsDiff: 0
         }));
@@ -238,7 +230,6 @@ export default function TournamentDetailScreen() {
             standings[player1Index].matches++;
             standings[player2Index].matches++;
 
-            // Sumowanie małych punktów z setów
             if (match.sets && Array.isArray(match.sets)) {
                 match.sets.forEach((set: any) => {
                     const p1Score = set.player1Score || 0;
@@ -250,18 +241,17 @@ export default function TournamentDetailScreen() {
                 });
             }
 
-            // Zwycięstwa, porażki i punkty turniejowe
             if (match.player1Score !== null && match.player2Score !== null) {
                 if (match.player1Score > match.player2Score) {
                     standings[player1Index].wins++;
-                    standings[player1Index].tournamentPoints += 2; // 2 punkty za wygraną
+                    standings[player1Index].tournamentPoints += 2;
                     standings[player2Index].losses++;
-                    standings[player2Index].tournamentPoints += 1; // 1 punkt za przegraną
+                    standings[player2Index].tournamentPoints += 1;
                 } else if (match.player2Score > match.player1Score) {
                     standings[player2Index].wins++;
-                    standings[player2Index].tournamentPoints += 2; // 2 punkty za wygraną
+                    standings[player2Index].tournamentPoints += 2;
                     standings[player1Index].losses++;
-                    standings[player1Index].tournamentPoints += 1; // 1 punkt za przegraną
+                    standings[player1Index].tournamentPoints += 1;
                 }
             }
         });
@@ -269,7 +259,7 @@ export default function TournamentDetailScreen() {
         standings.forEach(s => s.pointsDiff = s.points - s.pointsAgainst);
 
         return standings.sort((a, b) => {
-            if (a.tournamentPoints !== b.tournamentPoints) return b.tournamentPoints - a.tournamentPoints; // Sortuj po punktach turniejowych
+            if (a.tournamentPoints !== b.tournamentPoints) return b.tournamentPoints - a.tournamentPoints;
             if (a.wins !== b.wins) return b.wins - a.wins;
             if (a.pointsDiff !== b.pointsDiff) return b.pointsDiff - a.pointsDiff;
             return b.points - a.points;
@@ -320,7 +310,9 @@ export default function TournamentDetailScreen() {
                 }}
             />
 
-            <ScrollView contentContainerStyle={{paddingBottom: 70}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}>
+            <ScrollView contentContainerStyle={{paddingBottom: 70}}
+                        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={onRefresh}
+                                                        tintColor={colors.primary}/>}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{tournament.name}</Text>
@@ -351,8 +343,8 @@ export default function TournamentDetailScreen() {
                     {tournament.status === 'pending' && (
                         <Button
                             title="Start Tournament"
-                            onPress={() => tournamentStore.generateAndStartTournament(tournament.id)}
-                            disabled={tournamentStore.loading}
+                            onPress={handleStartTournament}
+                            loading={startTournamentMutation.isPending}
                             style={styles.startButton}
                         />
                     )}
@@ -429,7 +421,8 @@ export default function TournamentDetailScreen() {
                                         {allGroupMatchesCompleted && !hasKnockout && (
                                             <Button
                                                 title="Generate Knockout Phase"
-                                                onPress={() => tournamentStore.generateTournamentMatches(tournament.id)}
+                                                onPress={() => generateMatchesMutation.mutate({tournamentId: tournament.id})}
+                                                loading={generateMatchesMutation.isPending}
                                                 style={styles.generateKnockoutButton}
                                             />
                                         )}
@@ -513,7 +506,6 @@ export default function TournamentDetailScreen() {
                                                 key={match.id}
                                                 style={[styles.matchListItem, match.status === 'completed' && styles.matchListItemCompleted, match.status === "scheduled" && match.player1Id && match.player2Id && styles.matchListItemPlayable, match.status === 'scheduled' && (!match.player1Id || !match.player2Id) && styles.matchListItemTBD]}
                                                 onPress={() => handleMatchPress(match)}
-                                                disabled={match.status === 'completed'}
                                             >
                                                 <Text
                                                     style={[styles.matchListText, match.status === 'completed' && {opacity: 0.7}]}
@@ -527,9 +519,9 @@ export default function TournamentDetailScreen() {
                                                     {match.status === 'completed' && match.player1Score != null && match.player2Score != null ? (
                                                         <Text
                                                             style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
-                                                    ) : (
+                                                    ) : match.status !== 'scheduled' ? (
                                                         <Text style={styles.viewDetailsText}>Result</Text>
-                                                    )}
+                                                    ) : null}
                                                     {match.status === 'scheduled' && (!match.player1Id || !match.player2Id) &&
                                                         <Text style={styles.tbdText}>TBD</Text>}
                                                 </View>
@@ -548,21 +540,16 @@ export default function TournamentDetailScreen() {
                         {participants.length > 0 ? (
                             <View style={styles.participantsList}>
                                 {participants.map((player, index) => {
-                                    const wins = getPlayerTournamentWins(player.id);
+                                    const allTournamentsFromCache = queryClient.getQueryData<Tournament[]>(TOURNAMENTS_QUERY_KEY);
+                                    const wins = getPlayerTournamentWins(player.id, allTournamentsFromCache);
                                     return (
                                         <Pressable
                                             key={player.id}
-                                            style={[
-                                                styles.playerRow,
-                                                index % 2 === 0 ? styles.playerRowEven : styles.playerRowOdd,
-                                                showConfirmComplete && selectedWinnerId === player.id && styles.selectedPlayerRow
-                                            ]}
+                                            style={[styles.playerRow, index % 2 === 0 ? styles.playerRowEven : styles.playerRowOdd, showConfirmComplete && selectedWinnerId === player.id && styles.selectedPlayerRow]}
                                             onPress={() => {
                                                 if (showConfirmComplete) {
                                                     setSelectedWinnerId(player.id);
-                                                    if (Platform.OS !== 'web') {
-                                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                                    }
+                                                    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                                 } else {
                                                     router.push(`/player/${player.id}`);
                                                 }
@@ -575,12 +562,10 @@ export default function TournamentDetailScreen() {
                                                     <Text style={styles.playerRating}>Rating: {player.eloRating}</Text>
                                                 </View>
                                             </View>
-
                                             <View style={styles.playerStatsContainer}>
                                                 <Trophy size={16} color={colors.primary}/>
                                                 <Text style={styles.playerWinsText}>{wins}</Text>
                                             </View>
-
                                             {showConfirmComplete && (
                                                 <View
                                                     style={[styles.radioCircle, selectedWinnerId === player.id && styles.radioFilled]}/>
@@ -624,7 +609,8 @@ export default function TournamentDetailScreen() {
                                 <Button
                                     title="Confirm Winner & Complete"
                                     onPress={handleCompleteTournament}
-                                    disabled={!selectedWinnerId}
+                                    disabled={!selectedWinnerId || setTournamentWinnerMutation.isPending}
+                                    loading={setTournamentWinnerMutation.isPending}
                                     variant="primary"
                                     style={{marginTop: 16}}
                                 />
@@ -634,23 +620,17 @@ export default function TournamentDetailScreen() {
                 )}
             </ScrollView>
 
-            {/* Bottom Menu Banner */}
             <View style={styles.bottomMenu}>
-                <Pressable style={styles.menuItem} onPress={() => router.push('/')}>
-                    <Home size={22} color={colors.textLight}/>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => router.push('/players')}>
-                    <Users size={22} color={colors.textLight}/>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => router.push('/add-match')}>
-                    <PlusCircle size={24} color={colors.primary}/>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => router.push('/tournaments')}>
-                    <Trophy size={22} color={colors.textLight}/>
-                </Pressable>
-                <Pressable style={styles.menuItem} onPress={() => router.push('/stats')}>
-                    <BarChart size={22} color={colors.textLight}/>
-                </Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/')}><Home size={22}
+                                                                                          color={colors.textLight}/></Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/players')}><Users size={22}
+                                                                                                  color={colors.textLight}/></Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/add-match')}><PlusCircle size={24}
+                                                                                                         color={colors.primary}/></Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/tournaments')}><Trophy size={22}
+                                                                                                       color={colors.textLight}/></Pressable>
+                <Pressable style={styles.menuItem} onPress={() => router.push('/stats')}><BarChart size={22}
+                                                                                                   color={colors.textLight}/></Pressable>
             </View>
         </SafeAreaView>
     );
@@ -772,11 +752,7 @@ const styles = StyleSheet.create({
         color: colors.text,
         marginBottom: 16,
     },
-    participantsList: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        marginHorizontal: -8,
-    },
+    participantsList: {},
     participantItem: {
         width: "33.33%",
         alignItems: "center",
@@ -799,16 +775,17 @@ const styles = StyleSheet.create({
     winnerSelection: {
         flexDirection: "row",
         flexWrap: "wrap",
-        marginHorizontal: -8,
+        justifyContent: 'center',
+        marginHorizontal: -4,
     },
     winnerOption: {
         width: "33.33%",
         alignItems: "center",
         marginBottom: 16,
-        paddingHorizontal: 8,
+        paddingHorizontal: 4,
         paddingVertical: 12,
         borderRadius: 8,
-        borderWidth: 1,
+        borderWidth: 2,
         borderColor: 'transparent',
     },
     winnerOptionSelected: {
@@ -920,7 +897,6 @@ const styles = StyleSheet.create({
     },
     roundRobinContainer: {
         marginTop: 10,
-        marginHorizontal: 10,
         borderRadius: 8,
         overflow: 'hidden',
         backgroundColor: colors.card,
@@ -934,43 +910,44 @@ const styles = StyleSheet.create({
     },
     standingsTable: {
         marginTop: 8,
-        borderWidth: 1,
-        borderColor: '#e0e0e0',
-        borderRadius: 8,
         overflow: 'hidden',
     },
     standingsHeader: {
         flexDirection: 'row',
-        backgroundColor: colors.primary,
-        padding: 8,
+        backgroundColor: colors.background,
+        padding: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
     },
     standingsHeaderCell: {
         flex: 1,
-        color: '#fff',
+        color: colors.textLight,
         fontWeight: 'bold',
         textAlign: 'center',
         fontSize: 12,
     },
     standingsRow: {
         flexDirection: 'row',
-        padding: 8,
+        padding: 10,
         borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
+        borderBottomColor: colors.border,
+        alignItems: 'center',
     },
     standingsCell: {
         flex: 1,
         textAlign: 'center',
-        fontSize: 12,
+        fontSize: 14,
+        color: colors.text,
     },
     standingsRowEven: {
-        backgroundColor: '#f9f9f9',
+        backgroundColor: colors.card,
     },
     standingsRowOdd: {
-        backgroundColor: '#ffffff',
+        backgroundColor: colors.card,
     },
     playerNameColumn: {
-        flex: 2,
-        justifyContent: 'flex-start',
+        flex: 3,
+        textAlign: 'left',
     },
     playerNameCell: {
         flexDirection: 'row',
@@ -979,61 +956,50 @@ const styles = StyleSheet.create({
     },
     standingsPlayerName: {
         marginLeft: 8,
-        fontSize: 12,
+        fontSize: 14,
+        fontWeight: '500',
+        color: colors.text,
         flex: 1,
     },
     groupStandingsContainer: {
-        marginTop: 16,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 16,
-        shadowColor: '#000',
-        shadowOffset: {width: 0, height: 2},
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        marginTop: 16
     },
     groupSection: {
-        marginTop: 16,
+        marginBottom: 24,
+        backgroundColor: colors.card,
+        borderRadius: 12,
+        overflow: 'hidden',
     },
     groupTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-        marginBottom: 8,
+        padding: 12,
+        backgroundColor: colors.background,
         color: colors.text,
     },
     generateKnockoutButton: {
-        backgroundColor: colors.primary,
-        borderRadius: 8,
-        padding: 12,
-        alignItems: 'center',
-        marginVertical: 12,
+        margin: 16,
     },
-    generateKnockoutButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    roundMatches: {
-        padding: 16,
-    },
+    roundMatches: {},
     playerRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: 12,
-        borderRadius: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
     },
     playerRowEven: {
         backgroundColor: colors.card
     },
     playerRowOdd: {
-        backgroundColor: colors.background
+        backgroundColor: colors.card
     },
     playerInfo: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+        flex: 1,
     },
     playerName: {
         fontSize: 16,
@@ -1055,8 +1021,9 @@ const styles = StyleSheet.create({
         color: colors.primary,
     },
     selectedPlayerRow: {
-        backgroundColor: colors.primaryMuted,
+        backgroundColor: colors.primary + "20",
         borderColor: colors.primary,
+        borderLeftWidth: 4,
     },
     radioCircle: {
         height: 24,
@@ -1066,8 +1033,12 @@ const styles = StyleSheet.create({
         borderColor: colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
+        marginLeft: 16,
     },
     radioFilled: {
+        height: 12,
+        width: 12,
+        borderRadius: 6,
         backgroundColor: colors.primary,
     },
     bottomMenu: {

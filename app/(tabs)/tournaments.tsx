@@ -1,62 +1,65 @@
 //app/(tabs)/tournaments.tsx
-import React, {useState} from "react";
+import React, {useMemo, useState} from "react";
 import {FlatList, Pressable, RefreshControl, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Plus, Trophy} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useTournaments} from "@/hooks/useTournaments";
+import {Tournament, TournamentStatus} from "@/backend/types";
 import TournamentCard from "@/components/TournamentCard";
 import EmptyState from "@/components/EmptyState";
 import Button from "@/components/Button";
 
 export default function TournamentsScreen() {
     const router = useRouter();
-    const {
-        tournaments,
-        getUpcomingTournaments,
-        getActiveTournaments,
-        getCompletedTournaments,
-        fetchTournaments
-    } = useTournamentStore();
-
     const [activeTab, setActiveTab] = useState<"upcoming" | "active" | "completed">("upcoming");
-
-    const upcomingTournaments = getUpcomingTournaments();
-    const activeTournaments = getActiveTournaments();
-    const completedTournaments = getCompletedTournaments();
-
-    const [refreshing, setRefreshing] = useState(false);
-
-    const onRefresh = async () => {
-        setRefreshing(true);
-        try {
-            await fetchTournaments({force: true});
-        } catch (e) {
-            console.warn("Failed to refresh tournaments", e);
-        } finally {
-            setRefreshing(false);
-        }
-    };
-
-    const renderTournaments = () => {
-        let data = [];
-
+    const {data: tournaments = [], isLoading, isError, refetch} = useTournaments();
+    const filteredTournaments = useMemo((): Tournament[] => {
+        if (!tournaments) return [];
         switch (activeTab) {
             case "upcoming":
-                data = upcomingTournaments;
-                break;
+                return tournaments.filter(t => t.status === TournamentStatus.UPCOMING);
             case "active":
-                data = activeTournaments;
-                break;
+                return tournaments.filter(t => t.status === TournamentStatus.IN_PROGRESS);
             case "completed":
-                data = completedTournaments;
-                break;
+                return tournaments.filter(t => t.status === TournamentStatus.COMPLETED);
+            default:
+                return [];
         }
+    }, [tournaments, activeTab]);
 
-        if (data.length === 0) {
+    const onRefresh = async () => {
+        await refetch();
+    };
+
+    if (isLoading && !tournaments.length) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <Text>Loading tournaments...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (isError) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <EmptyState
+                    title="Error"
+                    message="Could not load tournaments. Please try again."
+                    icon={<Trophy size={60} color={colors.textLight}/>}
+                    actionLabel="Retry"
+                    onAction={onRefresh}
+                />
+            </SafeAreaView>
+        );
+    }
+
+    const renderTournaments = () => {
+        if (filteredTournaments.length === 0) {
             let message = "";
-
             switch (activeTab) {
                 case "upcoming":
                     message = "No upcoming tournaments scheduled";
@@ -68,7 +71,6 @@ export default function TournamentsScreen() {
                     message = "No completed tournaments yet";
                     break;
             }
-
             return (
                 <EmptyState
                     title={`No ${activeTab} Tournaments`}
@@ -82,13 +84,12 @@ export default function TournamentsScreen() {
 
         return (
             <FlatList
-                data={data}
+                data={filteredTournaments}
                 keyExtractor={(item) => item.id}
-                renderItem={({item}) => (
-                    <TournamentCard tournament={item}/>
-                )}
+                renderItem={({item}) => <TournamentCard tournament={item}/>}
                 contentContainerStyle={styles.listContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>} 
+                refreshControl={<RefreshControl refreshing={isLoading} onRefresh={onRefresh}
+                                                tintColor={colors.primary}/>}
             />
         );
     };
@@ -106,55 +107,17 @@ export default function TournamentsScreen() {
             </View>
 
             <View style={styles.tabs}>
-                <Pressable
-                    style={[
-                        styles.tab,
-                        activeTab === "upcoming" && styles.activeTab
-                    ]}
-                    onPress={() => setActiveTab("upcoming")}
-                >
-                    <Text
-                        style={[
-                            styles.tabText,
-                            activeTab === "upcoming" && styles.activeTabText
-                        ]}
-                    >
-                        Upcoming
-                    </Text>
+                <Pressable style={[styles.tab, activeTab === "upcoming" && styles.activeTab]}
+                           onPress={() => setActiveTab("upcoming")}>
+                    <Text style={[styles.tabText, activeTab === "upcoming" && styles.activeTabText]}>Upcoming</Text>
                 </Pressable>
-
-                <Pressable
-                    style={[
-                        styles.tab,
-                        activeTab === "active" && styles.activeTab
-                    ]}
-                    onPress={() => setActiveTab("active")}
-                >
-                    <Text
-                        style={[
-                            styles.tabText,
-                            activeTab === "active" && styles.activeTabText
-                        ]}
-                    >
-                        Active
-                    </Text>
+                <Pressable style={[styles.tab, activeTab === "active" && styles.activeTab]}
+                           onPress={() => setActiveTab("active")}>
+                    <Text style={[styles.tabText, activeTab === "active" && styles.activeTabText]}>Active</Text>
                 </Pressable>
-
-                <Pressable
-                    style={[
-                        styles.tab,
-                        activeTab === "completed" && styles.activeTab
-                    ]}
-                    onPress={() => setActiveTab("completed")}
-                >
-                    <Text
-                        style={[
-                            styles.tabText,
-                            activeTab === "completed" && styles.activeTabText
-                        ]}
-                    >
-                        Completed
-                    </Text>
+                <Pressable style={[styles.tab, activeTab === "completed" && styles.activeTab]}
+                           onPress={() => setActiveTab("completed")}>
+                    <Text style={[styles.tabText, activeTab === "completed" && styles.activeTabText]}>Completed</Text>
                 </Pressable>
             </View>
 
@@ -177,6 +140,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     header: {
         flexDirection: "row",
@@ -215,6 +183,7 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
     },
     listContent: {
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
 });

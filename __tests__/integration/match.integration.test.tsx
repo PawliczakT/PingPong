@@ -5,7 +5,6 @@ import {useStatsStore} from '@/store/statsStore';
 import {useAchievementStore} from '@/store/achievementStore';
 import {Player, Set} from '@/backend/types';
 
-// Mock external dependencies
 jest.mock('@/app/lib/supabase', () => ({
     supabase: {
         from: jest.fn().mockReturnValue({
@@ -41,7 +40,6 @@ jest.mock('@/store/notificationStore', () => ({
     sendAchievementNotification: jest.fn().mockResolvedValue(undefined),
 }));
 
-// Initial state for resetting stores
 const initialPlayerState = usePlayerStore.getState();
 const initialMatchState = useMatchStore.getState();
 const initialEloState = useEloStore.getState();
@@ -97,23 +95,19 @@ const mockPlayers: Player[] = [
 
 describe('Match Management Integration Tests', () => {
     beforeEach(() => {
-        // Reset all stores to their initial state before each test
         usePlayerStore.setState(initialPlayerState, true);
         useMatchStore.setState(initialMatchState, true);
         useEloStore.setState(initialEloState, true);
         useStatsStore.setState(initialStatsState, true);
         useAchievementStore.setState(initialAchievementState, true);
 
-        // Clear all mocks
         jest.clearAllMocks();
 
-        // Setup initial data for stores
         usePlayerStore.setState({players: mockPlayers});
         useEloStore.getState().initialize(mockPlayers);
     });
 
     test('should add a match and correctly update player stats and ELO ratings', async () => {
-        // Arrange
         const player1InitialElo = usePlayerStore.getState().getPlayerById('player1')?.eloRating;
         const player2InitialElo = usePlayerStore.getState().getPlayerById('player2')?.eloRating;
         const player1InitialWins = usePlayerStore.getState().getPlayerById('player1')?.wins;
@@ -127,33 +121,24 @@ describe('Match Management Integration Tests', () => {
             tournamentId: 'tourney-1',
         };
 
-        // Act
         const newMatch = await useMatchStore.getState().addMatch(matchData);
 
-        // Assert
-        // 1. Check if the match was added to the match store
         expect(newMatch).toBeDefined();
         expect(newMatch.id).toBe('match-id-123');
 
-        // 2. Get updated players from the store
         const updatedPlayer1 = usePlayerStore.getState().getPlayerById('player1');
         const updatedPlayer2 = usePlayerStore.getState().getPlayerById('player2');
 
-        // 3. Verify ELO ratings were updated
         expect(updatedPlayer1?.eloRating).toBeGreaterThan(player1InitialElo!);
         expect(updatedPlayer2?.eloRating).toBeLessThan(player2InitialElo!);
-
-        // 4. Verify win/loss stats were updated
         expect(updatedPlayer1?.wins).toBe(player1InitialWins! + 1);
 
-        // 5. Verify other stores were called
         const achievementStore = useAchievementStore.getState();
         const statsStore = useStatsStore.getState();
         const checkAndUpdateAchievementsSpy = jest.spyOn(achievementStore, 'checkAndUpdateAchievements');
         const updatePlayerStreakSpy = jest.spyOn(statsStore, 'updatePlayerStreak');
 
-        // We need to re-run addMatch with spies attached
-        usePlayerStore.setState({players: mockPlayers}); // Reset players for re-run
+        usePlayerStore.setState({players: mockPlayers});
         await useMatchStore.getState().addMatch(matchData);
 
         expect(checkAndUpdateAchievementsSpy).toHaveBeenCalledWith('player1');
@@ -163,7 +148,6 @@ describe('Match Management Integration Tests', () => {
     });
 
     test('should throw an error if a player is not found', async () => {
-        // Arrange
         const matchData = {
             player1Id: 'player1',
             player2Id: 'non-existent-player',
@@ -172,7 +156,6 @@ describe('Match Management Integration Tests', () => {
             sets: [{player1Score: 11, player2Score: 8}] as Set[],
         };
 
-        // Act & Assert
         await expect(useMatchStore.getState().addMatch(matchData)).rejects.toThrow('Player not found');
     });
 });

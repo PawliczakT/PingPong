@@ -1,13 +1,14 @@
 //app/(tabs)/index.tsx
-import React, {useEffect, useState} from "react";
-import {Pressable, ScrollView, RefreshControl, StyleSheet, Text, View} from "react-native";
+import React, {useEffect, useMemo, useState} from "react";
+import {Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Bell, PlusCircle, Trophy, Users} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
-import {usePlayerStore, fetchPlayersFromSupabase} from "@/store/playerStore";
-import {useMatchStore, fetchMatchesFromSupabase} from "@/store/matchStore";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {fetchPlayersFromSupabase, usePlayerStore} from "@/store/playerStore";
+import {fetchMatchesFromSupabase, useMatchStore} from "@/store/matchStore";
+import {useTournaments} from "@/hooks/useTournaments";
+import {TournamentStatus} from "@/backend/types";
 import {useNetworkStore} from "@/store/networkStore";
 import {useNotificationStore} from "@/store/notificationStore";
 import PlayerCard from "@/components/PlayerCard";
@@ -19,30 +20,29 @@ import NetworkStatusBar from "@/components/NetworkStatusBar";
 
 export default function HomeScreen() {
     const router = useRouter();
-
+    const {data: tournaments = [], refetch: refetchTournaments} = useTournaments();
     const getActivePlayersSortedByRating = usePlayerStore(state => state.getActivePlayersSortedByRating);
     const getRecentMatches = useMatchStore(state => state.getRecentMatches);
-    const getUpcomingTournaments = useTournamentStore(state => state.getUpcomingTournaments);
-    const getActiveTournaments = useTournamentStore(state => state.getActiveTournaments);
     const checkNetworkStatus = useNetworkStore(state => state.checkNetworkStatus);
     const syncPendingMatches = useNetworkStore(state => state.syncPendingMatches);
     const registerForPushNotifications = useNotificationStore(state => state.registerForPushNotifications);
     const notificationHistory = useNotificationStore(state => state.notificationHistory);
-
+    const upcomingTournaments = useMemo(() => {
+        return tournaments
+            .filter(t => t.status === TournamentStatus.UPCOMING || t.status === TournamentStatus.IN_PROGRESS)
+            .slice(0, 2);
+    }, [tournaments]);
     const topPlayers = getActivePlayersSortedByRating().slice(0, 3);
     const recentMatches = getRecentMatches(3);
-    const upcomingTournaments = [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2);
     const unreadNotifications = notificationHistory.filter(n => !n.read).length;
-
     const [refreshing, setRefreshing] = useState(false);
-
     const onRefresh = async () => {
         setRefreshing(true);
         try {
             await Promise.all([
                 fetchPlayersFromSupabase(),
                 fetchMatchesFromSupabase(),
-                useTournamentStore.getState().fetchTournaments({force: true}),
+                refetchTournaments(),
             ]);
         } catch (e) {
             console.warn("Home refresh error", e);
@@ -91,7 +91,9 @@ export default function HomeScreen() {
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
             <NetworkStatusBar/>
-            <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}>
+            <ScrollView showsVerticalScrollIndicator={false}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh}
+                                                        tintColor={colors.primary}/>}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title}>Grey Zone PingPong StatKeeper</Text>
