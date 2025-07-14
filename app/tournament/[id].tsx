@@ -44,6 +44,7 @@ export default function TournamentDetailScreen() {
 
     useEffect(() => {
         if (!tournament || tournament.status === 'completed') return;
+        if (tournament.format !== TournamentFormat.GROUP) return;
 
         const groupMatches = tournamentMatches.filter(m => m.round === 1);
         const allGroupCompleted = groupMatches.length > 0 && groupMatches.every(m => m.status === 'completed');
