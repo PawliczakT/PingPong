@@ -1,26 +1,11 @@
-/**
- * @fileoverview Contains business logic, complex calculations, and helper functions
- * for tournament management. These functions are generally pure or rely on external
- * services like Supabase for data fetching but do not directly manipulate store state.
- */
+import {supabase} from '@/app/lib/supabase';
+import {v4 as uuidv4} from 'uuid';
+import type {MatchSet, TournamentMatch} from './tournamentTypes';
+import {TournamentStatus} from '@/backend/types';
+import {usePlayerStore} from '../playerStore';
+import type {TournamentWonMetadata} from '@/backend/server/trpc/services/notificationService';
+import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
 
-import { supabase } from '@/app/lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
-import type { MatchSet, Tournament, TournamentMatch } from './tournamentTypes';
-import { TournamentStatus } from './tournamentTypes'; // Assuming TournamentStatus is exported from tournamentTypes
-import { usePlayerStore } from '../playerStore';
-import { useTournamentStore } from '../tournamentStore'; // This will be the new, lean store
-import type { TournamentWonMetadata } from '@/backend/server/trpc/services/notificationService';
-import { dispatchSystemNotification } from '@/backend/server/trpc/services/notificationService';
-
-/**
- * Transforms raw match data (typically from Supabase) into the TournamentMatch type.
- * @param {any} match - Raw match data.
- * @returns {TournamentMatch} Transformed match data.
- * @example
- * const rawMatch = { tournament_id: 't1', player1_id: 'p1', ... };
- * const match = transformMatchData(rawMatch);
- */
 export const transformMatchData = (match: any): TournamentMatch => {
     return {
         id: match.id,
@@ -44,16 +29,6 @@ export const transformMatchData = (match: any): TournamentMatch => {
     };
 };
 
-
-/**
- * Shuffles an array in place using the Fisher-Yates algorithm.
- * @template T
- * @param {T[]} array - The array to shuffle.
- * @returns {T[]} The shuffled array.
- * @example
- * const arr = [1, 2, 3, 4, 5];
- * shuffleArray(arr); // arr is now shuffled, e.g., [3, 1, 5, 2, 4]
- */
 export function shuffleArray<T>(array: T[]): T[] {
     let currentIndex = array.length, randomIndex;
     // While there remain elements to shuffle.
@@ -68,42 +43,21 @@ export function shuffleArray<T>(array: T[]): T[] {
     return array;
 }
 
-/**
- * Generates a round-robin schedule for a list of player IDs.
- * Each player plays every other player once.
- * @param {string[]} playerIds - An array of player IDs.
- * @returns {{ player1Id: string, player2Id: string }[]} An array of match pairings.
- * @example
- * const players = ['p1', 'p2', 'p3'];
- * const schedule = generateRoundRobinSchedule(players);
- * // schedule = [{p1,p2}, {p1,p3}, {p2,p3}]
- */
 export function generateRoundRobinSchedule(playerIds: string[]): { player1Id: string, player2Id: string }[] {
     const schedule: { player1Id: string, player2Id: string }[] = [];
     if (playerIds.length < 2) return schedule;
     for (let i = 0; i < playerIds.length; i++) {
         for (let j = i + 1; j < playerIds.length; j++) {
-            schedule.push({ player1Id: playerIds[i], player2Id: playerIds[j] });
+            schedule.push({player1Id: playerIds[i], player2Id: playerIds[j]});
         }
     }
     return schedule;
 }
 
-/**
- * Distributes a list of player IDs into a specified number of groups.
- * Players are shuffled before distribution.
- * @param {string[]} playerIds - An array of player IDs.
- * @param {number} numGroups - The desired number of groups.
- * @returns {string[][]} An array of groups, where each group is an array of player IDs.
- * @example
- * const players = ['p1', 'p2', 'p3', 'p4'];
- * const groups = generateGroups(players, 2);
- * // groups might be [['p3', 'p1'], ['p4', 'p2']] (due to shuffle)
- */
 export function generateGroups(playerIds: string[], numGroups: number): string[][] {
     if (numGroups <= 0) throw new Error("Number of groups must be positive.");
     const shuffledPlayers = shuffleArray([...playerIds]);
-    const groups: string[][] = Array.from({ length: numGroups }, () => []);
+    const groups: string[][] = Array.from({length: numGroups}, () => []);
 
     shuffledPlayers.forEach((playerId, index) => {
         const groupIndex = index % numGroups;
@@ -113,17 +67,6 @@ export function generateGroups(playerIds: string[], numGroups: number): string[]
     return groups;
 }
 
-/**
- * Generates match pairings for players within their respective groups.
- * This is for the group stage of a tournament.
- * @param {string[][]} groups - An array of groups, each containing player IDs.
- * @returns {{ player1Id: string, player2Id: string, group: number }[]} An array of group match pairings.
- * The `group` property is 1-indexed.
- * @example
- * const groups = [['p1', 'p2'], ['p3', 'p4']];
- * const groupMatches = generateGroupMatches(groups);
- * // groupMatches = [{p1,p2,group:1}, {p3,p4,group:2}]
- */
 export function generateGroupMatches(groups: string[][]): { player1Id: string, player2Id: string, group: number }[] {
     const matches: { player1Id: string, player2Id: string, group: number }[] = [];
 
@@ -141,13 +84,6 @@ export function generateGroupMatches(groups: string[][]): { player1Id: string, p
     return matches;
 }
 
-/**
- * Determines the top players from each group based on match results.
- * Qualification is based on wins, then point difference, then total points.
- * @param {string[][]} groups - Array of groups, each an array of player IDs.
- * @param {TournamentMatch[]} completedGroupMatches - Array of completed group matches.
- * @returns {string[]} An array of player IDs who qualified from their groups.
- */
 export function getTopPlayersFromGroups(groups: string[][], completedGroupMatches: TournamentMatch[]): string[] {
     const qualifiers: string[] = [];
 
@@ -157,7 +93,7 @@ export function getTopPlayersFromGroups(groups: string[][], completedGroupMatche
         const playerStats: Record<string, { played: number, wins: number, points: number, pointsDiff: number }> = {};
 
         group.forEach(playerId => {
-            playerStats[playerId] = { played: 0, wins: 0, points: 0, pointsDiff: 0 };
+            playerStats[playerId] = {played: 0, wins: 0, points: 0, pointsDiff: 0};
         });
 
         currentGroupMatches.forEach(match => {
@@ -199,11 +135,6 @@ export function getTopPlayersFromGroups(groups: string[][], completedGroupMatche
     return qualifiers;
 }
 
-
-/**
- * Represents the structure for inserting a knockout match into the database.
- * @private
- */
 type KnockoutMatchInsert = {
     id: string;
     tournament_id: string;
@@ -219,29 +150,18 @@ type KnockoutMatchInsert = {
     sets?: MatchSet[] | null;
 };
 
-/**
- * Generates the knockout phase matches for a tournament given a list of qualified players.
- * It handles byes if the number of players is not a power of 2.
- * This function has side effects: it inserts matches into the 'tournament_matches' table.
- * @param {string} tournamentId - The ID of the tournament.
- * @param {string[]} qualifiedPlayers - An array of player IDs who qualified for the knockout phase.
- * @param {number} startingRound - The round number for the first knockout matches (e.g., 2 if round 1 was group stage).
- * @throws {Error} If there's an error inserting matches into the database.
- * @example
- * await generateKnockoutPhase('tourney123', ['p1', 'p2', 'p3', 'p4'], 2);
- */
 export async function generateKnockoutPhase(
     tournamentId: string,
     qualifiedPlayers: string[],
     startingRound: number
 ): Promise<TournamentMatch[]> {
     if (qualifiedPlayers.length < 2 && qualifiedPlayers.length !== 0) { // Allow 0 for no qualifiers / error case
-      // If only one player qualifies, they are the winner of this phase (potentially the tournament)
-      // This case should ideally be handled by the calling logic (e.g. auto-awarding win)
-      // or this function should return the single player as a "winner" of this phase.
-      // For now, we'll assume this means no matches can be generated.
-      console.warn("Not enough qualified players to generate a knockout phase with matches.");
-      return [];
+        // If only one player qualifies, they are the winner of this phase (potentially the tournament)
+        // This case should ideally be handled by the calling logic (e.g. auto-awarding win)
+        // or this function should return the single player as a "winner" of this phase.
+        // For now, we'll assume this means no matches can be generated.
+        console.warn("Not enough qualified players to generate a knockout phase with matches.");
+        return [];
     }
     if (qualifiedPlayers.length === 0) {
         console.warn("No players qualified for the knockout phase.");
@@ -349,7 +269,7 @@ export async function generateKnockoutPhase(
     }
 
     if (matchesToInsert.length > 0) {
-        const { error: dbError } = await supabase.from('tournament_matches').insert(
+        const {error: dbError} = await supabase.from('tournament_matches').insert(
             matchesToInsert.map(m => ({
                 ...m,
                 sets: m.sets ? JSON.stringify(m.sets) : null, // Ensure sets are stringified
@@ -365,19 +285,6 @@ export async function generateKnockoutPhase(
     return matchesToInsert.map(transformMatchData);
 }
 
-
-/**
- * Automatically determines and updates the winner of a round-robin tournament
- * once all matches are completed. The ranking follows PZTS (Polish Table Tennis Association) rules.
- * This function has side effects: it updates the tournament winner and status in the database
- * and dispatches a notification.
- * @param {string} tournamentId - The ID of the tournament.
- * @param {TournamentMatch[]} completedMatches - All completed matches for the tournament.
- * @param {string[]} allPlayerIdsInTournament - All player IDs participating in the tournament.
- * @param {string} tournamentName - The name of the tournament (for notification).
- * @returns {Promise<string | null>} The ID of the determined winner, or null if not determinable or an error occurs.
- * @throws {Error} If there's an error updating the database.
- */
 export async function autoSelectRoundRobinWinner(
     tournamentId: string,
     completedMatches: TournamentMatch[],
@@ -422,8 +329,28 @@ export async function autoSelectRoundRobinWinner(
         const p2Id = match.player2Id;
 
         // Ensure stats objects exist for both players
-        if (!playerStats[p1Id]) playerStats[p1Id] = { playerId: p1Id, mainPoints: 0, matchesPlayed: 0, matchesWon: 0, setsWon: 0, setsLost: 0, smallPointsWon: 0, smallPointsLost: 0, headToHead: {} };
-        if (!playerStats[p2Id]) playerStats[p2Id] = { playerId: p2Id, mainPoints: 0, matchesPlayed: 0, matchesWon: 0, setsWon: 0, setsLost: 0, smallPointsWon: 0, smallPointsLost: 0, headToHead: {} };
+        if (!playerStats[p1Id]) playerStats[p1Id] = {
+            playerId: p1Id,
+            mainPoints: 0,
+            matchesPlayed: 0,
+            matchesWon: 0,
+            setsWon: 0,
+            setsLost: 0,
+            smallPointsWon: 0,
+            smallPointsLost: 0,
+            headToHead: {}
+        };
+        if (!playerStats[p2Id]) playerStats[p2Id] = {
+            playerId: p2Id,
+            mainPoints: 0,
+            matchesPlayed: 0,
+            matchesWon: 0,
+            setsWon: 0,
+            setsLost: 0,
+            smallPointsWon: 0,
+            smallPointsLost: 0,
+            headToHead: {}
+        };
 
 
         const player1Stats = playerStats[p1Id];
@@ -510,9 +437,9 @@ export async function autoSelectRoundRobinWinner(
     if (rankedPlayers.length > 0) {
         const winner = rankedPlayers[0];
         try {
-            const { error } = await supabase
+            const {error} = await supabase
                 .from('tournaments')
-                .update({ winner_id: winner.playerId, status: TournamentStatus.COMPLETED })
+                .update({winner_id: winner.playerId, status: TournamentStatus.COMPLETED})
                 .eq('id', tournamentId);
 
             if (error) {

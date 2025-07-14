@@ -33,7 +33,7 @@ jest.mock('@react-native-community/netinfo', () => ({
 }));
 
 // Mock Supabase
-jest.mock('@/backend/lib/supabase', () => ({
+jest.mock('@/app/lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => ({
       select: jest.fn(() => ({

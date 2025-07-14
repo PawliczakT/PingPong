@@ -15,7 +15,7 @@ import type {
 } from '@/store/tournament/tournamentTypes';
 import * as tournamentLogic from '@/store/tournament/tournamentLogic';
 import { initialState } from '@/store/tournament/tournamentState';
-import { supabase }sfrom '@/app/lib/supabase'; // Actual import for mocking
+import { supabase } from '@/app/lib/supabase'; // Actual import for mocking
 import { useMatchStore } from '@/store/matchStore';
 import { usePlayerStore } from '@/store/playerStore';
 import { dispatchSystemNotification } from '@/backend/server/trpc/services/notificationService';

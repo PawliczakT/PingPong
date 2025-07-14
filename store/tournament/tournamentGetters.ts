@@ -1,35 +1,18 @@
-/**
- * @fileoverview Defines getters (selectors) for the tournament store.
- * These functions derive data from the store's state.
- * They take the Zustand `get` function as an argument to access the current state.
- */
-import type { StateCreator } from 'zustand';
+import type {StateCreator} from 'zustand';
 import type {
-    TournamentStoreState,
+    FullTournamentStore,
     Tournament,
     TournamentMatch,
-    TournamentStatus,
-    FullTournamentStore,
-    TournamentStoreGetters,
-    TournamentStoreActions
+    TournamentStoreGetters
 } from './tournamentTypes';
-import { transformMatchData } from './tournamentLogic'; // In case raw match data needs transformation
+import { TournamentStatus } from '@/backend/types';
 
-/**
- * Creates the getters slice for the tournament store.
- * These functions are selectors that derive data from the current store state.
- *
- * @param set - Zustand's `set` function (not typically used by getters).
- * @param get - Zustand's `get` function to access current state.
- * @param store - The Zustand store api.
- * @returns {TournamentStoreGetters} An object containing all getter functions.
- */
 export const createTournamentGetters: StateCreator<
     FullTournamentStore,
     [], // No special middlewares needed for getters usually
     [],
     TournamentStoreGetters
-> = (set, get) => ({
+> = (set, get): TournamentStoreGetters => ({
     getTournamentById: (id: string): Tournament | undefined => {
         return get().tournaments.find(t => t.id === id);
     },
@@ -49,7 +32,7 @@ export const createTournamentGetters: StateCreator<
         return tournament.matches.map(m => ({
             ...m, // Spread existing properties
             // Ensure all required fields from TournamentMatch are present, applying defaults or transformations if needed
-            status: m.status === 'pending_players' ? 'pending' : m.status, // Example of a small adjustment
+            status: m.status,
             player1Score: m.player1Score ?? null,
             player2Score: m.player2Score ?? null,
             nextMatchId: m.nextMatchId ?? null,
@@ -59,11 +42,11 @@ export const createTournamentGetters: StateCreator<
     },
 
     getUpcomingTournaments: (): Tournament[] => {
-        return get().tournaments.filter(t => t.status === TournamentStatus.UPCOMING || t.status === TournamentStatus.PENDING);
+        return get().tournaments.filter(t => t.status === TournamentStatus.UPCOMING);
     },
 
     getActiveTournaments: (): Tournament[] => {
-        return get().tournaments.filter(t => t.status === TournamentStatus.ACTIVE);
+        return get().tournaments.filter(t => t.status === TournamentStatus.IN_PROGRESS);
     },
 
     getCompletedTournaments: (): Tournament[] => {
@@ -71,7 +54,7 @@ export const createTournamentGetters: StateCreator<
     },
 
     getPlayerTournamentWins: (playerId: string): number => {
-        const completedTournaments = get().getCompletedTournaments(); // Use existing getter
+        const completedTournaments = get().getCompletedTournaments();
         return completedTournaments.filter(t => t.winner === playerId).length;
     },
 });

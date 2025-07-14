@@ -59,7 +59,8 @@ export enum TournamentFormat {
 export enum TournamentStatus {
     UPCOMING = 'pending',
     IN_PROGRESS = 'active',
-    COMPLETED = 'completed'
+    COMPLETED = 'completed',
+    CANCELLED = 'cancelled'
 }
 
 export interface Tournament {
