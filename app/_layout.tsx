@@ -22,6 +22,16 @@ import {useNotificationsRealtime} from "@hooks/useNotificationsRealtime";
 const queryClient = new QueryClient();
 SplashScreen.preventAutoHideAsync().catch((e) => console.warn("SplashScreen error:", e));
 
+function RealtimeSubscriptions() {
+    usePlayersRealtime();
+    useMatchesRealtime();
+    useTournamentsRealtime();
+    useAchievementsRealtime();
+    useNotificationsRealtime();
+
+    return null;
+}
+
 export default function RootLayout() {
     const router = useRouter();
     const navigationState = useRootNavigationState();
@@ -121,12 +131,6 @@ export default function RootLayout() {
         }
     }, [user, isInitialized, checkProfile]);
 
-    usePlayersRealtime();
-    useMatchesRealtime();
-    useTournamentsRealtime();
-    useAchievementsRealtime();
-    useNotificationsRealtime();
-
     useEffect(() => {
         if (user) {
             const fetchData = async () => {
@@ -206,6 +210,8 @@ export default function RootLayout() {
         <ErrorBoundary>
             <trpc.Provider client={trpcClient} queryClient={queryClient}>
                 <QueryClientProvider client={queryClient}>
+                    {/* Mount realtime listeners inside QueryClientProvider so they can access QueryClient context */}
+                    <RealtimeSubscriptions/>
                     <Stack screenOptions={{headerBackTitle: "Back", headerShadowVisible: false}}>
                         <Stack.Screen name="(auth)" options={{headerShown: false}}/>
                         <Stack.Screen name="(tabs)" options={{headerShown: false}}/>
