@@ -46,6 +46,10 @@ export type TournamentStore = {
         sets?: MatchSet[]
     }) => Promise<void>;
     handleDoubleEliminationMatchResult: (tournamentId: string, match: any, winnerId: string, loserId: string) => Promise<void>;
+    checkAndCreateNextDoubleEliminationMatches: (tournamentId: string) => Promise<void>;
+    createWinnerBracketMatches: (tournamentId: string) => Promise<void>;
+    createLoserBracketMatches: (tournamentId: string) => Promise<void>;
+    createFinalMatchIfReady: (tournamentId: string) => Promise<void>;
     getTournamentById: (id: string) => Tournament | undefined;
     getTournamentMatches: (tournamentId: string) => TournamentMatch[];
     updateTournamentStatus: (tournamentId: string, status: Tournament['status']) => Promise<void>;
@@ -428,30 +432,30 @@ function generateDoubleEliminationBracket(tournamentId: string, playerIds: strin
         }
     }
     
-    const finalMatchId = uuidv4();
-    const winnerFinalMatch = winnerMatchIdMatrix[winnerMatchIdMatrix.length - 1][0];
-    const loserFinalMatch = loserMatchIdMatrix[loserMatchIdMatrix.length - 1][0];
-    
-    const winnerFinal = matchesToInsert.find(m => m.id === winnerFinalMatch);
-    const loserFinal = matchesToInsert.find(m => m.id === loserFinalMatch);
-    if (winnerFinal) winnerFinal.next_match_id = finalMatchId;
-    if (loserFinal) loserFinal.next_match_id = finalMatchId;
-    
-    matchesToInsert.push({
-        id: finalMatchId,
-        tournament_id: tournamentId,
-        round: 1,
-        match_number: 1,
-        player1_id: null,
-        player2_id: null,
-        player1_score: null,
-        player2_score: null,
-        winner_id: null,
-        status: 'pending',
-        next_match_id: null,
-        bracket: 'final',
-        is_if_game: false,
-    });
+    // const finalMatchId = uuidv4();
+    // const winnerFinalMatch = winnerMatchIdMatrix[winnerMatchIdMatrix.length - 1][0];
+    // const loserFinalMatch = loserMatchIdMatrix[loserMatchIdMatrix.length - 1][0];
+    // 
+    // const winnerFinal = matchesToInsert.find(m => m.id === winnerFinalMatch);
+    // const loserFinal = matchesToInsert.find(m => m.id === loserFinalMatch);
+    // if (winnerFinal) winnerFinal.next_match_id = finalMatchId;
+    // if (loserFinal) loserFinal.next_match_id = finalMatchId;
+    // 
+    // matchesToInsert.push({
+    //     id: finalMatchId,
+    //     tournament_id: tournamentId,
+    //     round: 1,
+    //     match_number: 1,
+    //     player1_id: null,
+    //     player2_id: null,
+    //     player1_score: null,
+    //     player2_score: null,
+    //     winner_id: null,
+    //     status: 'pending',
+    //     next_match_id: null,
+    //     bracket: 'final',
+    //     is_if_game: false,
+    // });
     
     return matchesToInsert;
 }
@@ -1345,6 +1349,178 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             }
         } catch (error) {
             console.error('Error handling double elimination match result:', error);
+        }
+
+        await get().checkAndCreateNextDoubleEliminationMatches(tournamentId);
+    },
+
+    checkAndCreateNextDoubleEliminationMatches: async (tournamentId: string) => {
+        try {
+            const tournament = get().getTournamentById(tournamentId);
+            if (!tournament) return;
+
+            await get().createWinnerBracketMatches(tournamentId);
+            
+            await get().createLoserBracketMatches(tournamentId);
+            
+            await get().createFinalMatchIfReady(tournamentId);
+            
+        } catch (error) {
+            console.error('Error creating next double elimination matches:', error);
+        }
+    },
+
+    createWinnerBracketMatches: async (tournamentId: string) => {
+        const tournament = get().getTournamentById(tournamentId);
+        if (!tournament) return;
+
+        const completedWinnerMatches = tournament.matches.filter(m => 
+            m.bracket === 'winner' && 
+            m.status === 'completed' && 
+            !m.nextMatchId
+        );
+
+        const matchesByRound = completedWinnerMatches.reduce((acc, match) => {
+            if (!acc[match.round]) acc[match.round] = [];
+            acc[match.round].push(match);
+            return acc;
+        }, {} as Record<number, any[]>);
+
+        for (const [round, matches] of Object.entries(matchesByRound)) {
+            if (matches.length >= 2) {
+                const nextRound = parseInt(round) + 1;
+                const matchId = uuidv4();
+                
+                const newMatch = {
+                    id: matchId,
+                    tournament_id: tournamentId,
+                    round: nextRound,
+                    match_number: 1,
+                    player1_id: matches[0].winner,
+                    player2_id: matches[1].winner,
+                    player1_score: null,
+                    player2_score: null,
+                    winner_id: null,
+                    status: 'scheduled' as const,
+                    next_match_id: null,
+                    bracket: 'winner',
+                };
+
+                await supabase.from('tournament_matches').insert(newMatch);
+                
+                await supabase.from('tournament_matches')
+                    .update({ next_match_id: matchId })
+                    .in('id', matches.map(m => m.id));
+            }
+        }
+    },
+
+    createLoserBracketMatches: async (tournamentId: string) => {
+        const tournament = get().getTournamentById(tournamentId);
+        if (!tournament) return;
+
+        const loserBracketPlayers = tournament.matches
+            .filter(m => m.bracket === 'loser' && m.status === 'completed')
+            .map(m => m.winner)
+            .filter(Boolean);
+
+        for (let i = 0; i < loserBracketPlayers.length; i += 2) {
+            if (i + 1 < loserBracketPlayers.length) {
+                const player1 = loserBracketPlayers[i];
+                const player2 = loserBracketPlayers[i + 1];
+                
+                const existingMatch = tournament.matches.find(m =>
+                    m.bracket === 'loser' &&
+                    ((m.player1Id === player1 && m.player2Id === player2) ||
+                     (m.player1Id === player2 && m.player2Id === player1))
+                );
+
+                if (!existingMatch) {
+                    const matchId = uuidv4();
+                    const newMatch = {
+                        id: matchId,
+                        tournament_id: tournamentId,
+                        round: 1, // Calculate proper round
+                        match_number: 1,
+                        player1_id: player1,
+                        player2_id: player2,
+                        player1_score: null,
+                        player2_score: null,
+                        winner_id: null,
+                        status: 'scheduled' as const,
+                        next_match_id: null,
+                        bracket: 'loser',
+                        stage: 'major',
+                    };
+
+                    await supabase.from('tournament_matches').insert(newMatch);
+                }
+            }
+        }
+    },
+
+    createFinalMatchIfReady: async (tournamentId: string) => {
+        const tournament = get().getTournamentById(tournamentId);
+        if (!tournament) return;
+
+        const winnerBracketChampion = tournament.matches.find(m =>
+            m.bracket === 'winner' && 
+            m.status === 'completed' &&
+            !tournament.matches.some(next => next.bracket === 'winner' && 
+                (next.player1Id === m.winner || next.player2Id === m.winner))
+        );
+
+        const loserBracketChampion = tournament.matches.find(m =>
+            m.bracket === 'loser' && 
+            m.status === 'completed' &&
+            !tournament.matches.some(next => next.bracket === 'loser' && 
+                (next.player1Id === m.winner || next.player2Id === m.winner))
+        );
+
+        if (winnerBracketChampion && loserBracketChampion) {
+            const existingFinal = tournament.matches.find(m => 
+                m.bracket === 'final' && !m.isIfGame
+            );
+
+            if (!existingFinal) {
+                const finalMatchId = uuidv4();
+                const finalMatch = {
+                    id: finalMatchId,
+                    tournament_id: tournamentId,
+                    round: 1,
+                    match_number: 1,
+                    player1_id: winnerBracketChampion.winner,
+                    player2_id: loserBracketChampion.winner,
+                    player1_score: null,
+                    player2_score: null,
+                    winner_id: null,
+                    status: 'scheduled' as const,
+                    next_match_id: null,
+                    bracket: 'final',
+                    is_if_game: false,
+                };
+
+                await supabase.from('tournament_matches').insert(finalMatch);
+
+                const ifGameMatchId = uuidv4();
+                const ifGameMatch = {
+                    id: ifGameMatchId,
+                    tournament_id: tournamentId,
+                    round: 2,
+                    match_number: 1,
+                    player1_id: null,
+                    player2_id: null,
+                    player1_score: null,
+                    player2_score: null,
+                    winner_id: null,
+                    status: 'pending' as const,
+                    next_match_id: null,
+                    bracket: 'final',
+                    is_if_game: true,
+                };
+
+                await supabase.from('tournament_matches').insert(ifGameMatch);
+            }
         }
     },
 
