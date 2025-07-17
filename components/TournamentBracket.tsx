@@ -22,12 +22,86 @@ function getUniqueMatches(matches: TournamentMatch[]): TournamentMatch[] {
     });
 }
 
+function groupMatchesByRound(matches: TournamentMatch[]): TournamentMatch[][] {
+    const matchesByRound: Record<number, TournamentMatch[]> = {};
+    matches.forEach(match => {
+        if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
+        matchesByRound[match.round].push(match);
+    });
+    return Object.keys(matchesByRound)
+        .sort((a, b) => Number(a) - Number(b))
+        .map(round => matchesByRound[Number(round)]);
+}
+
 export default function TournamentBracket({
                                               matches,
                                               onMatchPress,
                                           }: TournamentBracketProps) {
     const {getPlayerById} = usePlayerStore();
     const uniqueMatches = getUniqueMatches(matches);
+    
+    const hasDoubleElimination = uniqueMatches.some(match => match.bracket);
+    
+    if (hasDoubleElimination) {
+        const winnerMatches = uniqueMatches.filter(match => match.bracket === 'winner' && !match.isIfGame);
+        const loserMatches = uniqueMatches.filter(match => match.bracket === 'loser');
+        const grandFinalMatches = uniqueMatches.filter(match => match.stage === 'Grand Final' || match.stage === 'Grand Final Reset');
+        
+        const winnerRounds = groupMatchesByRound(winnerMatches);
+        const loserRounds = groupMatchesByRound(loserMatches);
+        
+        return (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.container}>
+                    <View style={styles.bracketSection}>
+                        <Text style={styles.bracketTitle}>Winner Bracket</Text>
+                        <View style={styles.bracketContainer}>
+                            {winnerRounds.map((matchesInRound, i) => (
+                                <View key={`winner-round-${i + 1}`} style={styles.roundContainer}>
+                                    <Text style={styles.roundTitle}>
+                                        {matchesInRound[0]?.stage || `Round ${i + 1}`}
+                                    </Text>
+                                    <View style={styles.matchesContainer}>
+                                        {matchesInRound.map(match => renderMatch(match))}
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                    
+                    <View style={styles.bracketSection}>
+                        <Text style={styles.bracketTitle}>Loser Bracket</Text>
+                        <View style={styles.bracketContainer}>
+                            {loserRounds.map((matchesInRound, i) => (
+                                <View key={`loser-round-${i + 1}`} style={styles.roundContainer}>
+                                    <Text style={styles.roundTitle}>
+                                        {matchesInRound[0]?.stage || `LR ${i + 1}`}
+                                    </Text>
+                                    <View style={styles.matchesContainer}>
+                                        {matchesInRound.map(match => renderMatch(match))}
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                    
+                    {grandFinalMatches.length > 0 && (
+                        <View style={styles.bracketSection}>
+                            <Text style={styles.bracketTitle}>Grand Final</Text>
+                            <View style={styles.bracketContainer}>
+                                <View style={styles.roundContainer}>
+                                    <View style={styles.matchesContainer}>
+                                        {grandFinalMatches.map(match => renderMatch(match))}
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+                    )}
+                </View>
+            </ScrollView>
+        );
+    }
+    
     const matchesByRound: Record<number, TournamentMatch[]> = {};
     uniqueMatches.forEach(match => {
         if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
@@ -250,5 +324,18 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.textLight,
         fontStyle: "italic",
+    },
+    bracketSection: {
+        marginBottom: 24,
+    },
+    bracketTitle: {
+        fontSize: 18,
+        fontWeight: "bold",
+        color: colors.text,
+        marginBottom: 16,
+        textAlign: "center",
+    },
+    bracketContainer: {
+        flexDirection: "row",
     },
 });

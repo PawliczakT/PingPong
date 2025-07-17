@@ -26,7 +26,10 @@ const transformMatchData = (match: any): TournamentMatch => {
         status: match.status,
         nextMatchId: match.next_match_id,
         sets: match.sets,
-        group: match.group
+        group: match.group,
+        bracket: match.bracket,
+        stage: match.stage,
+        isIfGame: match.is_if_game
     };
 };
 
@@ -168,6 +171,160 @@ function getTopPlayersFromGroups(groups: string[][], matches: TournamentMatch[])
     return qualifiers;
 }
 
+function generateDoubleEliminationBracket(playerIds: string[], tournamentId: string): any[] {
+    const numPlayers = playerIds.length;
+    if (![4, 8, 16, 32].includes(numPlayers)) {
+        throw new Error("Double elimination tournaments require 4, 8, 16, or 32 players");
+    }
+
+    const shuffledPlayers = shuffleArray([...playerIds]);
+    const matchesToInsert: any[] = [];
+    
+    const winnerBracketRounds = Math.ceil(Math.log2(numPlayers));
+    const loserBracketRounds = (winnerBracketRounds - 1) * 2;
+    
+    let winnerBracketMatches: string[][] = [];
+    let loserBracketMatches: string[][] = [];
+    
+    for (let i = 0; i < winnerBracketRounds; i++) {
+        winnerBracketMatches.push([]);
+    }
+    for (let i = 0; i < loserBracketRounds; i++) {
+        loserBracketMatches.push([]);
+    }
+
+    for (let i = 0; i < shuffledPlayers.length; i += 2) {
+        const matchId = uuidv4();
+        winnerBracketMatches[0].push(matchId);
+        
+        matchesToInsert.push({
+            id: matchId,
+            tournament_id: tournamentId,
+            round: 1,
+            match_number: (i / 2) + 1,
+            player1_id: shuffledPlayers[i],
+            player2_id: shuffledPlayers[i + 1],
+            player1_score: null,
+            player2_score: null,
+            winner_id: null,
+            status: 'scheduled',
+            next_match_id: null,
+            bracket: 'winner',
+            stage: 'Round 1',
+        });
+    }
+
+    for (let round = 1; round < winnerBracketRounds; round++) {
+        const prevRoundMatches = winnerBracketMatches[round - 1];
+        for (let i = 0; i < prevRoundMatches.length; i += 2) {
+            const matchId = uuidv4();
+            winnerBracketMatches[round].push(matchId);
+            
+            const stageName = round === winnerBracketRounds - 1 ? 'Winner Bracket Final' : `Winner Round ${round + 1}`;
+            
+            matchesToInsert.push({
+                id: matchId,
+                tournament_id: tournamentId,
+                round: round + 1,
+                match_number: (i / 2) + 1,
+                player1_id: null,
+                player2_id: null,
+                player1_score: null,
+                player2_score: null,
+                winner_id: null,
+                status: 'pending',
+                next_match_id: null,
+                bracket: 'winner',
+                stage: stageName,
+            });
+
+            const match1 = matchesToInsert.find(m => m.id === prevRoundMatches[i]);
+            const match2 = matchesToInsert.find(m => m.id === prevRoundMatches[i + 1]);
+            if (match1) match1.next_match_id = matchId;
+            if (match2) match2.next_match_id = matchId;
+        }
+    }
+
+    for (let round = 0; round < loserBracketRounds; round++) {
+        const isEvenRound = round % 2 === 0;
+        let numMatches: number;
+        
+        if (round === 0) {
+            numMatches = numPlayers / 4;
+        } else if (isEvenRound) {
+            numMatches = loserBracketMatches[round - 1].length / 2;
+        } else {
+            numMatches = loserBracketMatches[round - 1].length;
+        }
+
+        for (let i = 0; i < numMatches; i++) {
+            const matchId = uuidv4();
+            loserBracketMatches[round].push(matchId);
+            
+            const stageName = round === loserBracketRounds - 1 ? 'Loser Bracket Final' : `Loser Round ${round + 1}`;
+            
+            matchesToInsert.push({
+                id: matchId,
+                tournament_id: tournamentId,
+                round: round + 1,
+                match_number: i + 1,
+                player1_id: null,
+                player2_id: null,
+                player1_score: null,
+                player2_score: null,
+                winner_id: null,
+                status: 'pending',
+                next_match_id: null,
+                bracket: 'loser',
+                stage: stageName,
+            });
+        }
+    }
+
+    const grandFinalId = uuidv4();
+    matchesToInsert.push({
+        id: grandFinalId,
+        tournament_id: tournamentId,
+        round: winnerBracketRounds + loserBracketRounds + 1,
+        match_number: 1,
+        player1_id: null,
+        player2_id: null,
+        player1_score: null,
+        player2_score: null,
+        winner_id: null,
+        status: 'pending',
+        next_match_id: null,
+        bracket: 'winner',
+        stage: 'Grand Final',
+    });
+
+    const grandFinalResetId = uuidv4();
+    matchesToInsert.push({
+        id: grandFinalResetId,
+        tournament_id: tournamentId,
+        round: winnerBracketRounds + loserBracketRounds + 2,
+        match_number: 1,
+        player1_id: null,
+        player2_id: null,
+        player1_score: null,
+        player2_score: null,
+        winner_id: null,
+        status: 'pending',
+        next_match_id: null,
+        bracket: 'winner',
+        stage: 'Grand Final Reset',
+        is_if_game: true,
+    });
+
+    const winnerBracketFinal = matchesToInsert.find(m => m.bracket === 'winner' && m.stage === 'Winner Bracket Final');
+    const loserBracketFinal = matchesToInsert.find(m => m.bracket === 'loser' && m.stage === 'Loser Bracket Final');
+    
+    if (winnerBracketFinal) winnerBracketFinal.next_match_id = grandFinalId;
+    if (loserBracketFinal) loserBracketFinal.next_match_id = grandFinalId;
+
+    return matchesToInsert;
+}
+
 async function generateKnockoutPhase(tournamentId: string, qualifiedPlayers: string[]): Promise<void> {
     const numPlayers = qualifiedPlayers.length;
     const numRounds = Math.ceil(Math.log2(numPlayers));
@@ -281,6 +438,95 @@ async function generateKnockoutPhase(tournamentId: string, qualifiedPlayers: str
     return;
 }
 
+async function handleDoubleEliminationMatchResult(tournament: Tournament, match: TournamentMatch, winnerId: string) {
+    const loserId = match.player1Id === winnerId ? match.player2Id : match.player1Id;
+    
+    if (match.bracket === 'winner') {
+        if (loserId && match.stage !== 'Winner Bracket Final') {
+            const correspondingLoserRound = Math.floor((match.round - 1) / 2);
+            const loserMatches = tournament.matches.filter(m => 
+                m.bracket === 'loser' && 
+                m.round === correspondingLoserRound + 1 &&
+                (m.player1Id === null || m.player2Id === null)
+            );
+            
+            if (loserMatches.length > 0) {
+                const targetMatch = loserMatches[0];
+                const updateData: any = {};
+                
+                if (targetMatch.player1Id === null) {
+                    updateData.player1_id = loserId;
+                } else if (targetMatch.player2Id === null) {
+                    updateData.player2_id = loserId;
+                }
+                
+                if (targetMatch.player1Id || updateData.player1_id) {
+                    if (targetMatch.player2Id || updateData.player2_id) {
+                        updateData.status = 'scheduled';
+                    }
+                }
+                
+                if (Object.keys(updateData).length > 0) {
+                    await supabase.from('tournament_matches').update(updateData).eq('id', targetMatch.id);
+                }
+            }
+        } else if (match.stage === 'Winner Bracket Final') {
+            const grandFinal = tournament.matches.find(m => m.stage === 'Grand Final');
+            if (grandFinal && winnerId) {
+                await supabase.from('tournament_matches').update({
+                    player1_id: winnerId,
+                    status: grandFinal.player2Id ? 'scheduled' : 'pending'
+                }).eq('id', grandFinal.id);
+            }
+        }
+    } else if (match.bracket === 'loser') {
+        if (match.stage === 'Loser Bracket Final') {
+            const grandFinal = tournament.matches.find(m => m.stage === 'Grand Final');
+            if (grandFinal && winnerId) {
+                await supabase.from('tournament_matches').update({
+                    player2_id: winnerId,
+                    status: grandFinal.player1Id ? 'scheduled' : 'pending'
+                }).eq('id', grandFinal.id);
+            }
+        }
+    }
+    
+    if (match.stage === 'Grand Final') {
+        const winnerBracketChampion = tournament.matches.find(m => m.stage === 'Winner Bracket Final')?.winner;
+        const loserBracketChampion = tournament.matches.find(m => m.stage === 'Loser Bracket Final')?.winner;
+        
+        if (winnerId === loserBracketChampion && winnerBracketChampion) {
+            const grandFinalReset = tournament.matches.find(m => m.stage === 'Grand Final Reset');
+            if (grandFinalReset) {
+                await supabase.from('tournament_matches').update({
+                    player1_id: winnerBracketChampion,
+                    player2_id: loserBracketChampion,
+                    status: 'scheduled'
+                }).eq('id', grandFinalReset.id);
+            }
+        }
+    }
+    
+    if (match.nextMatchId && match.stage !== 'Grand Final') {
+        const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
+        if (nextMatch) {
+            const nextMatchUpdate: any = {};
+            if (winnerId) {
+                if (nextMatch.player1Id === null) nextMatchUpdate.player1_id = winnerId;
+                else if (nextMatch.player2Id === null) nextMatchUpdate.player2_id = winnerId;
+            }
+
+            if ((nextMatchUpdate.player1_id || nextMatch.player1Id) && (nextMatchUpdate.player2_id || nextMatch.player2Id)) {
+                nextMatchUpdate.status = 'scheduled';
+            }
+
+            if (Object.keys(nextMatchUpdate).length > 0) {
+                await supabase.from('tournament_matches').update(nextMatchUpdate).eq('id', match.nextMatchId);
+            }
+        }
+    }
+}
+
 async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string | null> {
     try {
         const {data: tournamentData, error: tournamentError} = await supabase
@@ -308,6 +554,9 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             nextMatchId: m.next_match_id,
             group: m.group,
             matchId: m.match_id,
+            bracket: m.bracket,
+            stage: m.stage,
+            isIfGame: m.is_if_game,
         })) || [];
 
         const allMatchesCompleted = matches.every(m => m.status === 'completed');
@@ -539,7 +788,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         const tournament = get().tournaments.find(t => t.id === tournamentId);
         if (!tournament) return Promise.reject(new Error('Tournament not found'));
 
-        if (tournament.format === TournamentFormat.GROUP) {
+        if (tournament.format === TournamentFormat.GROUP_STAGE) {
             try {
                 set({loading: true, error: null});
 
@@ -664,6 +913,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         nextMatchId: m.next_match_id,
                         status: m.status as TournamentMatch['status'],
                         sets: m.sets || [],
+                        bracket: m.bracket,
+                        stage: m.stage,
+                        isIfGame: m.is_if_game,
                         roundName: m.round_name,
                         startTime: m.start_time,
                         isUpdating: false,
@@ -815,6 +1067,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 next_match_id: string | null;
                 sets?: MatchSet[];
                 group?: number;
+                bracket?: 'winner' | 'loser';
+                stage?: string;
+                is_if_game?: boolean;
             };
 
             if (existingTournament.format === 'ROUND_ROBIN') {
@@ -830,15 +1085,15 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 }));
 
                 const {error} = await supabase.rpc('start_tournament', {
-                    p_tournament_id: tournamentId,
-                    p_matches: matchesToInsert,
+                    tournament_id: tournamentId,
+                    matches: matchesToInsert,
                 });
 
                 if (error) throw error;
 
                 await get().fetchTournaments({force: true});
                 set({loading: false});
-            } else if (existingTournament.format === 'GROUP') {
+            } else if (existingTournament.format === TournamentFormat.GROUP_STAGE) {
                 const numGroups = Math.min(4, Math.ceil(playerIds.length / 3));
                 const groups = generateGroups(playerIds, numGroups);
                 const groupMatches = generateGroupMatches(tournamentId, groups);
@@ -855,8 +1110,24 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 }));
 
                 const {error} = await supabase.rpc('start_tournament', {
-                    p_tournament_id: tournamentId,
-                    p_matches: matchesToInsert,
+                    tournament_id: tournamentId,
+                    matches: matchesToInsert,
+                });
+
+                if (error) throw error;
+
+                await get().fetchTournaments({force: true});
+                set({loading: false});
+            } else if (existingTournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+                if (![4, 8, 16, 32].includes(playerIds.length)) {
+                    throw new Error("Double elimination tournaments require 4, 8, 16, or 32 players");
+                }
+
+                const matchesToInsert = generateDoubleEliminationBracket(playerIds, tournamentId);
+
+                const {error} = await supabase.rpc('start_tournament', {
+                    tournament_id: tournamentId,
+                    matches: matchesToInsert,
                 });
 
                 if (error) throw error;
@@ -941,8 +1212,8 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 }
 
                 const {error} = await supabase.rpc('start_tournament', {
-                    p_tournament_id: tournamentId,
-                    p_matches: matchesToInsert,
+                    tournament_id: tournamentId,
+                    matches: matchesToInsert,
                 });
 
                 if (error) throw error;
@@ -1023,7 +1294,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 console.error('Error updating tournament match:', updateMatchError);
             }
 
-            if (match.nextMatchId) {
+            if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+                await handleDoubleEliminationMatchResult(tournament, match, winnerId!);
+            } else if (match.nextMatchId) {
                 const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
                 if (nextMatch) {
                     const nextMatchUpdate: {
@@ -1058,6 +1331,20 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         await get().setTournamentWinner(tournamentId, winnerId!);
                     } else if (tournament.format === TournamentFormat.ROUND_ROBIN) {
                         await autoSelectRoundRobinWinner(tournamentId);
+                    } else if (tournament.format === TournamentFormat.GROUP_STAGE) {
+                        await autoSelectRoundRobinWinner(tournamentId);
+                    } else if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+                        const grandFinalMatch = tournament.matches.find(m => m.stage === 'Grand Final' && m.status === 'completed');
+                        const grandFinalResetMatch = tournament.matches.find(m => m.stage === 'Grand Final Reset');
+                        
+                        if (grandFinalMatch && (!grandFinalResetMatch || grandFinalResetMatch.status === 'completed')) {
+                            const finalWinner = grandFinalResetMatch?.status === 'completed' 
+                                ? grandFinalResetMatch.winner 
+                                : grandFinalMatch.winner;
+                            if (finalWinner) {
+                                await get().setTournamentWinner(tournamentId, finalWinner);
+                            }
+                        }
                     }
                 }
             }

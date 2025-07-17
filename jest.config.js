@@ -4,7 +4,6 @@ module.exports = {
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|isows|@supabase/.*|@trpc/.*|superjson|zustand))',
   ],
   setupFilesAfterEnv: [
-    '@testing-library/jest-native/extend-expect',
     './jest.setup.js'
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],

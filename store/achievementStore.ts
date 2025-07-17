@@ -303,14 +303,14 @@ export const useAchievementStore = create<AchievementState>()(
                 tournamentsParticipatedCount = new Set(playerMatches.map((m: Match) => m.tournamentId).filter(Boolean)).size,
                 knockoutWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.KNOCKOUT).length,
                 roundRobinWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.ROUND_ROBIN).length,
-                groupTournamentWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.GROUP).length;
+                groupTournamentWinsCount = allTournaments.filter((t: Tournament) => t.winner === playerId && t.format === TournamentFormat.GROUP_STAGE).length;
             let championNoLossesCount = 0, runnerUpFinishes = 0, tournamentFinalistCount = 0, quarterFinalistCount = 0;
             allTournaments.forEach((tournament: Tournament) => {
                 if (tournament.participants.includes(playerId) && tournament.status === 'completed') {
                     if (tournament.winner === playerId) {
                         if (playerMatches.filter(m => m.tournamentId === tournament.id).every(m => m.winner === playerId)) championNoLossesCount++;
                     }
-                    if (tournament.format === TournamentFormat.KNOCKOUT || tournament.format === TournamentFormat.GROUP) {
+                    if (tournament.format === TournamentFormat.KNOCKOUT || tournament.format === TournamentFormat.GROUP_STAGE) {
                         let maxRound = Math.max(...tournament.matches.map(m => m.round));
                         if (tournament.matches.filter(m => m.round === maxRound && m.status === 'completed').some(m => m.player1Id === playerId || m.player2Id === playerId)) {
                             tournamentFinalistCount++;
