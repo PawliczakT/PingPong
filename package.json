@@ -7,8 +7,7 @@
     "start android": "expo run:android",
     "start ios": "expo run:ios",
     "deploy to web prod": "vercel --prod",
-    "deploy to android prod": "eas build --platform android --profile production",
-
+    "deploy to android prod": "eas build --platform android --profile production"
   },
   "expo": {
     "doctor": {
