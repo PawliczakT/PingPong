@@ -2,7 +2,7 @@
 import {create} from "zustand";
 import {Achievement, HeadToHead, Match, Set} from "@/backend/types";
 import {usePlayerStore} from "./playerStore";
-import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
+import {dispatchSystemNotification} from '@/app/services/notificationService';
 import {
     sendAchievementNotification,
     sendMatchResultNotification,

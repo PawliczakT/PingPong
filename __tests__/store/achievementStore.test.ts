@@ -32,7 +32,7 @@ jest.mock('@/store/tournamentStore', () => ({
     },
 }));
 
-jest.mock('@/backend/server/trpc/services/notificationService');
+jest.mock('@/app/services/notificationService');
 
 // Define our own initial state for testing
 const initialAchievementState = {

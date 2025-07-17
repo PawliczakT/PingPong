@@ -15,7 +15,7 @@ import {achievements as allAchievementDefinitions} from '@/constants/achievement
 import {supabase} from '@/app/lib/supabase';
 import {useEffect} from 'react';
 import {useMatchStore} from './matchStore';
-import {dispatchSystemNotification} from '@/backend/server/trpc/services/notificationService';
+import {dispatchSystemNotification} from '@/app/services/notificationService';
 
 interface AchievementState {
     playerAchievements: Record<string, AchievementProgress[]>;

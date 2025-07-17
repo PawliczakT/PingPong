@@ -32,7 +32,7 @@ jest.mock('@/app/lib/supabase', () => ({
     },
 }));
 
-jest.mock('@/backend/server/trpc/services/notificationService', () => ({
+jest.mock('@/app/services/notificationService', () => ({
     dispatchSystemNotification: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/store/notificationStore', () => ({

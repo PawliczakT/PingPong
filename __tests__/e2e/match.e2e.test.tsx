@@ -10,7 +10,7 @@ const MatchDetailsScreen = () => <React.Fragment/>;
 const NewMatchScreen = () => <React.Fragment/>;
 
 // Mock the notification service to prevent WebSocket errors
-jest.mock('../../backend/server/trpc/services/notificationService', () => ({
+jest.mock('../../app/services/notificationService', () => ({
     sendMatchUpdateNotification: jest.fn(),
 }));
 

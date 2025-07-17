@@ -2,7 +2,7 @@ import React from 'react';
 import {render} from '@testing-library/react-native';
 
 // Mock notification service to prevent WebSocket errors
-jest.mock('@/backend/server/trpc/services/notificationService', () => ({
+jest.mock('@/app/services/notificationService', () => ({
     notificationService: {
         sendNotification: jest.fn(),
     },

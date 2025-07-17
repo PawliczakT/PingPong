@@ -1,7 +1,7 @@
-//backend/server/trpc/services/notificationService.ts
-import {supabase} from '../../../server/lib/supabase';
+//app/services/notificationService.ts
+import {supabase} from '@/backend/server/lib/supabase';
 import {z} from 'zod'
-import {Json} from '../../../../backend/types/supabase';
+import {Json} from '@/backend/types/supabase';
 
 interface BaseMetadata {
     notification_type: SystemNotificationType;

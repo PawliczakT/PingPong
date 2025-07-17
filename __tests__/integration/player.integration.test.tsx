@@ -3,7 +3,7 @@ import {useMatchStore} from '@/store/matchStore';
 import {Player} from '@/backend/types';
 
 // Mock notificationService to prevent WebSocket errors in Jest environment
-jest.mock('@/backend/server/trpc/services/notificationService', () => ({}));
+jest.mock('@/app/services/notificationService', () => ({}));
 
 // Reset store state between tests
 beforeEach(() => {

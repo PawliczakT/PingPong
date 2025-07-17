@@ -10,7 +10,7 @@ const TournamentsScreen = () => <React.Fragment/>;
 const TournamentDetailsScreen = () => <React.Fragment/>;
 const NewTournamentScreen = () => <React.Fragment/>;
 
-jest.mock('@/backend/server/trpc/services/notificationService', () => ({
+jest.mock('@/app/services/notificationService', () => ({
     notificationService: {
         sendNotification: jest.fn(),
     },

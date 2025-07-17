@@ -5,7 +5,7 @@ import {Match, Player, Tournament, TournamentFormat, TournamentMatch, Tournament
 import {RealtimePostgresChangesPayload} from '@supabase/supabase-js';
 
 // Mock notificationService to prevent WebSocket errors in Jest environment
-jest.mock('@/backend/server/trpc/services/notificationService', () => ({}));
+jest.mock('@/app/services/notificationService', () => ({}));
 
 // Reset store state between tests
 beforeEach(() => {
