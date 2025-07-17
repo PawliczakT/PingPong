@@ -14,6 +14,7 @@ import {formatDate} from "@/utils/formatters";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import TournamentBracket from "@/components/TournamentBracket";
+import DoubleEliminationBracket from '@/components/DoubleEliminationBracket';
 
 export default function TournamentDetailScreen() {
     const {id} = useLocalSearchParams();
@@ -293,20 +294,6 @@ export default function TournamentDetailScreen() {
         return groupStandings;
     }
 
-    function groupMatchesByRound(matches: TournamentMatch[]): TournamentMatch[][] {
-        if (!matches || matches.length === 0) return [];
-        const grouped: { [round: number]: TournamentMatch[] } = {};
-        matches.forEach(match => {
-            if (!grouped[match.round]) grouped[match.round] = [];
-            grouped[match.round].push(match);
-        });
-        return Object.keys(grouped)
-            .sort((a, b) => Number(a) - Number(b))
-            .map(round => grouped[Number(round)]);
-    }
-
-    const bracketRounds = groupMatchesByRound(tournamentMatches);
-
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
             <Stack.Screen
@@ -319,7 +306,9 @@ export default function TournamentDetailScreen() {
                 }}
             />
 
-            <ScrollView contentContainerStyle={{paddingBottom: 70}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}>
+            <ScrollView contentContainerStyle={{paddingBottom: 70}}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh}
+                                                        tintColor={colors.primary}/>}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{tournament.name}</Text>
@@ -390,34 +379,42 @@ export default function TournamentDetailScreen() {
                                 return (
                                     <View style={styles.roundRobinContainer}>
                                         <Text style={styles.standingsTitle}>Standings</Text>
-                                        <View style={styles.standingsHeader}>
-                                            <Text
-                                                style={[styles.standingsHeaderCell, styles.playerNameColumn]}>Player</Text>
-                                            <Text style={styles.standingsHeaderCell}>P</Text>
-                                            <Text style={styles.standingsHeaderCell}>W</Text>
-                                            <Text style={styles.standingsHeaderCell}>L</Text>
-                                            <Text style={styles.standingsHeaderCell}>Pts</Text>
-                                            <Text style={styles.standingsHeaderCell}>+/-</Text>
-                                        </View>
-                                        {standings.map((standing, index) => (
-                                            <View key={standing.player.id}
-                                                  style={[styles.standingsRow, index % 2 === 0 ? styles.standingsRowEven : styles.standingsRowOdd]}>
-                                                <View
-                                                    style={[styles.standingsCell, styles.playerNameColumn, styles.playerNameCell]}>
-                                                    <PlayerAvatar name={standing.player.name} player={standing.player}
-                                                                  size={24}/>
-                                                    <Text style={styles.standingsPlayerName} numberOfLines={1}
-                                                          ellipsizeMode="tail">{standing.player.name}</Text>
-                                                </View>
-                                                <Text style={styles.standingsCell}>{standing.matches}</Text>
-                                                <Text style={styles.standingsCell}>{standing.wins}</Text>
-                                                <Text style={styles.standingsCell}>{standing.losses}</Text>
-                                                <Text style={styles.standingsCell}>{standing.tournamentPoints}</Text>
-                                                <Text style={styles.standingsCell}>{standing.pointsDiff}</Text>
+                                        <View style={styles.standingsTable}>
+                                            <View style={styles.standingsHeader}>
+                                                <Text
+                                                    style={[styles.standingsHeaderCell, styles.playerNameColumn]}>Player</Text>
+                                                <Text style={styles.standingsHeaderCell}>P</Text>
+                                                <Text style={styles.standingsHeaderCell}>W</Text>
+                                                <Text style={styles.standingsHeaderCell}>L</Text>
+                                                <Text style={styles.standingsHeaderCell}>Pts</Text>
+                                                <Text style={styles.standingsHeaderCell}>+/-</Text>
                                             </View>
-                                        ))}
+                                            {standings.map((standing, index) => (
+                                                <View key={standing.player.id}
+                                                      style={[styles.standingsRow, index % 2 === 0 ? styles.standingsRowEven : styles.standingsRowOdd]}>
+                                                    <View
+                                                        style={[styles.standingsCell, styles.playerNameColumn, styles.playerNameCell]}>
+                                                        <PlayerAvatar name={standing.player.name}
+                                                                      player={standing.player}
+                                                                      size={24}/>
+                                                        <Text style={styles.standingsPlayerName} numberOfLines={1}
+                                                              ellipsizeMode="tail">{standing.player.name}</Text>
+                                                    </View>
+                                                    <Text style={styles.standingsCell}>{standing.matches}</Text>
+                                                    <Text style={styles.standingsCell}>{standing.wins}</Text>
+                                                    <Text style={styles.standingsCell}>{standing.losses}</Text>
+                                                    <Text
+                                                        style={styles.standingsCell}>{standing.tournamentPoints}</Text>
+                                                    <Text
+                                                        style={styles.standingsCell}>{standing.pointsDiff}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
                                     </View>
                                 );
+                            } else if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+                                return <DoubleEliminationBracket matches={tournamentMatches} participants={participants}
+                                                                 onMatchPress={handleMatchPress}/>;
                             } else if (tournament.format === TournamentFormat.GROUP) {
                                 const groupStandings = calculateGroupStandings(participants, tournamentMatches);
                                 const allGroupMatchesCompleted = tournamentMatches.filter(m => m.round === 1).every(m => m.status === 'completed');
@@ -470,20 +467,10 @@ export default function TournamentDetailScreen() {
                                         ))}
                                     </View>
                                 );
-                            } else {
-                                if (bracketRounds.length > 0) {
-                                    return <TournamentBracket matches={bracketRounds.flat()}
-                                                              onMatchPress={handleMatchPress}/>;
-                                } else {
-                                    return (
-                                        <View style={[styles.emptyStateContainer, styles.emptyBracket]}>
-                                            <Ionicons name="trophy-outline" size={48} color={colors.textLight}/>
-                                            <Text
-                                                style={styles.emptyText}>{tournament.status === 'pending' ? 'Start the tournament to generate the bracket.' : 'No matches generated yet.'}</Text>
-                                        </View>
-                                    );
-                                }
+                            } else if (tournament.format === TournamentFormat.KNOCKOUT || tournament.format === TournamentFormat.GROUP) {
+                                return <TournamentBracket matches={tournamentMatches} onMatchPress={handleMatchPress}/>;
                             }
+                            return <Text style={styles.noDataText}>Bracket view not available for this format.</Text>;
                         })()}
                     </View>
                 )}
@@ -492,49 +479,38 @@ export default function TournamentDetailScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Match List</Text>
                         {tournamentMatches.length === 0 ? (
-                            <View style={styles.emptyMatches}>
-                                <Users size={40} color={colors.textLight}/>
-                                <Text
-                                    style={styles.emptyText}>{tournament.status === 'pending' ? "Matches will appear here once the tournament starts." : "No matches available for this tournament."}</Text>
+                            <View style={styles.emptyStateContainer}>
+                                <Ionicons name="list-outline" size={48} color={colors.textLight}/>
+                                <Text style={styles.emptyText}>No matches generated yet.</Text>
                             </View>
                         ) : (
                             <View style={styles.roundMatches}>
-                                {bracketRounds.map((roundMatches, roundIndex) => (
-                                    <View key={`round-${roundIndex}`} style={{marginBottom: 16}}>
-                                        <Text style={{
-                                            fontSize: 14,
-                                            fontWeight: 'bold',
-                                            marginBottom: 4,
-                                            color: colors.text
-                                        }}>Round {roundIndex + 1}</Text>
-                                        {roundMatches.map(match => (
-                                            <Pressable
-                                                key={match.id}
-                                                style={[styles.matchListItem, match.status === 'completed' && styles.matchListItemCompleted, match.status === "scheduled" && match.player1Id && match.player2Id && styles.matchListItemPlayable, match.status === 'scheduled' && (!match.player1Id || !match.player2Id) && styles.matchListItemTBD]}
-                                                onPress={() => handleMatchPress(match)}
-                                                disabled={match.status === 'completed'}
-                                            >
+                                {tournamentMatches.map((match) => (
+                                    <Pressable
+                                        key={match.id}
+                                        style={[styles.matchListItem, match.status === 'completed' && styles.matchListItemCompleted, match.status === "scheduled" && match.player1Id && match.player2Id && styles.matchListItemPlayable, match.status === 'scheduled' && (!match.player1Id || !match.player2Id) && styles.matchListItemTBD]}
+                                        onPress={() => handleMatchPress(match)}
+                                        disabled={match.status === 'completed'}
+                                    >
+                                        <Text
+                                            style={[styles.matchListText, match.status === 'completed' && {opacity: 0.7}]}
+                                            numberOfLines={1} ellipsizeMode="tail">
+                                            {`${match.bracket ? `(${match.bracket.charAt(0).toUpperCase()}) ` : ''}Round ${match.round}: ${match.player1Id ? playerStore.getPlayerById(match.player1Id)?.name : 'TBD'} vs ${match.player2Id ? playerStore.getPlayerById(match.player2Id)?.name : 'TBD'}`}
+                                        </Text>
+                                        <View style={styles.matchListIcons}>
+                                            {match.status === "scheduled" && match.player1Id && match.player2Id &&
+                                                <Play size={18} color={colors.primary}
+                                                      style={{marginLeft: 8}}/>}
+                                            {match.status === 'completed' && match.player1Score != null && match.player2Score != null ? (
                                                 <Text
-                                                    style={[styles.matchListText, match.status === 'completed' && {opacity: 0.7}]}
-                                                    numberOfLines={1} ellipsizeMode="tail">
-                                                    {`Round ${match.round}: ${match.player1Id ? playerStore.getPlayerById(match.player1Id)?.name : 'TBD'} vs ${match.player2Id ? playerStore.getPlayerById(match.player2Id)?.name : 'TBD'}`}
-                                                </Text>
-                                                <View style={styles.matchListIcons}>
-                                                    {match.status === "scheduled" && match.player1Id && match.player2Id &&
-                                                        <Play size={18} color={colors.primary}
-                                                              style={{marginLeft: 8}}/>}
-                                                    {match.status === 'completed' && match.player1Score != null && match.player2Score != null ? (
-                                                        <Text
-                                                            style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
-                                                    ) : (
-                                                        <Text style={styles.viewDetailsText}>Result</Text>
-                                                    )}
-                                                    {match.status === 'scheduled' && (!match.player1Id || !match.player2Id) &&
-                                                        <Text style={styles.tbdText}>TBD</Text>}
-                                                </View>
-                                            </Pressable>
-                                        ))}
-                                    </View>
+                                                    style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
+                                            ) : (
+                                                <Text style={styles.viewDetailsText}>Result</Text>
+                                            )}
+                                            {match.status === 'scheduled' && (!match.player1Id || !match.player2Id) &&
+                                                <Text style={styles.tbdText}>TBD</Text>}
+                                        </View>
+                                    </Pressable>
                                 ))}
                             </View>
                         )}
@@ -1081,5 +1057,11 @@ const styles = StyleSheet.create({
     menuItem: {
         flex: 1,
         alignItems: 'center',
+    },
+    noDataText: {
+        fontSize: 16,
+        color: colors.textLight,
+        textAlign: 'center',
+        paddingVertical: 40,
     },
 });
