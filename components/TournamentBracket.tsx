@@ -28,14 +28,41 @@ export default function TournamentBracket({
                                           }: TournamentBracketProps) {
     const {getPlayerById} = usePlayerStore();
     const uniqueMatches = getUniqueMatches(matches);
-    const matchesByRound: Record<number, TournamentMatch[]> = {};
-    uniqueMatches.forEach(match => {
-        if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
-        matchesByRound[match.round].push(match);
-    });
-    const rounds = Object.keys(matchesByRound)
-        .sort((a, b) => Number(a) - Number(b))
-        .map(round => matchesByRound[Number(round)]);
+
+    const wbMatches = uniqueMatches.filter(m => m.group === 'WB');
+    const lbMatches = uniqueMatches.filter(m => m.group === 'LB');
+    const finalMatch = uniqueMatches.find(m => m.group === 'Final');
+
+    const renderBracket = (bracketMatches: TournamentMatch[], title: string) => {
+        const matchesByRound: Record<number, TournamentMatch[]> = {};
+        bracketMatches.forEach(match => {
+            if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
+            matchesByRound[match.round].push(match);
+        });
+        const rounds = Object.keys(matchesByRound)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(round => matchesByRound[Number(round)]);
+
+        return (
+            <View>
+                <Text style={styles.bracketTitle}>{title}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.container}>
+                        {rounds.map((matchesInRound, i) => (
+                            <View key={`round-${i + 1}`} style={styles.roundContainer}>
+                                <Text style={styles.roundTitle}>
+                                    {`Round ${i + 1}`}
+                                </Text>
+                                <View style={styles.matchesContainer}>
+                                    {matchesInRound.map(match => renderMatch(match))}
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                </ScrollView>
+            </View>
+        )
+    }
 
     const renderMatch = (match: TournamentMatchWithSets) => {
         const player1 = match.player1Id ? getPlayerById(match.player1Id) : null;
@@ -137,23 +164,21 @@ export default function TournamentBracket({
     };
 
     return (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.container}>
-                {rounds.map((matchesInRound, i) => (
-                    <View key={`round-${i + 1}`} style={styles.roundContainer}>
-                        <Text style={styles.roundTitle}>
-                            {i === rounds.length - 1
-                                ? "Final"
-                                : i === rounds.length - 2
-                                    ? "Semifinals"
-                                    : `Round ${i + 1}`}
-                        </Text>
-                        <View style={styles.matchesContainer}>
-                            {matchesInRound.map(match => renderMatch(match))}
+        <ScrollView>
+            {renderBracket(wbMatches, "Winner's Bracket")}
+            {renderBracket(lbMatches, "Loser's Bracket")}
+            {finalMatch && (
+                <View>
+                    <Text style={styles.bracketTitle}>Final</Text>
+                    <View style={styles.container}>
+                        <View style={styles.roundContainer}>
+                            <View style={styles.matchesContainer}>
+                                {renderMatch(finalMatch)}
+                            </View>
                         </View>
                     </View>
-                ))}
-            </View>
+                </View>
+            )}
         </ScrollView>
     );
 }
@@ -163,6 +188,12 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         padding: 16,
         minWidth: "100%",
+    },
+    bracketTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginLeft: 16,
+        marginTop: 16,
     },
     roundContainer: {
         marginRight: 16,

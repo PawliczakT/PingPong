@@ -87,6 +87,7 @@ export interface TournamentMatch {
     winner: string | null;
     matchId: string | null;
     nextMatchId: string | null;
+    nextLoserMatchId?: string | null;
     status: 'pending' | 'scheduled' | 'completed' | 'bye';
     sets?: Set[];
 }

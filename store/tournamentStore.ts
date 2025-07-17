@@ -863,6 +863,80 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                 await get().fetchTournaments({force: true});
                 set({loading: false});
+            } else if (existingTournament.format === 'DOUBLE_ELIMINATION') {
+                const numPlayers = playerIds.length;
+                if (numPlayers < 4) throw new Error("Double elimination requires at least 4 players.");
+
+                const matchesToInsert: TournamentMatchInsert[] = [];
+                const shuffledPlayers = shuffleArray([...playerIds]);
+
+                const wbRounds = Math.ceil(Math.log2(numPlayers));
+                const lbRounds = (wbRounds - 1) * 2;
+
+                const wbMatches: any[][] = Array.from({ length: wbRounds }, () => []);
+                const lbMatches: any[][] = Array.from({ length: lbRounds }, () => []);
+
+                // Create all matches with stubs
+                for (let i = 0; i < wbRounds; i++) {
+                    const numMatchesInRound = Math.pow(2, wbRounds - 1 - i);
+                    for (let j = 0; j < numMatchesInRound; j++) {
+                        const match = { id: uuidv4(), tournament_id: tournamentId, round: i, match_number: j, group: 'WB', status: 'pending' };
+                        wbMatches[i].push(match);
+                    }
+                }
+
+                for (let i = 0; i < lbRounds; i++) {
+                    const numMatchesInRound = Math.pow(2, wbRounds - 2 - Math.floor(i / 2));
+                    for (let j = 0; j < numMatchesInRound; j++) {
+                        const match = { id: uuidv4(), tournament_id: tournamentId, round: i, match_number: j, group: 'LB', status: 'pending' };
+                        lbMatches[i].push(match);
+                    }
+                }
+
+                // Link WB matches and assign loser drops
+                for (let i = 0; i < wbRounds - 1; i++) {
+                    for (let j = 0; j < wbMatches[i].length; j++) {
+                        wbMatches[i][j].next_match_id = wbMatches[i + 1][Math.floor(j / 2)].id;
+                        const lbMatchIndex = Math.floor(j / 2);
+                        const lbRoundIndex = i * 2;
+                        wbMatches[i][j].next_loser_match_id = lbMatches[lbRoundIndex][lbMatchIndex].id;
+                    }
+                }
+
+                // Link LB matches
+                for (let i = 0; i < lbRounds - 1; i++) {
+                    for (let j = 0; j < lbMatches[i].length; j++) {
+                        if (i % 2 === 0) { // Consolidation round
+                            lbMatches[i][j].next_match_id = lbMatches[i + 1][j].id;
+                        } else { // Elimination round
+                            lbMatches[i][j].next_match_id = lbMatches[i + 1][Math.floor(j / 2)].id;
+                        }
+                    }
+                }
+
+                // Final match
+                const finalMatch = { id: uuidv4(), tournament_id: tournamentId, round: wbRounds, match_number: 0, group: 'Final', status: 'pending' };
+                wbMatches[wbRounds - 1][0].next_match_id = finalMatch.id;
+                lbMatches[lbRounds - 1][0].next_match_id = finalMatch.id;
+
+                // Populate R1 WB
+                for(let i = 0; i < wbMatches[0].length; i++) {
+                    wbMatches[0][i].player1_id = shuffledPlayers[i*2];
+                    wbMatches[0][i].player2_id = shuffledPlayers[i*2 + 1] ?? null;
+                    wbMatches[0][i].status = 'scheduled';
+                }
+
+                matchesToInsert.push(...wbMatches.flat(), ...lbMatches.flat(), finalMatch);
+
+                const {error} = await supabase.rpc('start_tournament', {
+                    p_tournament_id: tournamentId,
+                    p_matches: matchesToInsert,
+                });
+
+                if (error) throw error;
+
+                await get().fetchTournaments({force: true});
+                set({loading: false});
             } else {
                 const numPlayers = playerIds.length;
                 const numRounds = Math.ceil(Math.log2(numPlayers));
@@ -1042,6 +1116,28 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                     if (Object.keys(nextMatchUpdate).length > 0) {
                         await supabase.from('tournament_matches').update(nextMatchUpdate).eq('id', match.nextMatchId);
+                    }
+                }
+            }
+            if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION && match.group === 'WB' && match.nextLoserMatchId) {
+                const loserId = winnerId === match.player1Id ? match.player2Id : match.player1Id;
+                const nextLoserMatch = tournament.matches.find(m => m.id === match.nextLoserMatchId);
+                if (nextLoserMatch && loserId) {
+                    const nextLoserMatchUpdate: {
+                        player1_id?: string;
+                        player2_id?: string;
+                        status?: TournamentMatch['status']
+                    } = {};
+
+                    if (nextLoserMatch.player1Id === null) nextLoserMatchUpdate.player1_id = loserId;
+                    else if (nextLoserMatch.player2Id === null) nextLoserMatchUpdate.player2_id = loserId;
+
+                    if ((nextLoserMatchUpdate.player1_id || nextLoserMatch.player1Id) && (nextLoserMatchUpdate.player2_id || nextLoserMatch.player2Id)) {
+                        nextLoserMatchUpdate.status = 'scheduled';
+                    }
+
+                    if (Object.keys(nextLoserMatchUpdate).length > 0) {
+                        await supabase.from('tournament_matches').update(nextLoserMatchUpdate).eq('id', match.nextLoserMatchId);
                     }
                 }
             } else {
