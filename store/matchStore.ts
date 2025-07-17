@@ -170,16 +170,21 @@ export const useMatchStore = create<MatchState>()(
                 let player1Achievements: Achievement[] | undefined;
                 let player2Achievements: Achievement[] | undefined;
 
-                try {
-                    player1Achievements = await achievementStore.checkAndUpdateAchievements(player1Id);
-                } catch (error) {
-                    console.warn(/*...*/);
+                const achievementResults = await Promise.allSettled([
+                    achievementStore.checkAndUpdateAchievements(player1Id),
+                    achievementStore.checkAndUpdateAchievements(player2Id)
+                ]);
+
+                if (achievementResults[0].status === 'fulfilled') {
+                    player1Achievements = achievementResults[0].value;
+                } else {
+                    console.warn("Error processing player 1 achievements:", achievementResults[0].reason);
                 }
 
-                try {
-                    player2Achievements = await achievementStore.checkAndUpdateAchievements(player2Id);
-                } catch (error) {
-                    console.warn(/*...*/);
+                if (achievementResults[1].status === 'fulfilled') {
+                    player2Achievements = achievementResults[1].value;
+                } else {
+                    console.warn("Error processing player 2 achievements:", achievementResults[1].reason);
                 }
 
                 try {
