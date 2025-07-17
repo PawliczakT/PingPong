@@ -49,6 +49,11 @@ export default function CreateTournamentScreen() {
             return;
         }
 
+        if (format === TournamentFormat.DOUBLE_ELIMINATION && selectedPlayerIds.length < 4) {
+            Alert.alert("Error", "Double elimination tournaments require at least 4 players.");
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
@@ -125,6 +130,14 @@ export default function CreateTournamentScreen() {
                         onPress={() => setFormat(TournamentFormat.ROUND_ROBIN)}
                         style={styles.formatButton}
                     />
+
+                    <Button
+                        title="Double Elimination"
+                        variant={format === TournamentFormat.DOUBLE_ELIMINATION ? "primary" : "outline"}
+                        size="small"
+                        onPress={() => setFormat(TournamentFormat.DOUBLE_ELIMINATION)}
+                        style={styles.formatButton}
+                    />
                 </View>
 
                 <View style={styles.participantsSection}>
@@ -181,7 +194,7 @@ export default function CreateTournamentScreen() {
                     title="Create Tournament"
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
+                    disabled={selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0) || (format === TournamentFormat.DOUBLE_ELIMINATION && selectedPlayerIds.length < 4)}
                     style={styles.submitButton}
                 />
             </ScrollView>

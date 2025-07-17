@@ -86,9 +86,12 @@ export interface TournamentMatch {
     player2Score: number | null;
     winner: string | null;
     matchId: string | null;
-    nextMatchId: string | null;
+    nextMatchId?: string | null;
     status: 'pending' | 'scheduled' | 'completed' | 'bye';
     sets?: Set[];
+    bracket?: 'winner' | 'loser' | 'final' | null;
+    sourceMatch1Id?: string | null;
+    sourceMatch2Id?: string | null;
 }
 
 export interface HeadToHead {
