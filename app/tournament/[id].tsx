@@ -147,6 +147,17 @@ export default function TournamentDetailScreen() {
                 Alert.alert("Tournament incomplete", "All matches must be played before selecting a winner.");
                 return;
             }
+        } else if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+            const finalMatches = tournamentMatches.filter(match => match.bracket === 'final');
+            if (finalMatches.length === 0) {
+                Alert.alert("Tournament incomplete", "The tournament must reach the grand final before selecting a winner.");
+                return;
+            }
+            const lastFinalMatch = finalMatches[finalMatches.length - 1];
+            if (lastFinalMatch.status !== 'completed') {
+                Alert.alert("Grand final not played", "The grand final must be completed before selecting a winner.");
+                return;
+            }
         } else {
             const finalMatch = tournamentMatches.find(match => {
                 const maxRound = Math.max(...tournamentMatches.map(m => m.round));
@@ -470,6 +481,19 @@ export default function TournamentDetailScreen() {
                                         ))}
                                     </View>
                                 );
+                            } else if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+                                if (tournamentMatches.length > 0) {
+                                    return <TournamentBracket matches={tournamentMatches}
+                                                              onMatchPress={handleMatchPress}/>;
+                                } else {
+                                    return (
+                                        <View style={[styles.emptyStateContainer, styles.emptyBracket]}>
+                                            <Ionicons name="trophy-outline" size={48} color={colors.textLight}/>
+                                            <Text
+                                                style={styles.emptyText}>{tournament.status === 'pending' ? 'Start the tournament to generate the double elimination bracket.' : 'No matches generated yet.'}</Text>
+                                        </View>
+                                    );
+                                }
                             } else {
                                 if (bracketRounds.length > 0) {
                                     return <TournamentBracket matches={bracketRounds.flat()}

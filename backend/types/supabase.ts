@@ -231,8 +231,10 @@ export type Database = {
             }
             tournament_matches: {
                 Row: {
+                    bracket: string | null
                     group: number | null
                     id: string
+                    is_if_game: boolean | null
                     match_id: string | null
                     match_number: number | null
                     next_match_id: string | null
@@ -242,14 +244,17 @@ export type Database = {
                     player2_score: number | null
                     round: number | null
                     sets: Json | null
+                    stage: string | null
                     status: Database["public"]["Enums"]["match_status"] | null
                     tournament_id: string | null
                     winner: string | null
                     winner_id: string | null
                 }
                 Insert: {
+                    bracket?: string | null
                     group?: number | null
                     id?: string
+                    is_if_game?: boolean | null
                     match_id?: string | null
                     match_number?: number | null
                     next_match_id?: string | null
@@ -259,14 +264,17 @@ export type Database = {
                     player2_score?: number | null
                     round?: number | null
                     sets?: Json | null
+                    stage?: string | null
                     status?: Database["public"]["Enums"]["match_status"] | null
                     tournament_id?: string | null
                     winner?: string | null
                     winner_id?: string | null
                 }
                 Update: {
+                    bracket?: string | null
                     group?: number | null
                     id?: string
+                    is_if_game?: boolean | null
                     match_id?: string | null
                     match_number?: number | null
                     next_match_id?: string | null
@@ -276,6 +284,7 @@ export type Database = {
                     player2_score?: number | null
                     round?: number | null
                     sets?: Json | null
+                    stage?: string | null
                     status?: Database["public"]["Enums"]["match_status"] | null
                     tournament_id?: string | null
                     winner?: string | null

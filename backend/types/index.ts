@@ -89,6 +89,9 @@ export interface TournamentMatch {
     nextMatchId: string | null;
     status: 'pending' | 'scheduled' | 'completed' | 'bye';
     sets?: Set[];
+    bracket?: 'winner' | 'loser' | 'final';
+    stage?: 'minor' | 'major';
+    isIfGame?: boolean;
 }
 
 export interface HeadToHead {
