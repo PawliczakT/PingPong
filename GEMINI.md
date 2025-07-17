@@ -2,6 +2,8 @@
 
 This file helps Gemini understand your project's conventions and settings.
 
+<!-- Devin verification: Access confirmed and lint tested -->
+
 ## Project Overview
 
 *   **Name:** PingPong
