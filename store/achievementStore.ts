@@ -388,20 +388,35 @@ export const useAchievementStore = create<AchievementState>()(
             ];
 
             const newlyUnlockedAchievements: Achievement[] = [];
-            for (const update of progressUpdates) {
-                const definition = allAchievementDefinitions.find(def => def.type === update.type);
-                if (
-                    definition &&
-                    update.progress >= definition.target &&
-                    !unlockedAchievementTypes.has(update.type)
-                ) {
-                    const unlockedAchievement = await unlockAchievement(playerId, update.type);
-                    if (unlockedAchievement) {
-                        newlyUnlockedAchievements.push(unlockedAchievement);
-                        unlockedAchievementTypes.add(update.type);
+            
+            const achievementChecks = progressUpdates
+                .filter(update => {
+                    const definition = allAchievementDefinitions.find(def => def.type === update.type);
+                    return definition && 
+                           update.progress >= definition.target && 
+                           !unlockedAchievementTypes.has(update.type);
+                })
+                .map(async (update) => {
+                    try {
+                        const unlockedAchievement = await unlockAchievement(playerId, update.type);
+                        if (unlockedAchievement) {
+                            unlockedAchievementTypes.add(update.type);
+                            return unlockedAchievement;
+                        }
+                        return null;
+                    } catch (error) {
+                        console.warn(`Failed to unlock achievement ${update.type}:`, error);
+                        return null;
                     }
+                });
+
+            const results = await Promise.allSettled(achievementChecks);
+            
+            results.forEach(result => {
+                if (result.status === 'fulfilled' && result.value) {
+                    newlyUnlockedAchievements.push(result.value);
                 }
-            }
+            });
             set({isLoading: false});
             return newlyUnlockedAchievements;
         },
