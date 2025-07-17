@@ -49,6 +49,18 @@ export default function CreateTournamentScreen() {
             return;
         }
 
+        if (format === TournamentFormat.DOUBLE_ELIMINATION) {
+            if (selectedPlayerIds.length < 4) {
+                Alert.alert("Error", "Double elimination tournaments require at least 4 players");
+                return;
+            }
+            const isPowerOfTwo = (n: number) => n > 0 && (n & (n - 1)) === 0;
+            if (!isPowerOfTwo(selectedPlayerIds.length)) {
+                Alert.alert("Error", "Double elimination tournaments require a power of 2 number of players (4, 8, 16, 32, etc.)");
+                return;
+            }
+        }
+
         setIsSubmitting(true);
 
         try {
@@ -125,6 +137,14 @@ export default function CreateTournamentScreen() {
                         onPress={() => setFormat(TournamentFormat.ROUND_ROBIN)}
                         style={styles.formatButton}
                     />
+
+                    <Button
+                        title="Double Elimination"
+                        variant={format === TournamentFormat.DOUBLE_ELIMINATION ? "primary" : "outline"}
+                        size="small"
+                        onPress={() => setFormat(TournamentFormat.DOUBLE_ELIMINATION)}
+                        style={styles.formatButton}
+                    />
                 </View>
 
                 <View style={styles.participantsSection}>
@@ -181,7 +201,11 @@ export default function CreateTournamentScreen() {
                     title="Create Tournament"
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
+                    disabled={
+                        selectedPlayerIds.length < 2 || 
+                        (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0) ||
+                        (format === TournamentFormat.DOUBLE_ELIMINATION && (selectedPlayerIds.length < 4 || (selectedPlayerIds.length & (selectedPlayerIds.length - 1)) !== 0))
+                    }
                     style={styles.submitButton}
                 />
             </ScrollView>
@@ -232,11 +256,14 @@ const styles = StyleSheet.create({
     },
     formatOptions: {
         flexDirection: "row",
+        flexWrap: "wrap",
         marginBottom: 24,
     },
     formatButton: {
         flex: 1,
         marginRight: 8,
+        marginBottom: 8,
+        minWidth: 120,
     },
     participantsSection: {
         marginBottom: 24,

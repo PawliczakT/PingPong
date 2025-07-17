@@ -28,14 +28,49 @@ export default function TournamentBracket({
                                           }: TournamentBracketProps) {
     const {getPlayerById} = usePlayerStore();
     const uniqueMatches = getUniqueMatches(matches);
-    const matchesByRound: Record<number, TournamentMatch[]> = {};
-    uniqueMatches.forEach(match => {
-        if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
-        matchesByRound[match.round].push(match);
-    });
-    const rounds = Object.keys(matchesByRound)
-        .sort((a, b) => Number(a) - Number(b))
-        .map(round => matchesByRound[Number(round)]);
+    
+    const isDoubleElimination = uniqueMatches.some(match => match.bracket);
+    
+    let winnerRounds: TournamentMatch[][] = [];
+    let loserRounds: TournamentMatch[][] = [];
+    let finalMatches: TournamentMatch[] = [];
+    let rounds: TournamentMatch[][] = [];
+    
+    if (isDoubleElimination) {
+        const winnerMatches = uniqueMatches.filter(match => match.bracket === 'winner');
+        const loserMatches = uniqueMatches.filter(match => match.bracket === 'loser');
+        finalMatches = uniqueMatches.filter(match => match.bracket === 'final');
+        
+        const winnerByRound: Record<number, TournamentMatch[]> = {};
+        const loserByRound: Record<number, TournamentMatch[]> = {};
+        
+        winnerMatches.forEach(match => {
+            if (!winnerByRound[match.round]) winnerByRound[match.round] = [];
+            winnerByRound[match.round].push(match);
+        });
+        
+        loserMatches.forEach(match => {
+            if (!loserByRound[match.round]) loserByRound[match.round] = [];
+            loserByRound[match.round].push(match);
+        });
+        
+        winnerRounds = Object.keys(winnerByRound)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(round => winnerByRound[Number(round)]);
+            
+        loserRounds = Object.keys(loserByRound)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(round => loserByRound[Number(round)]);
+    } else {
+        const matchesByRound: Record<number, TournamentMatch[]> = {};
+        uniqueMatches.forEach(match => {
+            if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
+            matchesByRound[match.round].push(match);
+        });
+        rounds = Object.keys(matchesByRound)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(round => matchesByRound[Number(round)]);
+    }
 
     const renderMatch = (match: TournamentMatchWithSets) => {
         const player1 = match.player1Id ? getPlayerById(match.player1Id) : null;
@@ -135,6 +170,73 @@ export default function TournamentBracket({
             </Pressable>
         );
     };
+
+    if (isDoubleElimination) {
+        return (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.container}>
+                    {/* Winner Bracket */}
+                    <View style={styles.bracketSection}>
+                        <Text style={styles.bracketTitle}>Winner Bracket</Text>
+                        <View style={styles.bracketContainer}>
+                            {winnerRounds.map((matchesInRound, i) => (
+                                <View key={`winner-round-${i + 1}`} style={styles.roundContainer}>
+                                    <Text style={styles.roundTitle}>
+                                        {i === winnerRounds.length - 1
+                                            ? "WB Final"
+                                            : i === winnerRounds.length - 2
+                                                ? "WB Semifinals"
+                                                : `WB Round ${i + 1}`}
+                                    </Text>
+                                    <View style={styles.matchesContainer}>
+                                        {matchesInRound.map(match => renderMatch(match))}
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Loser Bracket */}
+                    {loserRounds.length > 0 && (
+                        <View style={styles.bracketSection}>
+                            <Text style={styles.bracketTitle}>Loser Bracket</Text>
+                            <View style={styles.bracketContainer}>
+                                {loserRounds.map((matchesInRound, i) => (
+                                    <View key={`loser-round-${i + 1}`} style={styles.roundContainer}>
+                                        <Text style={styles.roundTitle}>
+                                            {i === loserRounds.length - 1
+                                                ? "LB Final"
+                                                : `LB Round ${i + 1}`}
+                                        </Text>
+                                        <View style={styles.matchesContainer}>
+                                            {matchesInRound.map(match => renderMatch(match))}
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Grand Final */}
+                    {finalMatches.length > 0 && (
+                        <View style={styles.bracketSection}>
+                            <Text style={styles.bracketTitle}>Grand Final</Text>
+                            <View style={styles.bracketContainer}>
+                                <View style={styles.roundContainer}>
+                                    <Text style={styles.roundTitle}>
+                                        {finalMatches.some(m => m.isIfGame) ? "Grand Final (If Game)" : "Grand Final"}
+                                    </Text>
+                                    <View style={styles.matchesContainer}>
+                                        {finalMatches.map(match => renderMatch(match))}
+                                    </View>
+                                </View>
+                            </View>
+                        </View>
+                    )}
+                </View>
+            </ScrollView>
+        );
+    }
 
     return (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -250,5 +352,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.textLight,
         fontStyle: "italic",
+    },
+    bracketSection: {
+        marginBottom: 32,
+    },
+    bracketTitle: {
+        fontSize: 18,
+        fontWeight: "bold",
+        color: colors.primary,
+        marginBottom: 16,
+        textAlign: "center",
+        paddingHorizontal: 16,
+    },
+    bracketContainer: {
+        flexDirection: "row",
     },
 });
