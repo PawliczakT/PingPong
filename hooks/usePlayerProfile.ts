@@ -49,6 +49,7 @@ export const usePlayerProfile = (
 
                 if (data) {
                     foundPlayer = {
+                        dailyDelta: 0, gamesPlayed: 0, lastMatchDay: "",
                         id: data.id,
                         user_id: data.user_id,
                         name: data.name,
@@ -59,7 +60,7 @@ export const usePlayerProfile = (
                         losses: data.losses,
                         active: data.active,
                         createdAt: data.created_at,
-                        updatedAt: data.updated_at,
+                        updatedAt: data.updated_at
                     };
                 }
             }

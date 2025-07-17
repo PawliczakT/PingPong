@@ -281,11 +281,7 @@ const setupTestData = () => {
     // Mock addMatch
     jest.spyOn(matchStore, 'addMatch').mockImplementation(async (data) => {
         const {player1Id, player2Id, player1Score, player2Score, sets, tournamentId} = data;
-        const winnerStringId = player1Score > player2Score ? player1Id : player2Id;
-
-        // The winnerId in the Match object is a number, but the player IDs in the test data are strings.
-        // We need to map them correctly.
-        const winnerId = winnerStringId === 'player1' ? 1 : 2;
+        const winnerId = player1Score > player2Score ? player1Id : player2Id;
 
         return {
             id: 'new-match-id',
@@ -293,10 +289,10 @@ const setupTestData = () => {
             player2Id,
             player1Score,
             player2Score,
-            sets: sets || [],
+            sets,
             winnerId,
             date: new Date().toISOString(),
-            tournamentId
+            tournamentId,
         };
     });
 
@@ -359,7 +355,7 @@ describe('Match Management E2E Flow', () => {
         expect(newMatch.id).toBe('new-match-id');
         expect(newMatch.player1Id).toBe('player1');
         expect(newMatch.player2Id).toBe('player2');
-        expect(newMatch.winnerId).toBe(1);
+        expect(newMatch.winnerId).toBe('player1'); // Changed from expect(newMatch.winnerId).toBe(1);
     });
 
     it('should retrieve match details correctly', async () => {

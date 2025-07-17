@@ -323,9 +323,8 @@ const setupTestData = () => {
     // Mock addMatch
     jest.spyOn(matchStore, 'addMatch').mockImplementation(async (data) => {
         const {player1Id, player2Id, player1Score, player2Score, sets, tournamentId} = data;
-        // Konwertujemy ID gracza na number dla winnerId
-        // Używamy 1 lub 2 jako winnerId bazując na wyniku
-        const winnerId = player1Score > player2Score ? 1 : 2;
+        // Zwracamy ID gracza jako winnerId bazując na wyniku
+        const winnerId = player1Score > player2Score ? player1Id : player2Id;
 
         return {
             id: 'new-match-id',
@@ -431,9 +430,9 @@ describe('Tournament Management E2E Flow', () => {
 
         // Setup mock data for a round-robin tournament with matches
         const matches = [
-            {player1Id: 'player1', player2Id: 'player2', winnerId: 1},
-            {player1Id: 'player1', player2Id: 'player3', winnerId: 1},
-            {player1Id: 'player2', player2Id: 'player3', winnerId: 2},
+            {player1Id: 'player1', player2Id: 'player2', winnerId: 'player1'},
+            {player1Id: 'player1', player2Id: 'player3', winnerId: 'player1'},
+            {player1Id: 'player2', player2Id: 'player3', winnerId: 'player3'},
         ];
 
         // Calculate standings (simple version of what the app would do)
@@ -446,8 +445,8 @@ describe('Tournament Management E2E Flow', () => {
 
         // Count wins and losses
         matches.forEach(match => {
-            const winner = match.winnerId === 1 ? match.player1Id : match.player2Id;
-            const loser = match.winnerId === 1 ? match.player2Id : match.player1Id;
+            const winner = match.winnerId;
+            const loser = match.player1Id === winner ? match.player2Id : match.player1Id;
 
             playerStats[winner].wins += 1;
             playerStats[winner].points += 3; // 3 points for a win
@@ -511,6 +510,6 @@ describe('Tournament Management E2E Flow', () => {
             tournamentId: 'tournament1'
         });
         expect(newMatch.tournamentId).toBe('tournament1');
-        expect(newMatch.winnerId).toBe(1);
+        expect(newMatch.winnerId).toBe('player1');
     });
 });
