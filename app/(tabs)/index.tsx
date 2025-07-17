@@ -1,5 +1,5 @@
 //app/(tabs)/index.tsx
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import {Pressable, ScrollView, RefreshControl, StyleSheet, Text, View} from "react-native";
 import {useRouter} from "expo-router";
 import {Bell, PlusCircle, Trophy, Users} from "lucide-react-native";
@@ -29,10 +29,22 @@ export default function HomeScreen() {
     const registerForPushNotifications = useNotificationStore(state => state.registerForPushNotifications);
     const notificationHistory = useNotificationStore(state => state.notificationHistory);
 
-    const topPlayers = getActivePlayersSortedByRating().slice(0, 3);
-    const recentMatches = getRecentMatches(3);
-    const upcomingTournaments = [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2);
-    const unreadNotifications = notificationHistory.filter(n => !n.read).length;
+    const topPlayers = useMemo(() => 
+        getActivePlayersSortedByRating().slice(0, 3), 
+        [getActivePlayersSortedByRating]
+    );
+    const recentMatches = useMemo(() => 
+        getRecentMatches(3), 
+        [getRecentMatches]
+    );
+    const upcomingTournaments = useMemo(() => 
+        [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2), 
+        [getUpcomingTournaments, getActiveTournaments]
+    );
+    const unreadNotifications = useMemo(() => 
+        notificationHistory.filter(n => !n.read).length, 
+        [notificationHistory]
+    );
 
     const [refreshing, setRefreshing] = useState(false);
 
