@@ -52,7 +52,7 @@ export enum TournamentFormat {
     KNOCKOUT = 'KNOCKOUT',
     ROUND_ROBIN = 'ROUND_ROBIN',
     DOUBLE_ELIMINATION = 'DOUBLE_ELIMINATION',
-    GROUP = 'GROUP'
+    GROUP_STAGE = 'GROUP_STAGE'
 }
 
 export enum TournamentStatus {
@@ -89,6 +89,10 @@ export interface TournamentMatch {
     nextMatchId: string | null;
     status: 'pending' | 'scheduled' | 'completed' | 'bye';
     sets?: Set[];
+    bracket?: 'winner' | 'loser';
+    stage?: string;
+    isIfGame?: boolean;
+    isUpdating?: boolean;
 }
 
 export interface HeadToHead {
@@ -155,6 +159,7 @@ export enum AchievementType {
     WIN_KNOCKOUT_TOURNAMENT = 'win_knockout_tournament',
     WIN_ROUND_ROBIN_TOURNAMENT = 'win_round_robin_tournament',
     WIN_GROUP_TOURNAMENT = 'win_group_tournament',
+    WIN_DOUBLE_ELIMINATION_TOURNAMENT = 'win_double_elimination_tournament',
     TOURNAMENT_FINALIST = 'tournament_finalist', // Reach the final of any official tournament
     DEFEAT_TOP_SEED_TOURNAMENT = 'defeat_top_seed_tournament', // Defeat the top-seeded player in a tournament
     TOURNAMENT_WIN_FLAWLESS = 'tournament_win_flawless', // Win a tournament without losing a single match

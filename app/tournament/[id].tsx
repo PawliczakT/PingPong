@@ -134,7 +134,7 @@ export default function TournamentDetailScreen() {
                 Alert.alert("Tournament incomplete", "All matches must be played before selecting a winner.");
                 return;
             }
-        } else if (tournament.format === TournamentFormat.GROUP) {
+        } else if (tournament.format === TournamentFormat.GROUP_STAGE) {
             if (!allGroupCompleted) {
                 Alert.alert("Group stage incomplete", "All group matches must be played before selecting a winner.");
                 return;
@@ -418,7 +418,7 @@ export default function TournamentDetailScreen() {
                                         ))}
                                     </View>
                                 );
-                            } else if (tournament.format === TournamentFormat.GROUP) {
+                            } else if (tournament.format === TournamentFormat.GROUP_STAGE) {
                                 const groupStandings = calculateGroupStandings(participants, tournamentMatches);
                                 const allGroupMatchesCompleted = tournamentMatches.filter(m => m.round === 1).every(m => m.status === 'completed');
                                 const hasKnockout = tournamentMatches.some(m => m.round > 1);

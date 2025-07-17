@@ -303,6 +303,16 @@ export const achievements: Achievement[] = [
         id: 'win_group_tournament'
     },
     {
+        type: AchievementType.WIN_DOUBLE_ELIMINATION_TOURNAMENT,
+        name: 'Double Elimination Champion',
+        description: 'Win a double elimination tournament.',
+        icon: 'trophy',
+        target: 1,
+        progress: 0,
+        unlocked: false,
+        id: 'win_double_elimination_tournament'
+    },
+    {
         type: AchievementType.TOURNAMENT_FINALIST,
         name: 'Podium Finish',
         description: 'Reach the final of any official tournament.',
