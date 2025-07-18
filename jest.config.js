@@ -1,4 +1,6 @@
 module.exports = {
+  preset: 'jest-expo',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'node',
   transform: {
     '^.+\\.(ts|tsx)$': ['babel-jest', { presets: ['@babel/preset-typescript'] }],
