@@ -281,7 +281,7 @@ async function generateKnockoutPhase(tournamentId: string, qualifiedPlayers: str
     return;
 }
 
-function generateDoubleEliminationMatches(tournamentId: string, playerIds: string[]) {
+export function generateDoubleEliminationMatches(tournamentId: string, playerIds: string[]) {
     const shuffledPlayers = shuffleArray([...playerIds]);
     const numPlayers = shuffledPlayers.length;
     
@@ -528,7 +528,7 @@ function generateDoubleEliminationMatches(tournamentId: string, playerIds: strin
     return matchesToInsert;
 }
 
-async function handleDoubleEliminationProgression(tournament: Tournament, completedMatch: TournamentMatch, winnerId: string, loserId: string): Promise<void> {
+export async function handleDoubleEliminationProgression(tournament: Tournament, completedMatch: TournamentMatch, winnerId: string, loserId: string): Promise<void> {
     const { bracket, stage, isIfGame } = completedMatch;
     
     if (completedMatch.nextMatchId) {
@@ -599,7 +599,7 @@ async function handleDoubleEliminationProgression(tournament: Tournament, comple
     }
 }
 
-async function handleDoubleEliminationCompletion(tournamentId: string, winnerId: string): Promise<void> {
+export async function handleDoubleEliminationCompletion(tournamentId: string, winnerId: string): Promise<void> {
     
     const tournament = useTournamentStore.getState().getTournamentById(tournamentId);
     if (!tournament) return;
