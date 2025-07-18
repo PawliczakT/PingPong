@@ -281,6 +281,253 @@ async function generateKnockoutPhase(tournamentId: string, qualifiedPlayers: str
     return;
 }
 
+function generateDoubleEliminationMatches(tournamentId: string, playerIds: string[]) {
+    const shuffledPlayers = shuffleArray([...playerIds]);
+    const numPlayers = shuffledPlayers.length;
+    
+    const winnersRounds = Math.ceil(Math.log2(numPlayers));
+    const losersRounds = (winnersRounds - 1) * 2;
+    
+    let matchesToInsert: any[] = [];
+    let winnersMatchIds: string[][] = [];
+    let losersMatchIds: string[][] = [];
+    
+    let firstRoundMatches: string[] = [];
+    let playersWithByes = [...shuffledPlayers];
+    
+    const nextPowerOf2 = Math.pow(2, Math.ceil(Math.log2(numPlayers)));
+    while (playersWithByes.length < nextPowerOf2) {
+        playersWithByes.push(null);
+    }
+    
+    for (let i = 0; i < playersWithByes.length; i += 2) {
+        const matchId = uuidv4();
+        firstRoundMatches.push(matchId);
+        
+        const p1 = playersWithByes[i];
+        const p2 = playersWithByes[i + 1];
+        
+        let status: 'scheduled' | 'completed' | 'pending' = 'pending';
+        let winner = null;
+        
+        if (p1 && p2) {
+            status = 'scheduled';
+        } else if (p1 && !p2) {
+            status = 'completed';
+            winner = p1;
+        } else if (!p1 && p2) {
+            status = 'completed';
+            winner = p2;
+        }
+        
+        matchesToInsert.push({
+            id: matchId,
+            tournament_id: tournamentId,
+            round: 1,
+            match_number: i / 2 + 1,
+            player1_id: p1,
+            player2_id: p2,
+            player1_score: winner === p1 ? 1 : null,
+            player2_score: winner === p2 ? 1 : null,
+            winner_id: winner,
+            status: status,
+            next_match_id: null,
+            bracket: 'winners',
+            stage: 'round_1',
+            is_if_game: false,
+        });
+    }
+    winnersMatchIds.push(firstRoundMatches);
+    
+    for (let round = 2; round <= winnersRounds; round++) {
+        const prevRoundMatches = winnersMatchIds[round - 2];
+        const currRoundMatches: string[] = [];
+        
+        for (let i = 0; i < prevRoundMatches.length; i += 2) {
+            const matchId = uuidv4();
+            currRoundMatches.push(matchId);
+            
+            const match1 = matchesToInsert.find(m => m.id === prevRoundMatches[i]);
+            if (match1) match1.next_match_id = matchId;
+            
+            if (i + 1 < prevRoundMatches.length) {
+                const match2 = matchesToInsert.find(m => m.id === prevRoundMatches[i + 1]);
+                if (match2) match2.next_match_id = matchId;
+            }
+            
+            const isGrandFinal = round === winnersRounds;
+            
+            matchesToInsert.push({
+                id: matchId,
+                tournament_id: tournamentId,
+                round,
+                match_number: i / 2 + 1,
+                player1_id: null,
+                player2_id: null,
+                player1_score: null,
+                player2_score: null,
+                winner_id: null,
+                status: 'pending',
+                next_match_id: null,
+                bracket: 'winners',
+                stage: isGrandFinal ? 'grand_final' : `round_${round}`,
+                is_if_game: false,
+            });
+        }
+        
+        winnersMatchIds.push(currRoundMatches);
+    }
+    
+    let losersFirstRoundMatches: string[] = [];
+    const winnersFirstRoundLosers = firstRoundMatches.filter(matchId => {
+        const match = matchesToInsert.find(m => m.id === matchId);
+        return match && match.player1_id && match.player2_id; // Only matches with actual players
+    });
+    
+    if (winnersFirstRoundLosers.length > 1) {
+        for (let i = 0; i < winnersFirstRoundLosers.length; i += 2) {
+            if (i + 1 < winnersFirstRoundLosers.length) {
+                const matchId = uuidv4();
+                losersFirstRoundMatches.push(matchId);
+                
+                matchesToInsert.push({
+                    id: matchId,
+                    tournament_id: tournamentId,
+                    round: 1,
+                    match_number: i / 2 + 1,
+                    player1_id: null,
+                    player2_id: null,
+                    player1_score: null,
+                    player2_score: null,
+                    winner_id: null,
+                    status: 'pending',
+                    next_match_id: null,
+                    bracket: 'losers',
+                    stage: 'round_1',
+                    is_if_game: false,
+                });
+            }
+        }
+        losersMatchIds.push(losersFirstRoundMatches);
+    }
+    
+    let losersRoundNum = losersFirstRoundMatches.length > 0 ? 2 : 1;
+    let winnersRoundToFeed = 2; // Start feeding from winners round 2
+    
+    while (losersRoundNum <= losersRounds && winnersRoundToFeed <= winnersRounds) {
+        const currLosersMatches: string[] = [];
+        
+        const isWinnersFeedRound = (losersRoundNum - 1) % 2 === 1;
+        
+        if (isWinnersFeedRound && winnersRoundToFeed <= winnersRounds) {
+            const winnersMatches = winnersMatchIds[winnersRoundToFeed - 1] || [];
+            const prevLosersMatches = losersMatchIds[losersMatchIds.length - 1] || [];
+            
+            const numMatches = Math.max(winnersMatches.length, Math.ceil(prevLosersMatches.length / 2));
+            
+            for (let i = 0; i < numMatches; i++) {
+                const matchId = uuidv4();
+                currLosersMatches.push(matchId);
+                
+                const isFinal = winnersRoundToFeed === winnersRounds && i === 0;
+                
+                matchesToInsert.push({
+                    id: matchId,
+                    tournament_id: tournamentId,
+                    round: losersRoundNum,
+                    match_number: i + 1,
+                    player1_id: null,
+                    player2_id: null,
+                    player1_score: null,
+                    player2_score: null,
+                    winner_id: null,
+                    status: 'pending',
+                    next_match_id: null,
+                    bracket: 'losers',
+                    stage: isFinal ? 'losers_final' : `round_${losersRoundNum}`,
+                    is_if_game: false,
+                });
+            }
+            
+            winnersRoundToFeed++;
+        } else {
+            const prevLosersMatches = losersMatchIds[losersMatchIds.length - 1] || [];
+            
+            for (let i = 0; i < prevLosersMatches.length; i += 2) {
+                if (i + 1 < prevLosersMatches.length) {
+                    const matchId = uuidv4();
+                    currLosersMatches.push(matchId);
+                    
+                    const match1 = matchesToInsert.find(m => m.id === prevLosersMatches[i]);
+                    if (match1) match1.next_match_id = matchId;
+                    
+                    const match2 = matchesToInsert.find(m => m.id === prevLosersMatches[i + 1]);
+                    if (match2) match2.next_match_id = matchId;
+                    
+                    matchesToInsert.push({
+                        id: matchId,
+                        tournament_id: tournamentId,
+                        round: losersRoundNum,
+                        match_number: i / 2 + 1,
+                        player1_id: null,
+                        player2_id: null,
+                        player1_score: null,
+                        player2_score: null,
+                        winner_id: null,
+                        status: 'pending',
+                        next_match_id: null,
+                        bracket: 'losers',
+                        stage: `round_${losersRoundNum}`,
+                        is_if_game: false,
+                    });
+                }
+            }
+        }
+        
+        if (currLosersMatches.length > 0) {
+            losersMatchIds.push(currLosersMatches);
+        }
+        losersRoundNum++;
+    }
+    
+    const grandFinalMatch = winnersMatchIds[winnersMatchIds.length - 1][0];
+    const ifGameId = uuidv4();
+    
+    matchesToInsert.push({
+        id: ifGameId,
+        tournament_id: tournamentId,
+        round: winnersRounds + 1,
+        match_number: 1,
+        player1_id: null,
+        player2_id: null,
+        player1_score: null,
+        player2_score: null,
+        winner_id: null,
+        status: 'pending',
+        next_match_id: null,
+        bracket: 'grand_final',
+        stage: 'if_game',
+        is_if_game: true,
+    });
+    
+    const grandFinalMatchObj = matchesToInsert.find(m => m.id === grandFinalMatch);
+    if (grandFinalMatchObj) {
+        grandFinalMatchObj.next_match_id = ifGameId;
+    }
+    
+    if (losersMatchIds.length > 0) {
+        const losersFinalMatches = losersMatchIds[losersMatchIds.length - 1];
+        if (losersFinalMatches.length > 0) {
+            const losersFinalMatch = matchesToInsert.find(m => m.id === losersFinalMatches[0]);
+            if (losersFinalMatch) {
+                losersFinalMatch.next_match_id = grandFinalMatch;
+            }
+        }
+    }
+    
+    return matchesToInsert;
+}
+
 async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string | null> {
     try {
         const {data: tournamentData, error: tournamentError} = await supabase
@@ -801,6 +1048,10 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 throw new Error("Knockout tournaments require an even number of players");
             }
 
+            if (existingTournament.format === TournamentFormat.DOUBLE_ELIMINATION && playerIds.length < 4) {
+                throw new Error("Double Elimination tournaments require at least 4 players");
+            }
+
             type TournamentMatchInsert = {
                 id: string;
                 tournament_id: string;
@@ -815,6 +1066,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 next_match_id: string | null;
                 sets?: MatchSet[];
                 group?: number;
+                bracket?: string;
+                stage?: string;
+                is_if_game?: boolean;
             };
 
             if (existingTournament.format === 'ROUND_ROBIN') {
@@ -853,6 +1107,18 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     status: 'scheduled',
                     group: match.group
                 }));
+
+                const {error} = await supabase.rpc('start_tournament', {
+                    p_tournament_id: tournamentId,
+                    p_matches: matchesToInsert,
+                });
+
+                if (error) throw error;
+
+                await get().fetchTournaments({force: true});
+                set({loading: false});
+            } else if (existingTournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+                const matchesToInsert = generateDoubleEliminationMatches(tournamentId, playerIds);
 
                 const {error} = await supabase.rpc('start_tournament', {
                     p_tournament_id: tournamentId,
