@@ -538,8 +538,12 @@ export default function TournamentDetailScreen() {
                                                     {match.status === 'completed' && match.player1Score != null && match.player2Score != null ? (
                                                         <Text
                                                             style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
+                                                    ) : match.status === 'completed' && (match.player1Score == null || match.player2Score == null) ? (
+                                                        <Text style={styles.viewDetailsText}>TBD</Text>
+                                                    ) : match.status === 'scheduled' && match.player1Id && match.player2Id ? (
+                                                        <Text style={styles.viewDetailsText}>Play</Text>
                                                     ) : (
-                                                        <Text style={styles.viewDetailsText}>Result</Text>
+                                                        <Text style={styles.viewDetailsText}>-</Text>
                                                     )}
                                                     {match.status === 'scheduled' && (!match.player1Id || !match.player2Id) &&
                                                         <Text style={styles.tbdText}>TBD</Text>}
