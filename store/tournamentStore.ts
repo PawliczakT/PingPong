@@ -9,7 +9,7 @@ import {dispatchSystemNotification} from '@/app/services/notificationService';
 import {useEffect} from "react";
 import {usePlayerStore} from './playerStore';
 import {RealtimeChannel, RealtimePostgresChangesPayload} from "@supabase/supabase-js";
-import {useMatchStore} from './matchStore'; // Import matchStore
+import {useMatchStore} from './matchStore';
 
 const transformMatchData = (match: any): TournamentMatch => {
     return {
@@ -316,20 +316,18 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             return null;
         }
 
-        // Statystyki zawodników
         const playerStats: Record<string, {
             playerId: string,
-            mainPoints: number,      // punkty główne (2 za wygraną, 1 za przegraną)
+            mainPoints: number,
             matchesPlayed: number,
             matchesWon: number,
             setsWon: number,
             setsLost: number,
-            smallPointsWon: number,  // małe punkty (punkty w setach)
+            smallPointsWon: number,
             smallPointsLost: number,
-            headToHead: Record<string, number>  // wyniki bezpośrednich spotkań
+            headToHead: Record<string, number>
         }> = {};
 
-        // Inicjalizacja statystyk
         const playerIds = new Set<string>();
         matches.forEach(match => {
             if (match.player1Id) playerIds.add(match.player1Id);
@@ -350,7 +348,6 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             };
         });
 
-        // Przetwarzanie meczów
         matches.forEach(match => {
             if (match.status !== 'completed' || !match.player1Id || !match.player2Id) return;
 
@@ -360,7 +357,6 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             player1.matchesPlayed++;
             player2.matchesPlayed++;
 
-            // Liczenie setów wygranych/przegranych
             let p1SetsWon = 0;
             let p2SetsWon = 0;
 
@@ -387,51 +383,44 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             player2.setsWon += p2SetsWon;
             player2.setsLost += p1SetsWon;
 
-            // Punkty główne i wyniki bezpośrednie
             if (match.winner === match.player1Id) {
-                player1.mainPoints += 2;  // 2 punkty za wygraną
+                player1.mainPoints += 2;
                 player1.matchesWon++;
-                player2.mainPoints += 1;  // 1 punkt za przegraną!
+                player2.mainPoints += 1;
                 player1.headToHead[match.player2Id] = 1;
                 player2.headToHead[match.player1Id] = -1;
             } else if (match.winner === match.player2Id) {
-                player2.mainPoints += 2;  // 2 punkty za wygraną
+                player2.mainPoints += 2;
                 player2.matchesWon++;
-                player1.mainPoints += 1;  // 1 punkt za przegraną!
+                player1.mainPoints += 1;
                 player2.headToHead[match.player1Id] = 1;
                 player1.headToHead[match.player2Id] = -1;
             }
         });
 
-        // Sortowanie według przepisów PZTS
         const rankedPlayers = Object.values(playerStats).sort((a, b) => {
-            // 1. Punkty główne
             if (a.mainPoints !== b.mainPoints) {
                 return b.mainPoints - a.mainPoints;
             }
 
-            // 2. Stosunek meczów wygranych do rozegranych
             const aMatchRatio = a.matchesWon / (a.matchesPlayed || 1);
             const bMatchRatio = b.matchesWon / (b.matchesPlayed || 1);
             if (aMatchRatio !== bMatchRatio) {
                 return bMatchRatio - aMatchRatio;
             }
 
-            // 3. Stosunek setów
             const aSetRatio = a.setsWon / (a.setsWon + a.setsLost || 1);
             const bSetRatio = b.setsWon / (b.setsWon + b.setsLost || 1);
             if (aSetRatio !== bSetRatio) {
                 return bSetRatio - aSetRatio;
             }
 
-            // 4. Stosunek małych punktów
             const aPointRatio = a.smallPointsWon / (a.smallPointsWon + a.smallPointsLost || 1);
             const bPointRatio = b.smallPointsWon / (b.smallPointsWon + b.smallPointsLost || 1);
             if (aPointRatio !== bPointRatio) {
                 return bPointRatio - aPointRatio;
             }
 
-            // 5. Wynik bezpośredniego meczu
             if (a.headToHead[b.playerId] !== undefined) {
                 return a.headToHead[b.playerId] > 0 ? -1 : 1;
             }
@@ -439,7 +428,6 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
             return 0;
         });
 
-        // Aktualizacja zwycięzcy
         if (rankedPlayers.length > 0) {
             const winner = rankedPlayers[0];
             const {error} = await supabase
@@ -454,7 +442,6 @@ async function autoSelectRoundRobinWinner(tournamentId: string): Promise<string 
                 console.error(`Error updating tournament winner:`, error);
                 return null;
             } else {
-                // Powiadomienie o zwycięstwie...
                 try {
                     const playerStore = usePlayerStore.getState();
                     const winnerPlayer = playerStore.getPlayerById(winner.playerId);
@@ -888,9 +875,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 console.log('🏆 Winners bracket rounds:', result.matchIdMatrix.winners.length);
                 console.log('🏆 Losers bracket rounds:', result.matchIdMatrix.losers.length);
 
-                // Log a few sample matches to verify structure
                 if (matches.length > 0) {
-                    // Log winners bracket matches with stage field
                     const winnersBracketMatches = matches.filter(m => m.bracket === 'winners');
                     const winnerMatchesWithStage = winnersBracketMatches.filter(m => m.stage !== null);
                     console.log('🏆 Winners bracket matches with stage field:', winnerMatchesWithStage.length);
@@ -903,7 +888,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         })));
                     }
 
-                    // Log losers bracket matches
                     const losersBracketMatches = matches.filter(m => m.bracket === 'losers');
                     console.log('🏆 Losers bracket matches:', losersBracketMatches.length);
                     if (losersBracketMatches.length > 0) {
@@ -1056,7 +1040,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         set({loading: true, error: null});
 
         try {
-            // Get tournament and match details
             const tournament = get().tournaments.find(t => t.id === tournamentId);
             if (!tournament) throw new Error('Tournament not found');
 
@@ -1080,12 +1063,10 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 bracket: matchData.bracket
             });
 
-            // Validate scores
             if (scores.player1Score === scores.player2Score) {
                 throw new Error('Scores cannot be equal');
             }
 
-            // Determine winner
             const winnerId = scores.player1Score > scores.player2Score
                 ? matchData.player1_id
                 : matchData.player2_id;
@@ -1111,10 +1092,8 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             console.log('✅ Match updated successfully with scores and winner');
 
-            // Create match record in matches table
             if (matchData.player1_id && matchData.player2_id) {
                 try {
-                    // Use matchStore's addMatch function instead of direct insertion
                     const matchStore = useMatchStore.getState();
                     await matchStore.addMatch({
                         player1Id: matchData.player1_id,
@@ -1126,11 +1105,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     });
                 } catch (error) {
                     console.error("Error adding match to history:", error);
-                    // Continue with tournament logic even if match history fails
                 }
             }
 
-            // Handle next match updates
             if (matchData.next_match_id) {
                 console.log('🔄 updateMatchResult - Next match ID found:', matchData.next_match_id);
 
@@ -1154,7 +1131,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     bracket: nextMatch.bracket
                 });
 
-                // Determine which player slot to update in the next match
                 let updateData: { player1_id?: string; player2_id?: string } = {};
                 if (!nextMatch.player1_id) {
                     updateData = {player1_id: winnerId};
@@ -1179,7 +1155,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     throw nextUpdateError;
                 }
 
-                // If both players are now assigned, update status to scheduled
                 if ((nextMatch.player1_id && !nextMatch.player2_id && updateData.player2_id) ||
                     (!nextMatch.player1_id && nextMatch.player2_id && updateData.player1_id)) {
                     const {error: statusUpdateError} = await supabase
@@ -1238,7 +1213,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                     console.log('🔄 updateMatchResult - Loser match stage:', loserMatch.stage);
 
-                    // Determine which player slot to update in the loser match
                     let updateData: { player1_id?: string; player2_id?: string } = {};
                     if (!loserMatch.player1_id) {
                         updateData = {player1_id: loserId};
@@ -1255,7 +1229,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                     console.log('🔄 updateMatchResult - Loser match player slot to update:', updateData);
 
-                    // Update loser match with loser
                     console.log('🔄 updateMatchResult - Updating loser match with loser:', {
                         matchId: loserMatchId,
                         updateData
@@ -1273,7 +1246,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                     console.log('✅ Loser match updated successfully');
 
-                    // Check if both players are now assigned to the loser match
                     const {data: updatedLoserMatch, error: updatedLoserMatchError} = await supabase
                         .from('tournament_matches')
                         .select('*')
@@ -1291,7 +1263,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                         status: updatedLoserMatch.status
                     });
 
-                    // If both players are assigned, update status to scheduled
                     if (updatedLoserMatch.player1_id && updatedLoserMatch.player2_id) {
                         console.log('🔄 updateMatchResult - Both players assigned to loser match, updating status to scheduled');
 
@@ -1310,13 +1281,11 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 }
             }
 
-            // Handle final match in double elimination
             if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION &&
                 matchData.bracket === 'final') {
 
                 console.log('🔄 updateMatchResult - Processing Grand Final match');
 
-                // This is the Grand Final match
                 const winnerFromWinnersBracket = matchData.player1_id;
                 const winnerFromLosersBracket = matchData.player2_id;
 
@@ -1327,12 +1296,8 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 });
 
                 if (winnerId === winnerFromLosersBracket) {
-                    // Losers bracket winner won Grand Final - need to create and play True Final
                     console.log('🔄 updateMatchResult - Losers bracket winner won Grand Final, creating True Final match');
-
                     const trueFinalId = uuidv4();
-
-                    // Create the True Final match
                     const {error: trueFinalCreateError} = await supabase
                         .from('tournament_matches')
                         .insert({
@@ -1359,18 +1324,15 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                     console.log('✅ True Final match created:', trueFinalId);
                 } else {
-                    // Winners bracket winner won Grand Final - tournament is over
                     console.log('🔄 updateMatchResult - Winners bracket winner won Grand Final, tournament complete');
                     await get().setTournamentWinner(tournamentId, winnerId);
                 }
             } else if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION &&
                 matchData.stage === 'true_final') {
-                // This is the True Final match, tournament is over
                 console.log('🔄 updateMatchResult - True Final completed, tournament complete');
                 await get().setTournamentWinner(tournamentId, winnerId);
             }
 
-            // Check if all matches are completed for round robin or group format
             if (tournament.format === TournamentFormat.ROUND_ROBIN || tournament.format === TournamentFormat.GROUP) {
                 const {data: matches, error: matchesError} = await supabase
                     .from('tournament_matches')
@@ -1384,14 +1346,12 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                     return;
                 }
 
-                // For round robin, automatically select winner
                 if (tournament.format === TournamentFormat.ROUND_ROBIN) {
                     const winnerId = await autoSelectRoundRobinWinner(tournamentId);
                     if (winnerId) {
                         await get().setTournamentWinner(tournamentId, winnerId);
                     }
                 } else if (tournament.format === TournamentFormat.GROUP) {
-                    // For group format, generate knockout phase
                     const {data: tournamentData, error: tournamentError} = await supabase
                         .from('tournaments')
                         .select('*, tournament_matches(*)')
@@ -1425,14 +1385,9 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
                     const playerIds = participantsData.map((p: any) => p.player_id);
                     const groups = generateGroups(playerIds, Math.min(4, Math.ceil(playerIds.length / 3)));
-
-                    // Get top players from each group
                     const qualifiers = getTopPlayersFromGroups(groups, matches);
-
-                    // Generate knockout phase with qualified players
                     await generateKnockoutPhase(tournamentId, qualifiers);
 
-                    // Update tournament status to reflect knockout phase
                     const {error: statusError} = await supabase
                         .from('tournaments')
                         .update({status: 'active'})
@@ -1442,7 +1397,6 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 }
             }
 
-            // Refresh tournaments
             await get().fetchTournaments({force: true});
             set({loading: false});
 
@@ -1643,8 +1597,8 @@ export function generateDoubleEliminationTournament(tournamentId: string, player
     matchIdMatrix: { winners: string[][]; losers: string[][]; final: string[] };
 } {
     const numPlayers = playerIds.length;
-    const numRounds = Math.ceil(Math.log2(numPlayers)); // Number of rounds in winners bracket
-    const numLoserRounds = 2 * numRounds - 1; // Number of rounds in losers bracket
+    const numRounds = Math.ceil(Math.log2(numPlayers));
+    const numLoserRounds = numRounds;
 
     let matches: {
         id: string;
@@ -1673,11 +1627,9 @@ export function generateDoubleEliminationTournament(tournamentId: string, player
         final: []
     };
 
-    // Shuffle players and ensure even number
     let shuffledPlayers: (string | null)[] = shuffleArray([...playerIds]);
     if (shuffledPlayers.length % 2 !== 0) shuffledPlayers.push(null);
 
-    // Generate winners bracket (similar to knockout tournament)
     let winnersRound1: string[] = [];
     for (let i = 0; i < shuffledPlayers.length; i += 2) {
         const matchId = uuidv4();
@@ -1717,7 +1669,6 @@ export function generateDoubleEliminationTournament(tournamentId: string, player
     }
     matchIdMatrix.winners.push(winnersRound1);
 
-    // Generate the rest of the winners bracket
     for (let round = 2; round <= numRounds; round++) {
         const prevRoundMatches = matchIdMatrix.winners[round - 2];
         const currRoundMatches: string[] = [];
@@ -1726,7 +1677,6 @@ export function generateDoubleEliminationTournament(tournamentId: string, player
             const matchId = uuidv4();
             currRoundMatches.push(matchId);
 
-            // Connect previous matches to this one
             const match1 = matches.find(m => m.id === prevRoundMatches[i]);
             if (match1) match1.next_match_id = matchId;
 
@@ -1756,26 +1706,12 @@ export function generateDoubleEliminationTournament(tournamentId: string, player
         matchIdMatrix.winners.push(currRoundMatches);
     }
 
-    // Generate losers bracket with proper double elimination flow
-    // In double elimination, losers bracket alternates between:
-    // 1. Winners from previous losers round vs Losers from current winners round (one-on-one)
-    // 2. Winners from that round play each other (pairwise)
-
     console.log('🔄 generateDoubleEliminationTournament - Starting losers bracket generation');
     console.log('🔄 Winners bracket matrix:', matchIdMatrix.winners.map((round, i) => `Round ${i + 1}: ${round.length} matches`));
 
-    // Calculate proper losers bracket structure
-    const losersRounds = numRounds + numRounds - 2; // For 8 players: 3 + 3 - 2 = 4... NO! This is wrong!
+    const losersRoundsCount = numRounds; // For 4 players: 2 rounds, for 8 players: 3 rounds
+    console.log(`🔄 Losers bracket will have ${losersRoundsCount} rounds for ${playerIds.length} players`);
 
-    // CORRECTED: For N players, losers bracket should have exactly (numRounds + numRounds - 2) rounds
-    // But the structure should be:
-    // Round 1: losers from winners round 1 play each other
-    // Round 2: winners from losers round 1 + losers from winners round 2
-    // Round 3: winner from losers round 2 + loser from winners round 3 (finals)
-
-    console.log('🔄 Generating corrected losers bracket structure...');
-
-    // Round 1: Losers from Winners Round 1 play each other
     console.log('🔄 Losers Round 1 - Losers from Winners Round 1 play each other');
     const losersRound1Matches = [];
     const losersFromWinnersR1 = matchIdMatrix.winners[0].length; // Number of matches in winners round 1
@@ -1787,7 +1723,6 @@ export function generateDoubleEliminationTournament(tournamentId: string, player
 
         console.log(`🔄 Losers Round 1 - Creating match ${i + 1}/${losersRound1Count}: ${matchId}`);
 
-        // Connect losers from winners round 1 to this match
         const winnersMatch1 = matches.find(m => m.id === matchIdMatrix.winners[0][i * 2]);
         const winnersMatch2 = matches.find(m => m.id === matchIdMatrix.winners[0][i * 2 + 1]);
 
@@ -1821,125 +1756,128 @@ export function generateDoubleEliminationTournament(tournamentId: string, player
     matchIdMatrix.losers.push(losersRound1Matches);
     console.log(`🔄 Losers Round 1 generated: ${losersRound1Count} matches`);
 
-    // Round 2: Winners from Losers Round 1 + Losers from Winners Round 2
-    console.log('🔄 Losers Round 2 - Winners from Losers R1 + Losers from Winners R2');
-    const losersRound2Matches = [];
-    const losersFromWinnersR2 = matchIdMatrix.winners[1].length; // Number of matches in winners round 2
-    const totalLosersR2Players = losersRound1Count + losersFromWinnersR2; // Winners from losers R1 + losers from winners R2
-    const losersRound2Count = Math.floor(totalLosersR2Players / 2);
+    let currentLosersRound = 2;
+    let previousLosersRoundMatches = losersRound1Matches;
 
-    for (let i = 0; i < losersRound2Count; i++) {
-        const matchId = uuidv4();
-        losersRound2Matches.push(matchId);
+    while (currentLosersRound <= losersRoundsCount) {
+        console.log(`🔄 Losers Round ${currentLosersRound} - Processing`);
+        const losersRoundMatches = [];
 
-        console.log(`🔄 Losers Round 2 - Creating match ${i + 1}/${losersRound2Count}: ${matchId}`);
+        if (currentLosersRound === losersRoundsCount) {
+            const matchId = uuidv4();
+            losersRoundMatches.push(matchId);
 
-        // Connect winners from losers round 1 to this match
-        if (i < losersRound1Count) {
-            const losersR1Match = matches.find(m => m.id === losersRound1Matches[i]);
-            if (losersR1Match) {
-                losersR1Match.next_match_id = matchId;
-                console.log(`🔄 Connected losers R1 match ${losersR1Match.id} to losers R2 match ${matchId}`);
+            console.log(`🔄 Losers Round ${currentLosersRound} (Final) - Creating match: ${matchId}`);
+
+            if (previousLosersRoundMatches.length > 0) {
+                const prevLoserMatch = matches.find(m => m.id === previousLosersRoundMatches[0]);
+                if (prevLoserMatch) {
+                    prevLoserMatch.next_match_id = matchId;
+                    console.log(`🔄 Connected losers R${currentLosersRound - 1} match ${prevLoserMatch.id} to losers R${currentLosersRound} match ${matchId}`);
+                }
+            }
+
+            const winnersFinalMatch = matches.find(m => m.id === matchIdMatrix.winners[numRounds - 1][0]);
+            if (winnersFinalMatch) {
+                winnersFinalMatch.stage = `loser_next:${matchId}`;
+                console.log(`🔄 Connected winners finals ${winnersFinalMatch.id} to losers R${currentLosersRound} match ${matchId}`);
+            }
+
+            matches.push({
+                id: matchId,
+                tournament_id: tournamentId,
+                round: currentLosersRound,
+                match_number: 1,
+                player1_id: null,
+                player2_id: null,
+                player1_score: null,
+                player2_score: null,
+                winner_id: null,
+                status: 'pending',
+                next_match_id: null,
+                stage: null,
+                bracket: 'losers',
+                sets: null,
+            });
+        } else {
+            const losersFromWinnersRound = matchIdMatrix.winners[currentLosersRound - 1].length;
+            const totalPlayers = previousLosersRoundMatches.length + losersFromWinnersRound;
+            const matchCount = Math.floor(totalPlayers / 2);
+
+            for (let i = 0; i < matchCount; i++) {
+                const matchId = uuidv4();
+                losersRoundMatches.push(matchId);
+
+                console.log(`🔄 Losers Round ${currentLosersRound} - Creating match ${i + 1}/${matchCount}: ${matchId}`);
+
+                if (i < previousLosersRoundMatches.length) {
+                    const prevLoserMatch = matches.find(m => m.id === previousLosersRoundMatches[i]);
+                    if (prevLoserMatch) {
+                        prevLoserMatch.next_match_id = matchId;
+                        console.log(`🔄 Connected losers R${currentLosersRound - 1} match ${prevLoserMatch.id} to losers R${currentLosersRound} match ${matchId}`);
+                    }
+                }
+
+                if (i < losersFromWinnersRound) {
+                    const winnersMatch = matches.find(m => m.id === matchIdMatrix.winners[currentLosersRound - 1][i]);
+                    if (winnersMatch) {
+                        winnersMatch.stage = `loser_next:${matchId}`;
+                        console.log(`🔄 Connected winners R${currentLosersRound} match ${winnersMatch.id} to losers R${currentLosersRound} match ${matchId}`);
+                    }
+                }
+
+                matches.push({
+                    id: matchId,
+                    tournament_id: tournamentId,
+                    round: currentLosersRound,
+                    match_number: i + 1,
+                    player1_id: null,
+                    player2_id: null,
+                    player1_score: null,
+                    player2_score: null,
+                    winner_id: null,
+                    status: 'pending',
+                    next_match_id: null,
+                    stage: null,
+                    bracket: 'losers',
+                    sets: null,
+                });
             }
         }
 
-        // Connect losers from winners round 2 to this match
-        if (i < losersFromWinnersR2) {
-            const winnersR2Match = matches.find(m => m.id === matchIdMatrix.winners[1][i]);
-            if (winnersR2Match) {
-                winnersR2Match.stage = `loser_next:${matchId}`;
-                console.log(`🔄 Connected winners R2 match ${winnersR2Match.id} to losers R2 match ${matchId}`);
-            }
-        }
+        matchIdMatrix.losers.push(losersRoundMatches);
+        console.log(`🔄 Losers Round ${currentLosersRound} generated: ${losersRoundMatches.length} matches`);
 
-        matches.push({
-            id: matchId,
-            tournament_id: tournamentId,
-            round: 2,
-            match_number: i + 1,
-            player1_id: null,
-            player2_id: null,
-            player1_score: null,
-            player2_score: null,
-            winner_id: null,
-            status: 'pending',
-            next_match_id: null,
-            stage: null,
-            bracket: 'losers',
-            sets: null,
-        });
+        previousLosersRoundMatches = losersRoundMatches;
+        currentLosersRound++;
     }
-
-    matchIdMatrix.losers.push(losersRound2Matches);
-    console.log(`🔄 Losers Round 2 generated: ${losersRound2Count} matches`);
-
-    // Round 3: Winner from Losers Round 2 + Loser from Winners Finals
-    console.log('🔄 Losers Round 3 - Winner from Losers R2 + Loser from Winners Finals');
-    const losersRound3MatchId = uuidv4();
-    const losersRound3Matches = [losersRound3MatchId];
-
-    // Connect winner from losers round 2 to round 3
-    if (losersRound2Count > 0) {
-        const losersR2Match = matches.find(m => m.id === losersRound2Matches[0]);
-        if (losersR2Match) {
-            losersR2Match.next_match_id = losersRound3MatchId;
-            console.log(`🔄 Connected losers R2 match ${losersR2Match.id} to losers R3 match ${losersRound3MatchId}`);
-        }
-    }
-
-    // Connect loser from winners finals to round 3
-    const winnersFinalsMatch = matches.find(m => m.id === matchIdMatrix.winners[numRounds - 1][0]);
-    if (winnersFinalsMatch) {
-        winnersFinalsMatch.stage = `loser_next:${losersRound3MatchId}`;
-        console.log(`🔄 Connected winners finals ${winnersFinalsMatch.id} to losers R3 match ${losersRound3MatchId}`);
-    }
-
-    matches.push({
-        id: losersRound3MatchId,
-        tournament_id: tournamentId,
-        round: 3,
-        match_number: 1,
-        player1_id: null,
-        player2_id: null,
-        player1_score: null,
-        player2_score: null,
-        winner_id: null,
-        status: 'pending',
-        next_match_id: null,
-        stage: null,
-        bracket: 'losers',
-        sets: null,
-    });
-
-    matchIdMatrix.losers.push(losersRound3Matches);
-    console.log(`🔄 Losers Round 3 generated: 1 match`);
 
     console.log('🔄 generateDoubleEliminationTournament - Losers bracket generation complete');
     console.log('🔄 Final losers bracket matrix:', matchIdMatrix.losers.map((round, i) => `Round ${i + 1}: ${round.length} matches`));
 
-    // Create final match (Grand Final) - connecting final losers match and winners final
     const finalMatchId = uuidv4();
 
-    // Connect winners final and final losers match to grand final
-    if (winnersFinalsMatch) {
-        winnersFinalsMatch.next_match_id = finalMatchId;
-        console.log('🔄 Connected winners finals to grand final:', finalMatchId);
+    if (matchIdMatrix.winners[numRounds - 1].length > 0) {
+        const winnersFinalMatch = matches.find(m => m.id === matchIdMatrix.winners[numRounds - 1][0]);
+        if (winnersFinalMatch) {
+            winnersFinalMatch.next_match_id = finalMatchId;
+            console.log('🔄 Connected winners finals to grand final:', finalMatchId);
+        }
     }
 
-    const finalLosersMatch = matches.find(m => m.id === losersRound3MatchId);
+    const finalLosersMatch = matches.find(m => m.id === matchIdMatrix.losers[matchIdMatrix.losers.length - 1][0]);
     if (finalLosersMatch) {
         finalLosersMatch.next_match_id = finalMatchId;
         console.log('🔄 Connected losers finals to grand final:', finalMatchId);
     }
 
-    // Add Grand Final match only
     matches.push({
         id: finalMatchId,
         tournament_id: tournamentId,
         round: numRounds + 1,
         match_number: 1,
-        player1_id: null, // Winner from winners bracket
-        player2_id: null, // Winner from losers bracket
+        player1_id: null,
+        player2_id: null,
         player1_score: null,
         player2_score: null,
         winner_id: null,
@@ -1950,7 +1888,6 @@ export function generateDoubleEliminationTournament(tournamentId: string, player
         sets: null,
     });
 
-    // Store only the Grand Final match - True Final will be created dynamically if needed
     matchIdMatrix.final = [finalMatchId];
 
     console.log('🔄 Created Grand Final match:', finalMatchId);
