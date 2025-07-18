@@ -1379,7 +1379,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 console.error('Error updating tournament match:', updateMatchError);
             }
 
-            if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+            if ((tournament.format as string) === TournamentFormat.DOUBLE_ELIMINATION) {
                 await handleDoubleEliminationProgression(tournament, match, winnerId!, p1FinalScore > p2FinalScore ? match.player2Id! : match.player1Id!);
             } else if (match.nextMatchId) {
                 const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
@@ -1412,7 +1412,8 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 const allMatchesCompleted = freshTournament?.tournament_matches.every((m: any) => m.status === 'completed');
 
                 if (allMatchesCompleted) {
-                    switch (tournament.format) {
+                    const format = tournament.format as string;
+                    switch (format) {
                         case TournamentFormat.KNOCKOUT:
                             await get().setTournamentWinner(tournamentId, winnerId!);
                             break;
