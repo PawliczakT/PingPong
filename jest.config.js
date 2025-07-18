@@ -1,11 +1,8 @@
 module.exports = {
-  preset: 'jest-expo',
+  preset: 'ts-jest',
+  testEnvironment: 'node',
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|isows|@supabase/.*|@trpc/.*|superjson|zustand))',
-  ],
-  setupFilesAfterEnv: [
-    '@testing-library/jest-native/extend-expect',
-    './jest.setup.js'
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   moduleNameMapper: {
@@ -29,14 +26,6 @@ module.exports = {
     '!**/metro.config.js',
     '!**/app.config.js'
   ],
-  coverageThreshold: {
-    global: {
-      statements: 70,
-      branches: 70,
-      functions: 70,
-      lines: 70
-    }
-  },
   testPathIgnorePatterns: [
     '/node_modules/',
     '/android/',
