@@ -3,8 +3,14 @@ module.exports = {
   transform: {
     '^.+\\.(ts|tsx)$': ['babel-jest', { presets: ['@babel/preset-typescript'] }],
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(react-native|@react-native|react-native-url-polyfill|@supabase|expo|@expo))',
+  ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   moduleNameMapper: {
+    '^react-native-url-polyfill/auto$': '<rootDir>/__mocks__/react-native-url-polyfill.js',
+    '^@react-native-async-storage/async-storage$': '<rootDir>/__mocks__/async-storage.js',
+    '^expo-web-browser$': '<rootDir>/__mocks__/expo-web-browser.js',
     '^@/components/(.*)$': '<rootDir>/components/$1',
     '^@/lib/(.*)$': '<rootDir>/app/lib/$1',
     '^@/store/(.*)$': '<rootDir>/store/$1',
@@ -20,10 +26,5 @@ module.exports = {
     '/node_modules/',
     '/android/',
     '/ios/'
-  ],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
-  }
+  ]
 };
