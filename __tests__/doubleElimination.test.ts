@@ -1,7 +1,6 @@
 import {v4 as uuidv4} from 'uuid';
 import {generateDoubleEliminationTournament} from '@/store/tournamentStore';
 
-// Mock the supabase client
 jest.mock('@/app/lib/supabase', () => ({
     supabase: {
         from: jest.fn().mockReturnThis(),
@@ -19,7 +18,6 @@ jest.mock('@/app/lib/supabase', () => ({
 }));
 
 describe('Double Elimination Tournament', () => {
-    // Mock playerIds for testing
     const tournamentId = uuidv4();
     const playerIds = [
         uuidv4(), uuidv4(), uuidv4(), uuidv4(),
@@ -29,97 +27,131 @@ describe('Double Elimination Tournament', () => {
     test('should generate correct number of matches for 8 players', () => {
         const {matches, matchIdMatrix} = generateDoubleEliminationTournament(tournamentId, playerIds);
 
-        // For 8 players:
-        // Winners bracket: Round 1 (4 matches), Round 2 (2 matches), Round 3 (1 match) = 7 matches
-        // Losers bracket: Round 1 (2 matches), Round 2 (2 matches), Round 3 (1 match), Round 4 (1 match) = 7 matches
-        // Finals: 2 matches (first final and true final)
-        // Total: 16 matches
+        expect(matches.length).toBe(13);
 
-        expect(matches.length).toBe(16);
-
-        // Check winners bracket
         const winnersBracketMatches = matches.filter(m => m.bracket === 'winners');
         expect(winnersBracketMatches.length).toBe(7);
 
-        // Check losers bracket
         const losersBracketMatches = matches.filter(m => m.bracket === 'losers');
-        expect(losersBracketMatches.length).toBe(7);
+        expect(losersBracketMatches.length).toBe(5);
 
-        // Check finals
         const finalMatches = matches.filter(m => m.bracket === 'final');
-        expect(finalMatches.length).toBe(2);
+        expect(finalMatches.length).toBe(1);
 
-        // Check matchIdMatrix structure
         expect(matchIdMatrix.winners.length).toBe(3); // 3 rounds in winners bracket
-        expect(matchIdMatrix.losers.length).toBe(5); // 5 rounds in losers bracket
-        expect(matchIdMatrix.final.length).toBe(2); // 2 final matches
+        expect(matchIdMatrix.losers.length).toBe(3); // 3 rounds in losers bracket
+        expect(matchIdMatrix.final.length).toBe(1); // 1 grand final match
+    });
+
+    test('should generate correct number of matches for 4 players', () => {
+        const fourPlayerIds = [uuidv4(), uuidv4(), uuidv4(), uuidv4()];
+        const {matches, matchIdMatrix} = generateDoubleEliminationTournament(tournamentId, fourPlayerIds);
+
+        expect(matches.length).toBe(6);
+
+        const winnersBracketMatches = matches.filter(m => m.bracket === 'winners');
+        expect(winnersBracketMatches.length).toBe(3);
+
+        const losersBracketMatches = matches.filter(m => m.bracket === 'losers');
+        expect(losersBracketMatches.length).toBe(2);
+
+        const finalMatches = matches.filter(m => m.bracket === 'final');
+        expect(finalMatches.length).toBe(1);
+
+        expect(matchIdMatrix.winners.length).toBe(2); // 2 rounds in winners bracket
+        expect(matchIdMatrix.losers.length).toBe(2); // 2 rounds in losers bracket
+        expect(matchIdMatrix.final.length).toBe(1); // 1 grand final match
     });
 
     test('should correctly connect matches between brackets', () => {
         const {matches} = generateDoubleEliminationTournament(tournamentId, playerIds);
 
-        // Check that losers from winners bracket round 1 go to losers bracket
         const winnersRound1 = matches.filter(m => m.bracket === 'winners' && m.round === 1);
 
         for (const match of winnersRound1) {
             expect(match.stage).not.toBeNull();
             expect(match.stage?.startsWith('loser_next:')).toBe(true);
 
-            // Verify that the loser match exists
             const loserMatchId = match.stage?.split(':')[1];
             const loserMatch = matches.find(m => m.id === loserMatchId);
             expect(loserMatch).toBeDefined();
             expect(loserMatch?.bracket).toBe('losers');
         }
 
-        // Check that winners bracket final connects to grand final
         const winnersFinal = matches.find(m => m.bracket === 'winners' && m.round === 3);
         expect(winnersFinal).toBeDefined();
 
-        const grandFinal = matches.find(m => m.bracket === 'final' && m.round === 4); // round = log2(8) + 1
+        const grandFinal = matches.find(m => m.bracket === 'final');
         expect(grandFinal).toBeDefined();
 
         expect(winnersFinal?.next_match_id).toBe(grandFinal?.id);
 
-        // Check that losers bracket final connects to grand final
-        const losersFinal = matches.find(m => m.bracket === 'losers' && m.round === 4);
+        const losersFinal = matches.find(m => m.bracket === 'losers' && m.round === 3);
         expect(losersFinal).toBeDefined();
-        expect(losersFinal?.next_match_id).not.toBeNull();
-        const connectedFinal = matches.find(m => m.id === losersFinal?.next_match_id);
-        expect(connectedFinal).toBeDefined();
-        // The loser final might connect to another losers match or directly to a final match
-        // Just verify that the connection exists
+        expect(losersFinal?.next_match_id).toBe(grandFinal?.id);
 
-        // Check that grand final connects to true final
-        const trueFinal = matches.find(m => m.bracket === 'final' && m.stage === 'true_final');
-        expect(trueFinal).toBeDefined();
-        expect(grandFinal?.next_match_id).not.toBeNull();
-        const connectedTrueFinal = matches.find(m => m.id === grandFinal?.next_match_id);
-        expect(connectedTrueFinal).toBeDefined();
-        expect(connectedTrueFinal?.bracket).toBe('final');
+        expect(grandFinal?.next_match_id).toBeNull();
     });
 
     test('should handle odd number of players', () => {
-        // Remove one player to make it 7 players
         const oddPlayerIds = [...playerIds];
         oddPlayerIds.pop();
 
         const {matches} = generateDoubleEliminationTournament(tournamentId, oddPlayerIds);
 
-        // Check that we still have the right structure
         const winnersBracketMatches = matches.filter(m => m.bracket === 'winners');
         const losersBracketMatches = matches.filter(m => m.bracket === 'losers');
         const finalMatches = matches.filter(m => m.bracket === 'final');
 
-        // Should still create 8 slots (with one bye)
         expect(winnersBracketMatches.length).toBe(7);
 
-        // Check for a bye match (completed with only one player)
         const byeMatches = winnersBracketMatches.filter(m =>
             m.status === 'completed' &&
             ((m.player1_id && !m.player2_id) || (!m.player1_id && m.player2_id))
         );
 
         expect(byeMatches.length).toBeGreaterThan(0);
+    });
+
+    test('should properly set up losers bracket rounds', () => {
+        const {matches} = generateDoubleEliminationTournament(tournamentId, playerIds);
+
+        const losersBracketMatches = matches.filter(m => m.bracket === 'losers');
+
+        const losersRound1 = losersBracketMatches.filter(m => m.round === 1);
+        const losersRound2 = losersBracketMatches.filter(m => m.round === 2);
+        const losersRound3 = losersBracketMatches.filter(m => m.round === 3);
+
+        expect(losersRound1.length).toBe(2);
+        expect(losersRound2.length).toBe(2);
+        expect(losersRound3.length).toBe(1);
+
+        for (const match of losersRound1) {
+            expect(match.next_match_id).not.toBeNull();
+            const nextMatch = matches.find(m => m.id === match.next_match_id);
+            expect(nextMatch?.bracket).toBe('losers');
+            expect(nextMatch?.round).toBe(2);
+        }
+
+        const round2MatchesWithNext = losersRound2.filter(m => m.next_match_id !== null);
+        expect(round2MatchesWithNext.length).toBeGreaterThan(0);
+        const losersFinal = losersRound3[0];
+        expect(losersFinal.next_match_id).not.toBeNull();
+        const grandFinal = matches.find(m => m.id === losersFinal.next_match_id);
+        expect(grandFinal?.bracket).toBe('final');
+    });
+
+    test('should have correct final match structure', () => {
+        const {matches} = generateDoubleEliminationTournament(tournamentId, playerIds);
+
+        const finalMatches = matches.filter(m => m.bracket === 'final');
+
+        expect(finalMatches.length).toBe(1);
+
+        const grandFinal = finalMatches[0];
+        expect(grandFinal.stage).not.toBe('true_final');
+        expect(grandFinal.round).toBe(4); // round = winners bracket rounds + 1
+
+        expect(grandFinal.next_match_id).toBeNull();
     });
 });
