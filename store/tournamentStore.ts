@@ -1412,12 +1412,21 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
                 const allMatchesCompleted = freshTournament?.tournament_matches.every((m: any) => m.status === 'completed');
 
                 if (allMatchesCompleted) {
-                    if (tournament.format === TournamentFormat.KNOCKOUT) {
-                        await get().setTournamentWinner(tournamentId, winnerId!);
-                    } else if (tournament.format === TournamentFormat.ROUND_ROBIN) {
-                        await autoSelectRoundRobinWinner(tournamentId);
-                    } else if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
-                        await handleDoubleEliminationCompletion(tournamentId, winnerId!);
+                    switch (tournament.format) {
+                        case TournamentFormat.KNOCKOUT:
+                            await get().setTournamentWinner(tournamentId, winnerId!);
+                            break;
+                        case TournamentFormat.ROUND_ROBIN:
+                            await autoSelectRoundRobinWinner(tournamentId);
+                            break;
+                        case TournamentFormat.DOUBLE_ELIMINATION:
+                            await handleDoubleEliminationCompletion(tournamentId, winnerId!);
+                            break;
+                        case TournamentFormat.GROUP:
+                            await autoSelectRoundRobinWinner(tournamentId);
+                            break;
+                        default:
+                            console.warn('Unknown tournament format:', tournament.format);
                     }
                 }
             }
