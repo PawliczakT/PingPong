@@ -14,6 +14,7 @@ import {formatDate} from "@/utils/formatters";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import TournamentBracket from "@/components/TournamentBracket";
+import DoubleEliminationBracket from "@/components/DoubleEliminationBracket";
 
 export default function TournamentDetailScreen() {
     const {id} = useLocalSearchParams();
@@ -319,7 +320,9 @@ export default function TournamentDetailScreen() {
                 }}
             />
 
-            <ScrollView contentContainerStyle={{paddingBottom: 70}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}>
+            <ScrollView contentContainerStyle={{paddingBottom: 70}}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh}
+                                                        tintColor={colors.primary}/>}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{tournament.name}</Text>
@@ -472,8 +475,17 @@ export default function TournamentDetailScreen() {
                                 );
                             } else {
                                 if (bracketRounds.length > 0) {
-                                    return <TournamentBracket matches={bracketRounds.flat()}
-                                                              onMatchPress={handleMatchPress}/>;
+                                    return tournament.format === TournamentFormat.DOUBLE_ELIMINATION ? (
+                                        <DoubleEliminationBracket
+                                            matches={bracketRounds.flat()}
+                                            onMatchPress={handleMatchPress}
+                                        />
+                                    ) : (
+                                        <TournamentBracket
+                                            matches={bracketRounds.flat()}
+                                            onMatchPress={handleMatchPress}
+                                        />
+                                    );
                                 } else {
                                     return (
                                         <View style={[styles.emptyStateContainer, styles.emptyBracket]}>

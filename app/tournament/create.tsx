@@ -44,9 +44,11 @@ export default function CreateTournamentScreen() {
             return;
         }
 
-        if (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0) {
-            Alert.alert("Error", "Knockout tournaments require a number of players divisible by 4");
-            return;
+        if (format === TournamentFormat.KNOCKOUT || format === TournamentFormat.DOUBLE_ELIMINATION) {
+            if (selectedPlayerIds.length % 4 !== 0) {
+                Alert.alert("Error", "Knockout and Double Elimination tournaments require a number of players divisible by 4");
+                return;
+            }
         }
 
         setIsSubmitting(true);
@@ -125,6 +127,14 @@ export default function CreateTournamentScreen() {
                         onPress={() => setFormat(TournamentFormat.ROUND_ROBIN)}
                         style={styles.formatButton}
                     />
+
+                    <Button
+                        title="Double Elimination"
+                        variant={format === TournamentFormat.DOUBLE_ELIMINATION ? "primary" : "outline"}
+                        size="small"
+                        onPress={() => setFormat(TournamentFormat.DOUBLE_ELIMINATION)}
+                        style={styles.formatButton}
+                    />
                 </View>
 
                 <View style={styles.participantsSection}>
@@ -181,7 +191,9 @@ export default function CreateTournamentScreen() {
                     title="Create Tournament"
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
+                    disabled={selectedPlayerIds.length < 2 || 
+                        ((format === TournamentFormat.KNOCKOUT || format === TournamentFormat.DOUBLE_ELIMINATION) && 
+                        selectedPlayerIds.length % 4 !== 0)}
                     style={styles.submitButton}
                 />
             </ScrollView>
