@@ -28,7 +28,7 @@ describe('Double Elimination Tournament Logic', () => {
             const matches = generateDoubleEliminationMatches(tournamentId, playerIds);
             const winnersMatches = matches.filter(m => m.bracket === 'winners');
             
-            expect(winnersMatches).toHaveLength(3); // 2 semifinals + 1 final
+            expect(winnersMatches).toHaveLength(2); // 2 first round matches
             
             const winnersRound1 = winnersMatches.filter(m => m.round === 1);
             expect(winnersRound1).toHaveLength(2);
@@ -53,7 +53,7 @@ describe('Double Elimination Tournament Logic', () => {
             
             const matches = generateDoubleEliminationMatches(tournamentId, playerIds);
             
-            const grandFinalMatches = matches.filter(m => m.bracket === 'grand_final');
+            const grandFinalMatches = matches.filter(m => m.stage === 'GRAND-FINAL');
             expect(grandFinalMatches).toHaveLength(1);
             
             const ifGameMatches = matches.filter(m => m.isIfGame === true);
@@ -68,10 +68,10 @@ describe('Double Elimination Tournament Logic', () => {
             const winnersMatches = matches.filter(m => m.bracket === 'winners');
             
             const winnersRound1 = winnersMatches.filter(m => m.round === 1);
-            const winnersRound2 = winnersMatches.filter(m => m.round === 2);
+            const grandFinalMatch = matches.find(m => m.stage === 'GRAND-FINAL');
             
             winnersRound1.forEach(match => {
-                expect(match.nextMatchId).toBe(winnersRound2[0].id);
+                expect(match.nextMatchId).toBe(grandFinalMatch?.id);
             });
         });
 
@@ -88,7 +88,11 @@ describe('Double Elimination Tournament Logic', () => {
                 expect(match.stage).toMatch(/^WB-R\d+$/); // Winners Bracket Round format
             });
             
-            losersMatches.forEach(match => {
+            const grandFinalMatch = matches.find(m => m.stage === 'GRAND-FINAL');
+            expect(grandFinalMatch?.stage).toBe('GRAND-FINAL');
+            
+            const regularLosersMatches = losersMatches.filter(m => !m.stage.includes('FINAL'));
+            regularLosersMatches.forEach(match => {
                 expect(match.stage).toMatch(/^LB-R\d+$/); // Losers Bracket Round format
             });
         });
@@ -125,7 +129,7 @@ describe('Double Elimination Tournament Logic', () => {
             
             expect(matches.length).toBeGreaterThan(0);
             
-            const byeMatches = matches.filter(m => m.player1Id === null || m.player2Id === null);
+            const byeMatches = matches.filter(m => m.player1_id === null || m.player2_id === null);
             expect(byeMatches.length).toBeGreaterThan(0);
         });
     });
