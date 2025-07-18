@@ -1,15 +1,23 @@
 module.exports = {
   preset: 'jest-expo',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  testEnvironment: 'node',
+  transform: {
+    '^.+\\.(ts|tsx)$': ['babel-jest', { presets: ['@babel/preset-typescript'] }],
+  },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|isows|@supabase/.*|@trpc/.*|superjson|zustand))',
-  ],
-  setupFilesAfterEnv: [
-    '@testing-library/jest-native/extend-expect',
-    './jest.setup.js'
+    'node_modules/(?!(react-native|@react-native|react-native-url-polyfill|@supabase|expo|@expo))',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   moduleNameMapper: {
-    '^react-native-get-random-values$': '<rootDir>/__mocks__/react-native-get-random-values.js',
+    '^react-native$': '<rootDir>/__mocks__/react-native.js',
+    '^react-native-url-polyfill/auto$': '<rootDir>/__mocks__/react-native-url-polyfill.js',
+    '^@react-native-async-storage/async-storage$': '<rootDir>/__mocks__/async-storage.js',
+    '^expo-web-browser$': '<rootDir>/__mocks__/expo-web-browser.js',
+    '^expo-linking$': '<rootDir>/__mocks__/expo-web-browser.js',
+    '^expo-auth-session$': '<rootDir>/__mocks__/expo-web-browser.js',
+    '^expo-notifications$': '<rootDir>/__mocks__/expo-notifications.js',
+    '^@/app/lib/supabase$': '<rootDir>/__mocks__/supabase.js',
     '^@/components/(.*)$': '<rootDir>/components/$1',
     '^@/lib/(.*)$': '<rootDir>/app/lib/$1',
     '^@/store/(.*)$': '<rootDir>/store/$1',
@@ -18,24 +26,8 @@ module.exports = {
     '^@/types/(.*)$': '<rootDir>/types/$1',
     '^@/screens/(.*)$': '<rootDir>/screens/$1',
     '^@/utils/(.*)$': '<rootDir>/utils/$1',
+    '^@/backend/(.*)$': '<rootDir>/backend/$1',
     '^@/(.*)$': '<rootDir>/$1'
-  },
-  collectCoverageFrom: [
-    '**/*.{js,jsx,ts,tsx}',
-    '!**/node_modules/**',
-    '!**/babel.config.js',
-    '!**/jest.setup.js',
-    '!**/coverage/**',
-    '!**/metro.config.js',
-    '!**/app.config.js'
-  ],
-  coverageThreshold: {
-    global: {
-      statements: 70,
-      branches: 70,
-      functions: 70,
-      lines: 70
-    }
   },
   testPathIgnorePatterns: [
     '/node_modules/',

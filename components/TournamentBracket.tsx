@@ -1,13 +1,14 @@
 import React from "react";
 import {Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import {colors} from "@/constants/colors";
-import {Set as MatchSet, TournamentMatch} from "@/backend/types";
+import {Set as MatchSet, TournamentMatch, TournamentFormat} from "@/backend/types";
 import {usePlayerStore} from "@/store/playerStore";
 import PlayerAvatar from "./PlayerAvatar";
 
 type TournamentBracketProps = {
     matches: TournamentMatch[];
     onMatchPress?: (match: TournamentMatch) => void;
+    tournamentFormat?: TournamentFormat;
 };
 
 type TournamentMatchWithSets = TournamentMatch & { sets?: MatchSet[] };
@@ -25,17 +26,52 @@ function getUniqueMatches(matches: TournamentMatch[]): TournamentMatch[] {
 export default function TournamentBracket({
                                               matches,
                                               onMatchPress,
+                                              tournamentFormat,
                                           }: TournamentBracketProps) {
     const {getPlayerById} = usePlayerStore();
     const uniqueMatches = getUniqueMatches(matches);
-    const matchesByRound: Record<number, TournamentMatch[]> = {};
-    uniqueMatches.forEach(match => {
-        if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
-        matchesByRound[match.round].push(match);
-    });
-    const rounds = Object.keys(matchesByRound)
-        .sort((a, b) => Number(a) - Number(b))
-        .map(round => matchesByRound[Number(round)]);
+    
+    const isDoubleElimination = tournamentFormat === TournamentFormat.DOUBLE_ELIMINATION;
+    
+    let winnersRounds: TournamentMatch[][] = [];
+    let losersRounds: TournamentMatch[][] = [];
+    let grandFinalMatches: TournamentMatch[] = [];
+    let rounds: TournamentMatch[][] = [];
+    
+    if (isDoubleElimination) {
+        const winnersBracketMatches = uniqueMatches.filter(match => match.bracket === 'winners');
+        const losersBracketMatches = uniqueMatches.filter(match => match.bracket === 'losers');
+        grandFinalMatches = uniqueMatches.filter(match => match.bracket === 'grand_final');
+        
+        const winnersMatchesByRound: Record<number, TournamentMatch[]> = {};
+        winnersBracketMatches.forEach(match => {
+            if (!winnersMatchesByRound[match.round]) winnersMatchesByRound[match.round] = [];
+            winnersMatchesByRound[match.round].push(match);
+        });
+        
+        const losersMatchesByRound: Record<number, TournamentMatch[]> = {};
+        losersBracketMatches.forEach(match => {
+            if (!losersMatchesByRound[match.round]) losersMatchesByRound[match.round] = [];
+            losersMatchesByRound[match.round].push(match);
+        });
+        
+        winnersRounds = Object.keys(winnersMatchesByRound)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(round => winnersMatchesByRound[Number(round)]);
+            
+        losersRounds = Object.keys(losersMatchesByRound)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(round => losersMatchesByRound[Number(round)]);
+    } else {
+        const matchesByRound: Record<number, TournamentMatch[]> = {};
+        uniqueMatches.forEach(match => {
+            if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
+            matchesByRound[match.round].push(match);
+        });
+        rounds = Object.keys(matchesByRound)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(round => matchesByRound[Number(round)]);
+    }
 
     const renderMatch = (match: TournamentMatchWithSets) => {
         const player1 = match.player1Id ? getPlayerById(match.player1Id) : null;
@@ -136,17 +172,24 @@ export default function TournamentBracket({
         );
     };
 
-    return (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.container}>
-                {rounds.map((matchesInRound, i) => (
-                    <View key={`round-${i + 1}`} style={styles.roundContainer}>
+    const renderBracket = (bracketMatches: TournamentMatch[][], bracketTitle: string, bracketType: 'winners' | 'losers' | 'standard') => (
+        <View style={styles.bracketContainer}>
+            <Text style={[styles.bracketTitle, bracketType === 'losers' && styles.losersBracketTitle]}>
+                {bracketTitle}
+            </Text>
+            <View style={styles.bracketRounds}>
+                {bracketMatches.map((matchesInRound, i) => (
+                    <View key={`${bracketType}-round-${i + 1}`} style={styles.roundContainer}>
                         <Text style={styles.roundTitle}>
-                            {i === rounds.length - 1
-                                ? "Final"
-                                : i === rounds.length - 2
-                                    ? "Semifinals"
-                                    : `Round ${i + 1}`}
+                            {bracketType === 'winners' && i === bracketMatches.length - 1
+                                ? "Winners Final"
+                                : bracketType === 'losers' && i === bracketMatches.length - 1
+                                    ? "Losers Final"
+                                    : bracketType === 'standard' && i === bracketMatches.length - 1
+                                        ? "Final"
+                                        : bracketType === 'standard' && i === bracketMatches.length - 2
+                                            ? "Semifinals"
+                                            : `Round ${i + 1}`}
                         </Text>
                         <View style={styles.matchesContainer}>
                             {matchesInRound.map(match => renderMatch(match))}
@@ -154,15 +197,59 @@ export default function TournamentBracket({
                     </View>
                 ))}
             </View>
+        </View>
+    );
+
+    return (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.container}>
+                {isDoubleElimination ? (
+                    <>
+                        {renderBracket(winnersRounds, "Winners Bracket", "winners")}
+                        {renderBracket(losersRounds, "Losers Bracket", "losers")}
+                        {grandFinalMatches.length > 0 && (
+                            <View style={styles.bracketContainer}>
+                                <Text style={styles.bracketTitle}>Grand Final</Text>
+                                <View style={styles.bracketRounds}>
+                                    <View style={styles.roundContainer}>
+                                        <Text style={styles.roundTitle}>Championship</Text>
+                                        <View style={styles.matchesContainer}>
+                                            {grandFinalMatches.map(match => renderMatch(match))}
+                                        </View>
+                                    </View>
+                                </View>
+                            </View>
+                        )}
+                    </>
+                ) : (
+                    renderBracket(rounds, "", "standard")
+                )}
+            </View>
         </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        flexDirection: "row",
+        flexDirection: "column",
         padding: 16,
         minWidth: "100%",
+    },
+    bracketContainer: {
+        marginBottom: 24,
+    },
+    bracketTitle: {
+        fontSize: 18,
+        fontWeight: "bold",
+        color: colors.primary,
+        marginBottom: 16,
+        textAlign: "center",
+    },
+    losersBracketTitle: {
+        color: colors.secondary,
+    },
+    bracketRounds: {
+        flexDirection: "row",
     },
     roundContainer: {
         marginRight: 16,
