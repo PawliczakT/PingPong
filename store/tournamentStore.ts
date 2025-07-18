@@ -282,6 +282,10 @@ async function generateKnockoutPhase(tournamentId: string, qualifiedPlayers: str
 }
 
 export function generateDoubleEliminationMatches(tournamentId: string, playerIds: string[]) {
+    if (playerIds.length < 4) {
+        throw new Error('Double Elimination tournaments require at least 4 players');
+    }
+    
     const shuffledPlayers = shuffleArray([...playerIds]);
     const numPlayers = shuffledPlayers.length;
     
@@ -333,7 +337,7 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
             status: status,
             next_match_id: null,
             bracket: 'winners',
-            stage: 'round_1',
+            stage: 'WB-R1',
             is_if_game: false,
         });
     }
@@ -369,8 +373,8 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
                 winner_id: null,
                 status: 'pending',
                 next_match_id: null,
-                bracket: 'winners',
-                stage: isGrandFinal ? 'grand_final' : `round_${round}`,
+                bracket: isGrandFinal ? 'grand_final' : 'winners',
+                stage: isGrandFinal ? 'GRAND-FINAL' : `WB-R${round}`,
                 is_if_game: false,
             });
         }
@@ -403,7 +407,7 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
                     status: 'pending',
                     next_match_id: null,
                     bracket: 'losers',
-                    stage: 'round_1',
+                    stage: 'LB-R1',
                     is_if_game: false,
                 });
             }
@@ -444,7 +448,7 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
                     status: 'pending',
                     next_match_id: null,
                     bracket: 'losers',
-                    stage: isFinal ? 'losers_final' : `round_${losersRoundNum}`,
+                    stage: isFinal ? 'LB-FINAL' : `LB-R${losersRoundNum}`,
                     is_if_game: false,
                 });
             }
@@ -477,7 +481,7 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
                         status: 'pending',
                         next_match_id: null,
                         bracket: 'losers',
-                        stage: `round_${losersRoundNum}`,
+                        stage: `LB-R${losersRoundNum}`,
                         is_if_game: false,
                     });
                 }
@@ -506,7 +510,7 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
         status: 'pending',
         next_match_id: null,
         bracket: 'grand_final',
-        stage: 'if_game',
+        stage: 'IF-GAME',
         is_if_game: true,
     });
     
