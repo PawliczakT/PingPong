@@ -1,13 +1,12 @@
-import '@types/jest';
 
 declare global {
-  namespace jest {
-    interface Matchers<R> {
-      toHaveLength(length: number): R;
-      toBeDefined(): R;
-      toContain(item: any): R;
-      toMatch(regexp: RegExp | string): R;
-      toBeTruthy(): R;
-    }
-  }
+  var describe: jest.Describe;
+  var it: jest.It;
+  var test: jest.It;
+  var expect: jest.Expect;
+  var beforeAll: jest.Lifecycle;
+  var beforeEach: jest.Lifecycle;
+  var afterAll: jest.Lifecycle;
+  var afterEach: jest.Lifecycle;
+  var jest: typeof import('jest');
 }
