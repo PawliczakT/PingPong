@@ -35,7 +35,9 @@
     "@trpc/server": "^11.4.1",
     "@types/node": "^24.0.3",
     "@types/react": "~18.3.12",
+    "@vercel/analytics": "^1.5.0",
     "@vercel/node": "^5.3.2",
+    "@vercel/speed-insights": "^1.2.0",
     "base64-arraybuffer": "^1.0.2",
     "date-fns": "^4.1.0",
     "expo": "~52.0.47",
@@ -79,10 +81,9 @@
     "react-native-worklets-core": "^1.5.0",
     "superjson": "^2.2.2",
     "typescript": "^5.3.3",
+    "uuid": "^11.1.0",
     "zod": "^3.24.3",
-    "zustand": "^5.0.2",
-    "@vercel/analytics": "^1.5.0",
-    "@vercel/speed-insights": "^1.2.0"
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
