@@ -26,14 +26,14 @@ describe('Double Elimination Tournament Logic', () => {
             const tournamentId = 'tournament1';
             
             const matches = generateDoubleEliminationMatches(tournamentId, playerIds);
-            const winnersMatches = matches.filter(m => m.bracket === 'winners');
+            const winnersMatches = matches.filter(m => m.bracket === 'winners' && m.stage !== 'GRAND-FINAL');
             
             expect(winnersMatches).toHaveLength(2); // 2 first round matches
             
             const winnersRound1 = winnersMatches.filter(m => m.round === 1);
             expect(winnersRound1).toHaveLength(2);
             
-            const firstRoundPlayers = winnersRound1.flatMap(m => [m.player1Id, m.player2Id]);
+            const firstRoundPlayers = winnersRound1.flatMap(m => [m.player1_id, m.player2_id]);
             expect(firstRoundPlayers.sort()).toEqual(playerIds.sort());
         });
 
@@ -56,7 +56,7 @@ describe('Double Elimination Tournament Logic', () => {
             const grandFinalMatches = matches.filter(m => m.stage === 'GRAND-FINAL');
             expect(grandFinalMatches).toHaveLength(1);
             
-            const ifGameMatches = matches.filter(m => m.isIfGame === true);
+            const ifGameMatches = matches.filter(m => m.is_if_game === true);
             expect(ifGameMatches).toHaveLength(1);
         });
 
@@ -65,13 +65,13 @@ describe('Double Elimination Tournament Logic', () => {
             const tournamentId = 'tournament1';
             
             const matches = generateDoubleEliminationMatches(tournamentId, playerIds);
-            const winnersMatches = matches.filter(m => m.bracket === 'winners');
+            const winnersMatches = matches.filter(m => m.bracket === 'winners' && m.stage !== 'GRAND-FINAL');
             
             const winnersRound1 = winnersMatches.filter(m => m.round === 1);
             const grandFinalMatch = matches.find(m => m.stage === 'GRAND-FINAL');
             
             winnersRound1.forEach(match => {
-                expect(match.nextMatchId).toBe(grandFinalMatch?.id);
+                expect(match.next_match_id).toBe(grandFinalMatch?.id);
             });
         });
 
@@ -81,7 +81,7 @@ describe('Double Elimination Tournament Logic', () => {
             
             const matches = generateDoubleEliminationMatches(tournamentId, playerIds);
             
-            const winnersMatches = matches.filter(m => m.bracket === 'winners');
+            const winnersMatches = matches.filter(m => m.bracket === 'winners' && m.stage !== 'GRAND-FINAL');
             const losersMatches = matches.filter(m => m.bracket === 'losers');
             
             winnersMatches.forEach(match => {

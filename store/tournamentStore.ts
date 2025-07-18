@@ -373,7 +373,7 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
                 winner_id: null,
                 status: 'pending',
                 next_match_id: null,
-                bracket: isGrandFinal ? 'grand_final' : 'winners',
+                bracket: 'winners',
                 stage: isGrandFinal ? 'GRAND-FINAL' : `WB-R${round}`,
                 is_if_game: false,
             });
@@ -448,7 +448,7 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
                     status: 'pending',
                     next_match_id: null,
                     bracket: 'losers',
-                    stage: isFinal ? 'LB-FINAL' : `LB-R${losersRoundNum}`,
+                    stage: `LB-R${losersRoundNum}`,
                     is_if_game: false,
                 });
             }
@@ -509,7 +509,7 @@ export function generateDoubleEliminationMatches(tournamentId: string, playerIds
         winner_id: null,
         status: 'pending',
         next_match_id: null,
-        bracket: 'grand_final',
+        bracket: 'if_game',
         stage: 'IF-GAME',
         is_if_game: true,
     });
