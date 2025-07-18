@@ -11,6 +11,8 @@ module.exports = {
     '^react-native-url-polyfill/auto$': '<rootDir>/__mocks__/react-native-url-polyfill.js',
     '^@react-native-async-storage/async-storage$': '<rootDir>/__mocks__/async-storage.js',
     '^expo-web-browser$': '<rootDir>/__mocks__/expo-web-browser.js',
+    '^expo-linking$': '<rootDir>/__mocks__/expo-web-browser.js',
+    '^@/app/lib/supabase$': '<rootDir>/__mocks__/supabase.js',
     '^@/components/(.*)$': '<rootDir>/components/$1',
     '^@/lib/(.*)$': '<rootDir>/app/lib/$1',
     '^@/store/(.*)$': '<rootDir>/store/$1',
