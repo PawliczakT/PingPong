@@ -1,5 +1,5 @@
 //app/services/playerService.ts
-import {supabase} from '@/backend/server/lib/supabase';
+import {supabase} from '../../backend/server/lib/supabase';
 
 export const ensurePlayerProfile = async (userId: string) => {
     try {
