@@ -6,6 +6,8 @@
     "start web": "npx expo start --web --clear",
     "start android": "expo run:android",
     "start ios": "expo run:ios",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "deploy to web prod": "vercel --prod",
     "deploy to android prod": "eas build --platform android --profile production"
   },
