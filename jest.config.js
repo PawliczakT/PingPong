@@ -14,6 +14,7 @@ module.exports = {
     '^expo-web-browser$': '<rootDir>/__mocks__/expo-web-browser.js',
     '^expo-linking$': '<rootDir>/__mocks__/expo-web-browser.js',
     '^expo-auth-session$': '<rootDir>/__mocks__/expo-web-browser.js',
+    '^expo-notifications$': '<rootDir>/__mocks__/expo-notifications.js',
     '^@/app/lib/supabase$': '<rootDir>/__mocks__/supabase.js',
     '^@/components/(.*)$': '<rootDir>/components/$1',
     '^@/lib/(.*)$': '<rootDir>/app/lib/$1',
