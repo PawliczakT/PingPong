@@ -90,6 +90,7 @@ export interface TournamentMatch {
     status: 'pending' | 'scheduled' | 'completed' | 'bye';
     sets?: Set[];
     bracket?: 'winners' | 'losers' | 'final';
+    stage?: string | null;
 }
 
 export interface HeadToHead {
