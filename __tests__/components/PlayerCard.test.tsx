@@ -17,7 +17,7 @@ jest.mock('@/utils/formatters', () => ({
 }));
 
 const mockGetPlayerTournamentWins = jest.fn(() => 5);
-jest.mock('@/store/tournamentStore', () => ({
+jest.mock('@/tournaments/TournamentStore', () => ({
     useTournamentStore: jest.fn((selector) => selector({getPlayerTournamentWins: mockGetPlayerTournamentWins})),
 }));
 

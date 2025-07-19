@@ -10,7 +10,7 @@ import {
     TournamentFormat,
 } from '@/backend/types';
 import {usePlayerStore} from './playerStore';
-import {useTournamentStore} from './tournamentStore';
+import {useTournamentStore} from '@/tournaments/TournamentStore';
 import {achievements as allAchievementDefinitions} from '@/constants/achievements';
 import {supabase} from '@/app/lib/supabase';
 import {useEffect} from 'react';

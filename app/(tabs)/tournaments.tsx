@@ -5,7 +5,7 @@ import {useRouter} from "expo-router";
 import {Plus, Trophy} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentStore} from "@/tournaments/TournamentStore";
 import TournamentCard from "@/components/TournamentCard";
 import EmptyState from "@/components/EmptyState";
 import Button from "@/components/Button";
@@ -88,7 +88,7 @@ export default function TournamentsScreen() {
                     <TournamentCard tournament={item}/>
                 )}
                 contentContainerStyle={styles.listContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>} 
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}
             />
         );
     };

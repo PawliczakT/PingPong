@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start web": "npx expo start --web --clear",
+    "start web": "npx expo start --no-dev --minify",
     "start android": "expo run:android",
     "start ios": "expo run:ios",
     "deploy to web prod": "vercel --prod",

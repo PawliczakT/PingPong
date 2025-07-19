@@ -1,4 +1,4 @@
-import {useTournamentStore} from '@/store/tournamentStore';
+import {TournamentBuilder, TournamentHelper, useTournamentStore} from '@/tournaments/TournamentStore';
 import {usePlayerStore} from '@/store/playerStore';
 import {useMatchStore} from '@/store/matchStore';
 import {Match, Player, Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
@@ -41,6 +41,18 @@ describe('Tournament Management Integration Tests', () => {
             },
             getPlayerTournamentWins: function (playerId: string): number {
                 throw new Error('Function not implemented.');
+            },
+            createTournamentBuilder: function (): TournamentBuilder {
+                throw new Error('Function not implemented.');
+            },
+            getTournamentHelper: function (): typeof TournamentHelper {
+                return TournamentHelper;
+            },
+            clearCache: function (): void {
+                throw new Error('Function not implemented.');
+            },
+            getCache: function (): any {
+                return new MockTournamentCache();
             }
         });
 
@@ -250,6 +262,18 @@ describe('Tournament Management Integration Tests', () => {
             },
             getPlayerTournamentWins: function (playerId: string): number {
                 throw new Error('Function not implemented.');
+            },
+            createTournamentBuilder: function (): TournamentBuilder {
+                throw new Error('Function not implemented.');
+            },
+            getTournamentHelper: function (): typeof TournamentHelper {
+                return TournamentHelper;
+            },
+            clearCache: function (): void {
+                throw new Error('Function not implemented.');
+            },
+            getCache: function (): any {
+                return new MockTournamentCache();
             }
         });
 
@@ -290,3 +314,21 @@ describe('Tournament Management Integration Tests', () => {
         expect(player2!.name).toBe('Jane Smith');
     });
 });
+
+class MockTournamentCache {
+    get<T>(key: string): T | null {
+        return null;
+    }
+
+    set<T>(key: string, data: T): void {
+        // Mock implementation
+    }
+
+    invalidate(key: string): void {
+        // Mock implementation
+    }
+
+    clear(): void {
+        // Mock implementation
+    }
+}

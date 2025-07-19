@@ -26,7 +26,7 @@ jest.mock('@/store/matchStore', () => ({
     },
 }));
 
-jest.mock('@/store/tournamentStore', () => ({
+jest.mock('@/tournaments/TournamentStore', () => ({
     useTournamentStore: {
         getState: mockGetTournamentState,
     },

@@ -7,13 +7,14 @@ import {BarChart, Calendar, Home, Play, PlusCircle, Trophy, Users,} from "lucide
 import {SafeAreaView} from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {colors} from "@/constants/colors";
-import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentsRealtime, useTournamentStore} from "@/tournaments/TournamentStore";
 import {usePlayerStore} from "@/store/playerStore";
 import {Player, TournamentFormat, TournamentMatch} from "@/backend/types";
 import {formatDate} from "@/utils/formatters";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import TournamentBracket from "@/components/TournamentBracket";
+import DoubleEliminationBracket from "@/components/DoubleEliminationBracket";
 
 export default function TournamentDetailScreen() {
     const {id} = useLocalSearchParams();
@@ -319,7 +320,9 @@ export default function TournamentDetailScreen() {
                 }}
             />
 
-            <ScrollView contentContainerStyle={{paddingBottom: 70}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary}/>}>
+            <ScrollView contentContainerStyle={{paddingBottom: 70}}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh}
+                                                        tintColor={colors.primary}/>}>
                 <View style={styles.header}>
                     <View style={styles.titleContainer}>
                         <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{tournament.name}</Text>
@@ -472,8 +475,17 @@ export default function TournamentDetailScreen() {
                                 );
                             } else {
                                 if (bracketRounds.length > 0) {
-                                    return <TournamentBracket matches={bracketRounds.flat()}
-                                                              onMatchPress={handleMatchPress}/>;
+                                    return tournament.format === TournamentFormat.DOUBLE_ELIMINATION ? (
+                                        <DoubleEliminationBracket
+                                            matches={bracketRounds.flat()}
+                                            onMatchPress={handleMatchPress}
+                                        />
+                                    ) : (
+                                        <TournamentBracket
+                                            matches={bracketRounds.flat()}
+                                            onMatchPress={handleMatchPress}
+                                        />
+                                    );
                                 } else {
                                     return (
                                         <View style={[styles.emptyStateContainer, styles.emptyBracket]}>
@@ -526,8 +538,12 @@ export default function TournamentDetailScreen() {
                                                     {match.status === 'completed' && match.player1Score != null && match.player2Score != null ? (
                                                         <Text
                                                             style={styles.viewDetailsText}>{match.player1Score}-{match.player2Score}</Text>
+                                                    ) : match.status === 'completed' && (match.player1Score == null || match.player2Score == null) ? (
+                                                        <Text style={styles.viewDetailsText}>TBD</Text>
+                                                    ) : match.status === 'scheduled' && match.player1Id && match.player2Id ? (
+                                                        <Text style={styles.viewDetailsText}>Play</Text>
                                                     ) : (
-                                                        <Text style={styles.viewDetailsText}>Result</Text>
+                                                        <Text style={styles.viewDetailsText}>-</Text>
                                                     )}
                                                     {match.status === 'scheduled' && (!match.player1Id || !match.player2Id) &&
                                                         <Text style={styles.tbdText}>TBD</Text>}

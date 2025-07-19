@@ -33,7 +33,7 @@ This report identifies 9 major efficiency issues in the PingPong React Native ap
 **Recommendation:** Update only changed records using realtime payload data
 
 ### 5. **Tournament Store Performance** (CONFIRMED)
-**File:** `store/tournamentStore.ts` (lines 284-404)
+**File:** `tournaments/TournamentStore` (lines 284-404)
 **Impact:** Medium - complex calculations without optimization
 **Issue:** Tournament winner calculations and multiple array operations in `autoSelectRoundRobinWinner`
 **Recommendation:** Memoize expensive tournament calculations
@@ -266,13 +266,13 @@ await Promise.allSettled([
 ## Database & API Performance Analysis
 
 ### Realtime Subscription Inefficiencies
-**Files:** `store/playerStore.ts`, `store/matchStore.ts`, `store/tournamentStore.ts`
+**Files:** `store/playerStore.ts`, `store/matchStore.ts`, `tournaments/TournamentStore.ts`
 **Issue:** Realtime subscriptions refetch entire tables instead of using payload data
 **Impact:** Unnecessary network overhead and database queries
 **Example:** Player updates trigger full player list refetch instead of updating single record
 
 ### Batch Operations Missing
-**File:** `store/tournamentStore.ts` (tournament match generation)
+**File:** `tournaments/TournamentStore.ts` (tournament match generation)
 **Issue:** Sequential database insertions for tournament matches instead of batch operations
 **Impact:** Slower tournament creation and potential race conditions
 **Recommendation:** Implement batch insert operations for tournament match generation

@@ -6,7 +6,7 @@ import {SafeAreaView} from "react-native-safe-area-context";
 import {Calendar, Users} from "lucide-react-native";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentStore} from "@/tournaments/TournamentStore";
 import {TournamentFormat} from "@/backend/types";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
@@ -39,25 +39,34 @@ export default function CreateTournamentScreen() {
     };
 
     const handleSubmit = async () => {
+        console.log("handleSubmit called");
+        console.log("selectedPlayerIds:", selectedPlayerIds);
+        console.log("format:", format);
+        console.log("name:", name);
+
         if (selectedPlayerIds.length < 2) {
             Alert.alert("Error", "At least 2 players are required");
             return;
         }
 
-        if (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0) {
-            Alert.alert("Error", "Knockout tournaments require a number of players divisible by 4");
-            return;
+        if (format === TournamentFormat.KNOCKOUT || format === TournamentFormat.DOUBLE_ELIMINATION) {
+            if (selectedPlayerIds.length % 4 !== 0) {
+                Alert.alert("Error", "Knockout and Double Elimination tournaments require a number of players divisible by 4");
+                return;
+            }
         }
 
+        console.log("About to call createTournament");
         setIsSubmitting(true);
 
         try {
-            await createTournament(
+            const result = await createTournament(
                 name.trim(),
                 new Date(date).toISOString(),
                 format,
                 selectedPlayerIds
             );
+            console.log("createTournament result:", result);
 
             if (Platform.OS !== "web") {
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -69,6 +78,7 @@ export default function CreateTournamentScreen() {
                 [{text: "OK", onPress: () => router.push("/tournaments")}]
             );
         } catch (error) {
+            console.error("Error creating tournament:", error);
             Alert.alert("Error", "Failed to create tournament");
         } finally {
             setIsSubmitting(false);
@@ -123,6 +133,14 @@ export default function CreateTournamentScreen() {
                         variant={format === TournamentFormat.ROUND_ROBIN ? "primary" : "outline"}
                         size="small"
                         onPress={() => setFormat(TournamentFormat.ROUND_ROBIN)}
+                        style={styles.formatButton}
+                    />
+
+                    <Button
+                        title="Double Elimination"
+                        variant={format === TournamentFormat.DOUBLE_ELIMINATION ? "primary" : "outline"}
+                        size="small"
+                        onPress={() => setFormat(TournamentFormat.DOUBLE_ELIMINATION)}
                         style={styles.formatButton}
                     />
                 </View>
@@ -181,7 +199,9 @@ export default function CreateTournamentScreen() {
                     title="Create Tournament"
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={selectedPlayerIds.length < 2 || (format === TournamentFormat.KNOCKOUT && selectedPlayerIds.length % 4 !== 0)}
+                    disabled={selectedPlayerIds.length < 2 ||
+                        ((format === TournamentFormat.KNOCKOUT || format === TournamentFormat.DOUBLE_ELIMINATION) &&
+                        selectedPlayerIds.length % 4 !== 0)}
                     style={styles.submitButton}
                 />
             </ScrollView>

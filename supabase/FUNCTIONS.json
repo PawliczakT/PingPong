@@ -1,0 +1,802 @@
+[
+  {
+    "schema_name": "auth",
+    "function_name": "email",
+    "input_arguments": "",
+    "return_type": "text",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION auth.email()\n RETURNS text\n LANGUAGE sql\n STABLE\nAS $function$\n  select \n  coalesce(\n    nullif(current_setting('request.jwt.claim.email', true), ''),\n    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'email')\n  )::text\n$function$\n"
+  },
+  {
+    "schema_name": "auth",
+    "function_name": "jwt",
+    "input_arguments": "",
+    "return_type": "jsonb",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION auth.jwt()\n RETURNS jsonb\n LANGUAGE sql\n STABLE\nAS $function$\n  select \n    coalesce(\n        nullif(current_setting('request.jwt.claim', true), ''),\n        nullif(current_setting('request.jwt.claims', true), '')\n    )::jsonb\n$function$\n"
+  },
+  {
+    "schema_name": "auth",
+    "function_name": "role",
+    "input_arguments": "",
+    "return_type": "text",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION auth.role()\n RETURNS text\n LANGUAGE sql\n STABLE\nAS $function$\n  select \n  coalesce(\n    nullif(current_setting('request.jwt.claim.role', true), ''),\n    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')\n  )::text\n$function$\n"
+  },
+  {
+    "schema_name": "auth",
+    "function_name": "uid",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION auth.uid()\n RETURNS uuid\n LANGUAGE sql\n STABLE\nAS $function$\n  select \n  coalesce(\n    nullif(current_setting('request.jwt.claim.sub', true), ''),\n    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')\n  )::uuid\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "algorithm_sign",
+    "input_arguments": "signables text, secret text, algorithm text",
+    "return_type": "text",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.algorithm_sign(signables text, secret text, algorithm text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\nAS $function$\nWITH\n  alg AS (\n    SELECT CASE\n      WHEN algorithm = 'HS256' THEN 'sha256'\n      WHEN algorithm = 'HS384' THEN 'sha384'\n      WHEN algorithm = 'HS512' THEN 'sha512'\n      ELSE '' END AS id)  -- hmac throws error\nSELECT extensions.url_encode(extensions.hmac(signables, secret, alg.id)) FROM alg;\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "armor",
+    "input_arguments": "bytea",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.armor(bytea)\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_armor$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "armor",
+    "input_arguments": "bytea, text[], text[]",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.armor(bytea, text[], text[])\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_armor$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "crypt",
+    "input_arguments": "text, text",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.crypt(text, text)\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_crypt$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "dearmor",
+    "input_arguments": "text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.dearmor(text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_dearmor$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "decrypt",
+    "input_arguments": "bytea, bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.decrypt(bytea, bytea, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_decrypt$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "decrypt_iv",
+    "input_arguments": "bytea, bytea, bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.decrypt_iv(bytea, bytea, bytea, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_decrypt_iv$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "digest",
+    "input_arguments": "bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.digest(bytea, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_digest$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "digest",
+    "input_arguments": "text, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.digest(text, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_digest$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "encrypt",
+    "input_arguments": "bytea, bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.encrypt(bytea, bytea, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_encrypt$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "encrypt_iv",
+    "input_arguments": "bytea, bytea, bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.encrypt_iv(bytea, bytea, bytea, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_encrypt_iv$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "gen_random_bytes",
+    "input_arguments": "integer",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.gen_random_bytes(integer)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_random_bytes$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "gen_random_uuid",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.gen_random_uuid()\n RETURNS uuid\n LANGUAGE c\n PARALLEL SAFE\nAS '$libdir/pgcrypto', $function$pg_random_uuid$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "gen_salt",
+    "input_arguments": "text",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.gen_salt(text)\n RETURNS text\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_gen_salt$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "gen_salt",
+    "input_arguments": "text, integer",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.gen_salt(text, integer)\n RETURNS text\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_gen_salt_rounds$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "grant_pg_cron_access",
+    "input_arguments": "",
+    "return_type": "event_trigger",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.grant_pg_cron_access()\n RETURNS event_trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF EXISTS (\n    SELECT\n    FROM pg_event_trigger_ddl_commands() AS ev\n    JOIN pg_extension AS ext\n    ON ev.objid = ext.oid\n    WHERE ext.extname = 'pg_cron'\n  )\n  THEN\n    grant usage on schema cron to postgres with grant option;\n\n    alter default privileges in schema cron grant all on tables to postgres with grant option;\n    alter default privileges in schema cron grant all on functions to postgres with grant option;\n    alter default privileges in schema cron grant all on sequences to postgres with grant option;\n\n    alter default privileges for user supabase_admin in schema cron grant all\n        on sequences to postgres with grant option;\n    alter default privileges for user supabase_admin in schema cron grant all\n        on tables to postgres with grant option;\n    alter default privileges for user supabase_admin in schema cron grant all\n        on functions to postgres with grant option;\n\n    grant all privileges on all tables in schema cron to postgres with grant option;\n    revoke all on table cron.job from postgres;\n    grant select on table cron.job to postgres with grant option;\n  END IF;\nEND;\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "grant_pg_graphql_access",
+    "input_arguments": "",
+    "return_type": "event_trigger",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.grant_pg_graphql_access()\n RETURNS event_trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n    func_is_graphql_resolve bool;\nBEGIN\n    func_is_graphql_resolve = (\n        SELECT n.proname = 'resolve'\n        FROM pg_event_trigger_ddl_commands() AS ev\n        LEFT JOIN pg_catalog.pg_proc AS n\n        ON ev.objid = n.oid\n    );\n\n    IF func_is_graphql_resolve\n    THEN\n        -- Update public wrapper to pass all arguments through to the pg_graphql resolve func\n        DROP FUNCTION IF EXISTS graphql_public.graphql;\n        create or replace function graphql_public.graphql(\n            \"operationName\" text default null,\n            query text default null,\n            variables jsonb default null,\n            extensions jsonb default null\n        )\n            returns jsonb\n            language sql\n        as $$\n            select graphql.resolve(\n                query := query,\n                variables := coalesce(variables, '{}'),\n                \"operationName\" := \"operationName\",\n                extensions := extensions\n            );\n        $$;\n\n        -- This hook executes when `graphql.resolve` is created. That is not necessarily the last\n        -- function in the extension so we need to grant permissions on existing entities AND\n        -- update default permissions to any others that are created after `graphql.resolve`\n        grant usage on schema graphql to postgres, anon, authenticated, service_role;\n        grant select on all tables in schema graphql to postgres, anon, authenticated, service_role;\n        grant execute on all functions in schema graphql to postgres, anon, authenticated, service_role;\n        grant all on all sequences in schema graphql to postgres, anon, authenticated, service_role;\n        alter default privileges in schema graphql grant all on tables to postgres, anon, authenticated, service_role;\n        alter default privileges in schema graphql grant all on functions to postgres, anon, authenticated, service_role;\n        alter default privileges in schema graphql grant all on sequences to postgres, anon, authenticated, service_role;\n\n        -- Allow postgres role to allow granting usage on graphql and graphql_public schemas to custom roles\n        grant usage on schema graphql_public to postgres with grant option;\n        grant usage on schema graphql to postgres with grant option;\n    END IF;\n\nEND;\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "grant_pg_net_access",
+    "input_arguments": "",
+    "return_type": "event_trigger",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.grant_pg_net_access()\n RETURNS event_trigger\n LANGUAGE plpgsql\nAS $function$\n  BEGIN\n    IF EXISTS (\n      SELECT 1\n      FROM pg_event_trigger_ddl_commands() AS ev\n      JOIN pg_extension AS ext\n      ON ev.objid = ext.oid\n      WHERE ext.extname = 'pg_net'\n    )\n    THEN\n      GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n\n      IF EXISTS (\n        SELECT FROM pg_extension\n        WHERE extname = 'pg_net'\n        -- all versions in use on existing projects as of 2025-02-20\n        -- version 0.12.0 onwards don't need these applied\n        AND extversion IN ('0.2', '0.6', '0.7', '0.7.1', '0.8', '0.10.0', '0.11.0')\n      ) THEN\n        ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n        ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SECURITY DEFINER;\n\n        ALTER function net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n        ALTER function net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) SET search_path = net;\n\n        REVOKE ALL ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n        REVOKE ALL ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) FROM PUBLIC;\n\n        GRANT EXECUTE ON FUNCTION net.http_get(url text, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n        GRANT EXECUTE ON FUNCTION net.http_post(url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer) TO supabase_functions_admin, postgres, anon, authenticated, service_role;\n      END IF;\n    END IF;\n  END;\n  $function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hmac",
+    "input_arguments": "bytea, bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hmac(bytea, bytea, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_hmac$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hmac",
+    "input_arguments": "text, text, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hmac(text, text, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pg_hmac$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg",
+    "input_arguments": "OUT indexname text, OUT indexrelid oid, OUT indrelid oid, OUT innatts integer, OUT indisunique boolean, OUT indkey int2vector, OUT indcollation oidvector, OUT indclass oidvector, OUT indoption oidvector, OUT indexprs pg_node_tree, OUT indpred pg_node_tree, OUT amid oid",
+    "return_type": "SETOF record",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg(OUT indexname text, OUT indexrelid oid, OUT indrelid oid, OUT innatts integer, OUT indisunique boolean, OUT indkey int2vector, OUT indcollation oidvector, OUT indclass oidvector, OUT indoption oidvector, OUT indexprs pg_node_tree, OUT indpred pg_node_tree, OUT amid oid)\n RETURNS SETOF record\n LANGUAGE c\n COST 100\nAS '$libdir/hypopg', $function$hypopg$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_create_index",
+    "input_arguments": "sql_order text, OUT indexrelid oid, OUT indexname text",
+    "return_type": "SETOF record",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_create_index(sql_order text, OUT indexrelid oid, OUT indexname text)\n RETURNS SETOF record\n LANGUAGE c\n STRICT COST 100\nAS '$libdir/hypopg', $function$hypopg_create_index$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_drop_index",
+    "input_arguments": "indexid oid",
+    "return_type": "boolean",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_drop_index(indexid oid)\n RETURNS boolean\n LANGUAGE c\n STRICT COST 100\nAS '$libdir/hypopg', $function$hypopg_drop_index$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_get_indexdef",
+    "input_arguments": "indexid oid",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_get_indexdef(indexid oid)\n RETURNS text\n LANGUAGE c\n STRICT COST 100\nAS '$libdir/hypopg', $function$hypopg_get_indexdef$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_hidden_indexes",
+    "input_arguments": "",
+    "return_type": "TABLE(indexid oid)",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_hidden_indexes()\n RETURNS TABLE(indexid oid)\n LANGUAGE c\n STRICT\nAS '$libdir/hypopg', $function$hypopg_hidden_indexes$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_hide_index",
+    "input_arguments": "indexid oid",
+    "return_type": "boolean",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_hide_index(indexid oid)\n RETURNS boolean\n LANGUAGE c\n STRICT COST 100\nAS '$libdir/hypopg', $function$hypopg_hide_index$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_relation_size",
+    "input_arguments": "indexid oid",
+    "return_type": "bigint",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_relation_size(indexid oid)\n RETURNS bigint\n LANGUAGE c\n STRICT COST 100\nAS '$libdir/hypopg', $function$hypopg_relation_size$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_reset",
+    "input_arguments": "",
+    "return_type": "void",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_reset()\n RETURNS void\n LANGUAGE c\n COST 100\nAS '$libdir/hypopg', $function$hypopg_reset$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_reset_index",
+    "input_arguments": "",
+    "return_type": "void",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_reset_index()\n RETURNS void\n LANGUAGE c\n COST 100\nAS '$libdir/hypopg', $function$hypopg_reset_index$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_unhide_all_indexes",
+    "input_arguments": "",
+    "return_type": "void",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_unhide_all_indexes()\n RETURNS void\n LANGUAGE c\n COST 100\nAS '$libdir/hypopg', $function$hypopg_unhide_all_indexes$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "hypopg_unhide_index",
+    "input_arguments": "indexid oid",
+    "return_type": "boolean",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.hypopg_unhide_index(indexid oid)\n RETURNS boolean\n LANGUAGE c\n STRICT COST 100\nAS '$libdir/hypopg', $function$hypopg_unhide_index$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "index_advisor",
+    "input_arguments": "query text",
+    "return_type": "TABLE(startup_cost_before jsonb, startup_cost_after jsonb, total_cost_before jsonb, total_cost_after jsonb, index_statements text[], errors text[])",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.index_advisor(query text)\n RETURNS TABLE(startup_cost_before jsonb, startup_cost_after jsonb, total_cost_before jsonb, total_cost_after jsonb, index_statements text[], errors text[])\n LANGUAGE plpgsql\nAS $function$\ndeclare\n    n_args int;\n    prepared_statement_name text = 'index_advisor_working_statement';\n    hypopg_schema_name text = (select extnamespace::regnamespace::text from pg_extension where extname = 'hypopg');\n    explain_plan_statement text;\n    error_message text;\n    rec record;\n    plan_initial jsonb;\n    plan_final jsonb;\n    statements text[] = '{}';\nbegin\n\n    -- Remove comment lines (its common that they contain semicolons)\n    query := trim(\n        regexp_replace(\n            regexp_replace(\n                regexp_replace(query,'\\/\\*.+\\*\\/', '', 'g'),\n            '--[^\\r\\n]*', ' ', 'g'),\n        '\\s+', ' ', 'g')\n    );\n\n    -- Remove trailing semicolon\n    query := regexp_replace(query, ';\\s*$', '');\n\n    begin\n        -- Disallow multiple statements\n        if query ilike '%;%' then\n            raise exception 'Query must not contain a semicolon';\n        end if;\n\n        -- Hack to support PostgREST because the prepared statement for args incorrectly defaults to text\n        query := replace(query, 'WITH pgrst_payload AS (SELECT $1 AS json_data)', 'WITH pgrst_payload AS (SELECT $1::json AS json_data)');\n\n        -- Create a prepared statement for the given query\n        deallocate all;\n        execute format('prepare %I as %s', prepared_statement_name, query);\n\n        -- Detect how many arguments are present in the prepared statement\n        n_args = (\n            select\n                coalesce(array_length(parameter_types, 1), 0)\n            from\n                pg_prepared_statements\n            where\n                name = prepared_statement_name\n            limit\n                1\n        );\n\n        -- Create a SQL statement that can be executed to collect the explain plan\n        explain_plan_statement = format(\n            'set local plan_cache_mode = force_generic_plan; explain (format json) execute %I%s',\n            --'explain (format json) execute %I%s',\n            prepared_statement_name,\n            case\n                when n_args = 0 then ''\n                else format(\n                    '(%s)', array_to_string(array_fill('null'::text, array[n_args]), ',')\n                )\n            end\n        );\n\n        -- Store the query plan before any new indexes\n        execute explain_plan_statement into plan_initial;\n\n        -- Create possible indexes\n        for rec in (\n            with extension_regclass as (\n                select\n                    distinct objid as oid\n                from\n                    pg_catalog.pg_depend\n                where\n                    deptype = 'e'\n            )\n            select\n                pc.relnamespace::regnamespace::text as schema_name,\n                pc.relname as table_name,\n                pa.attname as column_name,\n                format(\n                    'select %I.hypopg_create_index($i$create index on %I.%I(%I)$i$)',\n                    hypopg_schema_name,\n                    pc.relnamespace::regnamespace::text,\n                    pc.relname,\n                    pa.attname\n                ) hypopg_statement\n            from\n                pg_catalog.pg_class pc\n                join pg_catalog.pg_attribute pa\n                    on pc.oid = pa.attrelid\n                left join extension_regclass er\n                    on pc.oid = er.oid\n                left join pg_catalog.pg_index pi\n                    on pc.oid = pi.indrelid\n                    and (select array_agg(x) from unnest(pi.indkey) v(x)) = array[pa.attnum]\n                    and pi.indexprs is null -- ignore expression indexes\n                    and pi.indpred is null -- ignore partial indexes\n            where\n                pc.relnamespace::regnamespace::text not in ( -- ignore schema list\n                    'pg_catalog', 'pg_toast', 'information_schema'\n                )\n                and er.oid is null -- ignore entities owned by extensions\n                and pc.relkind in ('r', 'm') -- regular tables, and materialized views\n                and pc.relpersistence = 'p' -- permanent tables (not unlogged or temporary)\n                and pa.attnum > 0\n                and not pa.attisdropped\n                and pi.indrelid is null\n                and pa.atttypid in (20,16,1082,1184,1114,701,23,21,700,1083,2950,1700,25,18,1042,1043)\n            )\n            loop\n                -- Create the hypothetical index\n                execute rec.hypopg_statement;\n            end loop;\n\n        /*\n        for rec in select * from hypopg()\n            loop\n                raise notice '%', rec;\n            end loop;\n        */\n\n        -- Create a prepared statement for the given query\n        -- The original prepared statement MUST be dropped because its plan is cached\n        execute format('deallocate %I', prepared_statement_name);\n        execute format('prepare %I as %s', prepared_statement_name, query);\n\n        -- Store the query plan after new indexes\n        execute explain_plan_statement into plan_final;\n\n        --raise notice '%', plan_final;\n\n        -- Idenfity referenced indexes in new plan\n        execute format(\n            'select\n                coalesce(array_agg(hypopg_get_indexdef(indexrelid) order by indrelid, indkey::text), $i${}$i$::text[])\n            from\n                %I.hypopg()\n            where\n                %s ilike ($i$%%$i$ || indexname || $i$%%$i$)\n            ',\n            hypopg_schema_name,\n            quote_literal(plan_final)::text\n        ) into statements;\n\n        -- Reset all hypothetical indexes\n        perform hypopg_reset();\n\n        -- Reset prepared statements\n        deallocate all;\n\n        return query values (\n            (plan_initial -> 0 -> 'Plan' -> 'Startup Cost'),\n            (plan_final -> 0 -> 'Plan' -> 'Startup Cost'),\n            (plan_initial -> 0 -> 'Plan' -> 'Total Cost'),\n            (plan_final -> 0 -> 'Plan' -> 'Total Cost'),\n            statements::text[],\n            array[]::text[]\n        );\n        return;\n\n    exception when others then\n        get stacked diagnostics error_message = MESSAGE_TEXT;\n\n        return query values (\n            null::jsonb,\n            null::jsonb,\n            null::jsonb,\n            null::jsonb,\n            array[]::text[],\n            array[error_message]::text[]\n        );\n        return;\n    end;\n\nend;\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pg_stat_statements",
+    "input_arguments": "showtext boolean, OUT userid oid, OUT dbid oid, OUT toplevel boolean, OUT queryid bigint, OUT query text, OUT plans bigint, OUT total_plan_time double precision, OUT min_plan_time double precision, OUT max_plan_time double precision, OUT mean_plan_time double precision, OUT stddev_plan_time double precision, OUT calls bigint, OUT total_exec_time double precision, OUT min_exec_time double precision, OUT max_exec_time double precision, OUT mean_exec_time double precision, OUT stddev_exec_time double precision, OUT rows bigint, OUT shared_blks_hit bigint, OUT shared_blks_read bigint, OUT shared_blks_dirtied bigint, OUT shared_blks_written bigint, OUT local_blks_hit bigint, OUT local_blks_read bigint, OUT local_blks_dirtied bigint, OUT local_blks_written bigint, OUT temp_blks_read bigint, OUT temp_blks_written bigint, OUT blk_read_time double precision, OUT blk_write_time double precision, OUT temp_blk_read_time double precision, OUT temp_blk_write_time double precision, OUT wal_records bigint, OUT wal_fpi bigint, OUT wal_bytes numeric, OUT jit_functions bigint, OUT jit_generation_time double precision, OUT jit_inlining_count bigint, OUT jit_inlining_time double precision, OUT jit_optimization_count bigint, OUT jit_optimization_time double precision, OUT jit_emission_count bigint, OUT jit_emission_time double precision",
+    "return_type": "SETOF record",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pg_stat_statements(showtext boolean, OUT userid oid, OUT dbid oid, OUT toplevel boolean, OUT queryid bigint, OUT query text, OUT plans bigint, OUT total_plan_time double precision, OUT min_plan_time double precision, OUT max_plan_time double precision, OUT mean_plan_time double precision, OUT stddev_plan_time double precision, OUT calls bigint, OUT total_exec_time double precision, OUT min_exec_time double precision, OUT max_exec_time double precision, OUT mean_exec_time double precision, OUT stddev_exec_time double precision, OUT rows bigint, OUT shared_blks_hit bigint, OUT shared_blks_read bigint, OUT shared_blks_dirtied bigint, OUT shared_blks_written bigint, OUT local_blks_hit bigint, OUT local_blks_read bigint, OUT local_blks_dirtied bigint, OUT local_blks_written bigint, OUT temp_blks_read bigint, OUT temp_blks_written bigint, OUT blk_read_time double precision, OUT blk_write_time double precision, OUT temp_blk_read_time double precision, OUT temp_blk_write_time double precision, OUT wal_records bigint, OUT wal_fpi bigint, OUT wal_bytes numeric, OUT jit_functions bigint, OUT jit_generation_time double precision, OUT jit_inlining_count bigint, OUT jit_inlining_time double precision, OUT jit_optimization_count bigint, OUT jit_optimization_time double precision, OUT jit_emission_count bigint, OUT jit_emission_time double precision)\n RETURNS SETOF record\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pg_stat_statements', $function$pg_stat_statements_1_10$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pg_stat_statements_info",
+    "input_arguments": "OUT dealloc bigint, OUT stats_reset timestamp with time zone",
+    "return_type": "record",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pg_stat_statements_info(OUT dealloc bigint, OUT stats_reset timestamp with time zone)\n RETURNS record\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pg_stat_statements', $function$pg_stat_statements_info$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pg_stat_statements_reset",
+    "input_arguments": "userid oid DEFAULT 0, dbid oid DEFAULT 0, queryid bigint DEFAULT 0",
+    "return_type": "void",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pg_stat_statements_reset(userid oid DEFAULT 0, dbid oid DEFAULT 0, queryid bigint DEFAULT 0)\n RETURNS void\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pg_stat_statements', $function$pg_stat_statements_reset_1_7$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_armor_headers",
+    "input_arguments": "text, OUT key text, OUT value text",
+    "return_type": "SETOF record",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_armor_headers(text, OUT key text, OUT value text)\n RETURNS SETOF record\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_armor_headers$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_key_id",
+    "input_arguments": "bytea",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_key_id(bytea)\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_key_id_w$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_decrypt",
+    "input_arguments": "bytea, bytea",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_decrypt(bytea, bytea)\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_decrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_decrypt",
+    "input_arguments": "bytea, bytea, text",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_decrypt(bytea, bytea, text)\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_decrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_decrypt",
+    "input_arguments": "bytea, bytea, text, text",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_decrypt(bytea, bytea, text, text)\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_decrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_decrypt_bytea",
+    "input_arguments": "bytea, bytea",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_decrypt_bytea(bytea, bytea)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_decrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_decrypt_bytea",
+    "input_arguments": "bytea, bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_decrypt_bytea(bytea, bytea, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_decrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_decrypt_bytea",
+    "input_arguments": "bytea, bytea, text, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_decrypt_bytea(bytea, bytea, text, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_decrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_encrypt",
+    "input_arguments": "text, bytea",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_encrypt(text, bytea)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_encrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_encrypt",
+    "input_arguments": "text, bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_encrypt(text, bytea, text)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_encrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_encrypt_bytea",
+    "input_arguments": "bytea, bytea",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_encrypt_bytea(bytea, bytea)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_encrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_pub_encrypt_bytea",
+    "input_arguments": "bytea, bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_pub_encrypt_bytea(bytea, bytea, text)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_pub_encrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_sym_decrypt",
+    "input_arguments": "bytea, text",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_sym_decrypt(bytea, text)\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_sym_decrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_sym_decrypt",
+    "input_arguments": "bytea, text, text",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_sym_decrypt(bytea, text, text)\n RETURNS text\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_sym_decrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_sym_decrypt_bytea",
+    "input_arguments": "bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_sym_decrypt_bytea(bytea, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_sym_decrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_sym_decrypt_bytea",
+    "input_arguments": "bytea, text, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_sym_decrypt_bytea(bytea, text, text)\n RETURNS bytea\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_sym_decrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_sym_encrypt",
+    "input_arguments": "text, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_sym_encrypt(text, text)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_sym_encrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_sym_encrypt",
+    "input_arguments": "text, text, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_sym_encrypt(text, text, text)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_sym_encrypt_text$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_sym_encrypt_bytea",
+    "input_arguments": "bytea, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_sym_encrypt_bytea(bytea, text)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_sym_encrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgp_sym_encrypt_bytea",
+    "input_arguments": "bytea, text, text",
+    "return_type": "bytea",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgp_sym_encrypt_bytea(bytea, text, text)\n RETURNS bytea\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/pgcrypto', $function$pgp_sym_encrypt_bytea$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgrst_ddl_watch",
+    "input_arguments": "",
+    "return_type": "event_trigger",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgrst_ddl_watch()\n RETURNS event_trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  cmd record;\nBEGIN\n  FOR cmd IN SELECT * FROM pg_event_trigger_ddl_commands()\n  LOOP\n    IF cmd.command_tag IN (\n      'CREATE SCHEMA', 'ALTER SCHEMA'\n    , 'CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO', 'ALTER TABLE'\n    , 'CREATE FOREIGN TABLE', 'ALTER FOREIGN TABLE'\n    , 'CREATE VIEW', 'ALTER VIEW'\n    , 'CREATE MATERIALIZED VIEW', 'ALTER MATERIALIZED VIEW'\n    , 'CREATE FUNCTION', 'ALTER FUNCTION'\n    , 'CREATE TRIGGER'\n    , 'CREATE TYPE', 'ALTER TYPE'\n    , 'CREATE RULE'\n    , 'COMMENT'\n    )\n    -- don't notify in case of CREATE TEMP table or other objects created on pg_temp\n    AND cmd.schema_name is distinct from 'pg_temp'\n    THEN\n      NOTIFY pgrst, 'reload schema';\n    END IF;\n  END LOOP;\nEND; $function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "pgrst_drop_watch",
+    "input_arguments": "",
+    "return_type": "event_trigger",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.pgrst_drop_watch()\n RETURNS event_trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  obj record;\nBEGIN\n  FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects()\n  LOOP\n    IF obj.object_type IN (\n      'schema'\n    , 'table'\n    , 'foreign table'\n    , 'view'\n    , 'materialized view'\n    , 'function'\n    , 'trigger'\n    , 'type'\n    , 'rule'\n    )\n    AND obj.is_temporary IS false -- no pg_temp objects\n    THEN\n      NOTIFY pgrst, 'reload schema';\n    END IF;\n  END LOOP;\nEND; $function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "set_graphql_placeholder",
+    "input_arguments": "",
+    "return_type": "event_trigger",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.set_graphql_placeholder()\n RETURNS event_trigger\n LANGUAGE plpgsql\nAS $function$\n    DECLARE\n    graphql_is_dropped bool;\n    BEGIN\n    graphql_is_dropped = (\n        SELECT ev.schema_name = 'graphql_public'\n        FROM pg_event_trigger_dropped_objects() AS ev\n        WHERE ev.schema_name = 'graphql_public'\n    );\n\n    IF graphql_is_dropped\n    THEN\n        create or replace function graphql_public.graphql(\n            \"operationName\" text default null,\n            query text default null,\n            variables jsonb default null,\n            extensions jsonb default null\n        )\n            returns jsonb\n            language plpgsql\n        as $$\n            DECLARE\n                server_version float;\n            BEGIN\n                server_version = (SELECT (SPLIT_PART((select version()), ' ', 2))::float);\n\n                IF server_version >= 14 THEN\n                    RETURN jsonb_build_object(\n                        'errors', jsonb_build_array(\n                            jsonb_build_object(\n                                'message', 'pg_graphql extension is not enabled.'\n                            )\n                        )\n                    );\n                ELSE\n                    RETURN jsonb_build_object(\n                        'errors', jsonb_build_array(\n                            jsonb_build_object(\n                                'message', 'pg_graphql is only available on projects running Postgres 14 onwards.'\n                            )\n                        )\n                    );\n                END IF;\n            END;\n        $$;\n    END IF;\n\n    END;\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "sign",
+    "input_arguments": "payload json, secret text, algorithm text DEFAULT 'HS256'::text",
+    "return_type": "text",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.sign(payload json, secret text, algorithm text DEFAULT 'HS256'::text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\nAS $function$\nWITH\n  header AS (\n    SELECT extensions.url_encode(convert_to('{\"alg\":\"' || algorithm || '\",\"typ\":\"JWT\"}', 'utf8')) AS data\n    ),\n  payload AS (\n    SELECT extensions.url_encode(convert_to(payload::text, 'utf8')) AS data\n    ),\n  signables AS (\n    SELECT header.data || '.' || payload.data AS data FROM header, payload\n    )\nSELECT\n    signables.data || '.' ||\n    extensions.algorithm_sign(signables.data, secret, algorithm) FROM signables;\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "try_cast_double",
+    "input_arguments": "inp text",
+    "return_type": "double precision",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.try_cast_double(inp text)\n RETURNS double precision\n LANGUAGE plpgsql\n IMMUTABLE\nAS $function$\n  BEGIN\n    BEGIN\n      RETURN inp::double precision;\n    EXCEPTION\n      WHEN OTHERS THEN RETURN NULL;\n    END;\n  END;\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "url_decode",
+    "input_arguments": "data text",
+    "return_type": "bytea",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.url_decode(data text)\n RETURNS bytea\n LANGUAGE sql\n IMMUTABLE\nAS $function$\nWITH t AS (SELECT translate(data, '-_', '+/') AS trans),\n     rem AS (SELECT length(t.trans) % 4 AS remainder FROM t) -- compute padding size\n    SELECT decode(\n        t.trans ||\n        CASE WHEN rem.remainder > 0\n           THEN repeat('=', (4 - rem.remainder))\n           ELSE '' END,\n    'base64') FROM t, rem;\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "url_encode",
+    "input_arguments": "data bytea",
+    "return_type": "text",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.url_encode(data bytea)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\nAS $function$\n    SELECT translate(encode(data, 'base64'), E'+/=\\n', '-_');\n$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_generate_v1",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_generate_v1()\n RETURNS uuid\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_generate_v1$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_generate_v1mc",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_generate_v1mc()\n RETURNS uuid\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_generate_v1mc$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_generate_v3",
+    "input_arguments": "namespace uuid, name text",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_generate_v3(namespace uuid, name text)\n RETURNS uuid\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_generate_v3$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_generate_v4",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_generate_v4()\n RETURNS uuid\n LANGUAGE c\n PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_generate_v4$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_generate_v5",
+    "input_arguments": "namespace uuid, name text",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_generate_v5(namespace uuid, name text)\n RETURNS uuid\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_generate_v5$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_nil",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_nil()\n RETURNS uuid\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_nil$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_ns_dns",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_ns_dns()\n RETURNS uuid\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_ns_dns$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_ns_oid",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_ns_oid()\n RETURNS uuid\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_ns_oid$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_ns_url",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_ns_url()\n RETURNS uuid\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_ns_url$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "uuid_ns_x500",
+    "input_arguments": "",
+    "return_type": "uuid",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.uuid_ns_x500()\n RETURNS uuid\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/uuid-ossp', $function$uuid_ns_x500$function$\n"
+  },
+  {
+    "schema_name": "extensions",
+    "function_name": "verify",
+    "input_arguments": "token text, secret text, algorithm text DEFAULT 'HS256'::text",
+    "return_type": "TABLE(header json, payload json, valid boolean)",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION extensions.verify(token text, secret text, algorithm text DEFAULT 'HS256'::text)\n RETURNS TABLE(header json, payload json, valid boolean)\n LANGUAGE sql\n IMMUTABLE\nAS $function$\n  SELECT\n    jwt.header AS header,\n    jwt.payload AS payload,\n    jwt.signature_ok AND tstzrange(\n      to_timestamp(extensions.try_cast_double(jwt.payload->>'nbf')),\n      to_timestamp(extensions.try_cast_double(jwt.payload->>'exp'))\n    ) @> CURRENT_TIMESTAMP AS valid\n  FROM (\n    SELECT\n      convert_from(extensions.url_decode(r[1]), 'utf8')::json AS header,\n      convert_from(extensions.url_decode(r[2]), 'utf8')::json AS payload,\n      r[3] = extensions.algorithm_sign(r[1] || '.' || r[2], secret, algorithm) AS signature_ok\n    FROM regexp_split_to_array(token, '\\.') r\n  ) jwt\n$function$\n"
+  },
+  {
+    "schema_name": "graphql",
+    "function_name": "_internal_resolve",
+    "input_arguments": "query text, variables jsonb DEFAULT '{}'::jsonb, \"operationName\" text DEFAULT NULL::text, extensions jsonb DEFAULT NULL::jsonb",
+    "return_type": "jsonb",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION graphql._internal_resolve(query text, variables jsonb DEFAULT '{}'::jsonb, \"operationName\" text DEFAULT NULL::text, extensions jsonb DEFAULT NULL::jsonb)\n RETURNS jsonb\n LANGUAGE c\nAS '$libdir/pg_graphql', $function$resolve_wrapper$function$\n"
+  },
+  {
+    "schema_name": "graphql",
+    "function_name": "comment_directive",
+    "input_arguments": "comment_ text",
+    "return_type": "jsonb",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION graphql.comment_directive(comment_ text)\n RETURNS jsonb\n LANGUAGE sql\n IMMUTABLE\nAS $function$\n    /*\n    comment on column public.account.name is '@graphql.name: myField'\n    */\n    select\n        coalesce(\n            (\n                regexp_match(\n                    comment_,\n                    '@graphql\\((.+)\\)'\n                )\n            )[1]::jsonb,\n            jsonb_build_object()\n        )\n$function$\n"
+  },
+  {
+    "schema_name": "graphql",
+    "function_name": "exception",
+    "input_arguments": "message text",
+    "return_type": "text",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION graphql.exception(message text)\n RETURNS text\n LANGUAGE plpgsql\nAS $function$\nbegin\n    raise exception using errcode='22000', message=message;\nend;\n$function$\n"
+  },
+  {
+    "schema_name": "graphql",
+    "function_name": "get_schema_version",
+    "input_arguments": "",
+    "return_type": "integer",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION graphql.get_schema_version()\n RETURNS integer\n LANGUAGE sql\n SECURITY DEFINER\nAS $function$\n    select last_value from graphql.seq_schema_version;\n$function$\n"
+  },
+  {
+    "schema_name": "graphql",
+    "function_name": "increment_schema_version",
+    "input_arguments": "",
+    "return_type": "event_trigger",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION graphql.increment_schema_version()\n RETURNS event_trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\nbegin\n    perform pg_catalog.nextval('graphql.seq_schema_version');\nend;\n$function$\n"
+  },
+  {
+    "schema_name": "graphql",
+    "function_name": "resolve",
+    "input_arguments": "query text, variables jsonb DEFAULT '{}'::jsonb, \"operationName\" text DEFAULT NULL::text, extensions jsonb DEFAULT NULL::jsonb",
+    "return_type": "jsonb",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION graphql.resolve(query text, variables jsonb DEFAULT '{}'::jsonb, \"operationName\" text DEFAULT NULL::text, extensions jsonb DEFAULT NULL::jsonb)\n RETURNS jsonb\n LANGUAGE plpgsql\nAS $function$\ndeclare\n    res jsonb;\n    message_text text;\nbegin\n  begin\n    select graphql._internal_resolve(\"query\" := \"query\",\n                                     \"variables\" := \"variables\",\n                                     \"operationName\" := \"operationName\",\n                                     \"extensions\" := \"extensions\") into res;\n    return res;\n  exception\n    when others then\n    get stacked diagnostics message_text = message_text;\n    return\n    jsonb_build_object('data', null,\n                       'errors', jsonb_build_array(jsonb_build_object('message', message_text)));\n  end;\nend;\n$function$\n"
+  },
+  {
+    "schema_name": "graphql_public",
+    "function_name": "graphql",
+    "input_arguments": "\"operationName\" text DEFAULT NULL::text, query text DEFAULT NULL::text, variables jsonb DEFAULT NULL::jsonb, extensions jsonb DEFAULT NULL::jsonb",
+    "return_type": "jsonb",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION graphql_public.graphql(\"operationName\" text DEFAULT NULL::text, query text DEFAULT NULL::text, variables jsonb DEFAULT NULL::jsonb, extensions jsonb DEFAULT NULL::jsonb)\n RETURNS jsonb\n LANGUAGE sql\nAS $function$\n            select graphql.resolve(\n                query := query,\n                variables := coalesce(variables, '{}'),\n                \"operationName\" := \"operationName\",\n                extensions := extensions\n            );\n        $function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "_await_response",
+    "input_arguments": "request_id bigint",
+    "return_type": "boolean",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION net._await_response(request_id bigint)\n RETURNS boolean\n LANGUAGE plpgsql\n PARALLEL SAFE STRICT\nAS $function$\ndeclare\n    rec net._http_response;\nbegin\n    while rec is null loop\n        select *\n        into rec\n        from net._http_response\n        where id = request_id;\n\n        if rec is null then\n            -- Wait 50 ms before checking again\n            perform pg_sleep(0.05);\n        end if;\n    end loop;\n\n    return true;\nend;\n$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "_encode_url_with_params_array",
+    "input_arguments": "url text, params_array text[]",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION net._encode_url_with_params_array(url text, params_array text[])\n RETURNS text\n LANGUAGE c\n IMMUTABLE STRICT\nAS 'pg_net', $function$_encode_url_with_params_array$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "_http_collect_response",
+    "input_arguments": "request_id bigint, async boolean DEFAULT true",
+    "return_type": "net.http_response_result",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION net._http_collect_response(request_id bigint, async boolean DEFAULT true)\n RETURNS net.http_response_result\n LANGUAGE plpgsql\n PARALLEL SAFE STRICT\nAS $function$\ndeclare\n    rec net._http_response;\n    req_exists boolean;\nbegin\n\n    if not async then\n        perform net._await_response(request_id);\n    end if;\n\n    select *\n    into rec\n    from net._http_response\n    where id = request_id;\n\n    if rec is null or rec.error_msg is not null then\n        -- The request is either still processing or the request_id provided does not exist\n\n        -- TODO: request in progress is indistinguishable from request that doesn't exist\n\n        -- No request matching request_id found\n        return (\n            'ERROR',\n            coalesce(rec.error_msg, 'request matching request_id not found'),\n            null\n        )::net.http_response_result;\n\n    end if;\n\n    -- Return a valid, populated http_response_result\n    return (\n        'SUCCESS',\n        'ok',\n        (\n            rec.status_code,\n            rec.headers,\n            rec.content\n        )::net.http_response\n    )::net.http_response_result;\nend;\n$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "_urlencode_string",
+    "input_arguments": "string character varying",
+    "return_type": "text",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION net._urlencode_string(string character varying)\n RETURNS text\n LANGUAGE c\n IMMUTABLE STRICT\nAS 'pg_net', $function$_urlencode_string$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "check_worker_is_up",
+    "input_arguments": "",
+    "return_type": "void",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION net.check_worker_is_up()\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\nbegin\n  if not exists (select pid from pg_stat_activity where backend_type ilike '%pg_net%') then\n    raise exception using\n      message = 'the pg_net background worker is not up'\n    , detail  = 'the pg_net background worker is down due to an internal error and cannot process requests'\n    , hint    = 'make sure that you didn''t modify any of pg_net internal tables';\n  end if;\nend\n$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "http_collect_response",
+    "input_arguments": "request_id bigint, async boolean DEFAULT true",
+    "return_type": "net.http_response_result",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION net.http_collect_response(request_id bigint, async boolean DEFAULT true)\n RETURNS net.http_response_result\n LANGUAGE plpgsql\n PARALLEL SAFE STRICT\nAS $function$\nbegin\n  raise notice 'The net.http_collect_response function is deprecated.';\n  select net._http_collect_response(request_id, async);\nend;\n$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "http_delete",
+    "input_arguments": "url text, params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{}'::jsonb, timeout_milliseconds integer DEFAULT 5000",
+    "return_type": "bigint",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION net.http_delete(url text, params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{}'::jsonb, timeout_milliseconds integer DEFAULT 5000)\n RETURNS bigint\n LANGUAGE plpgsql\n PARALLEL SAFE STRICT\nAS $function$\ndeclare\n    request_id bigint;\n    params_array text[];\nbegin\n    select coalesce(array_agg(net._urlencode_string(key) || '=' || net._urlencode_string(value)), '{}')\n    into params_array\n    from jsonb_each_text(params);\n\n    -- Add to the request queue\n    insert into net.http_request_queue(method, url, headers, timeout_milliseconds)\n    values (\n        'DELETE',\n        net._encode_url_with_params_array(url, params_array),\n        headers,\n        timeout_milliseconds\n    )\n    returning id\n    into request_id;\n\n    return request_id;\nend\n$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "http_get",
+    "input_arguments": "url text, params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{}'::jsonb, timeout_milliseconds integer DEFAULT 5000",
+    "return_type": "bigint",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION net.http_get(url text, params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{}'::jsonb, timeout_milliseconds integer DEFAULT 5000)\n RETURNS bigint\n LANGUAGE plpgsql\n PARALLEL SAFE STRICT\nAS $function$\ndeclare\n    request_id bigint;\n    params_array text[];\nbegin\n    select coalesce(array_agg(net._urlencode_string(key) || '=' || net._urlencode_string(value)), '{}')\n    into params_array\n    from jsonb_each_text(params);\n\n    -- Add to the request queue\n    insert into net.http_request_queue(method, url, headers, timeout_milliseconds)\n    values (\n        'GET',\n        net._encode_url_with_params_array(url, params_array),\n        headers,\n        timeout_milliseconds\n    )\n    returning id\n    into request_id;\n\n    return request_id;\nend\n$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "http_post",
+    "input_arguments": "url text, body jsonb DEFAULT '{}'::jsonb, params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{\"Content-Type\": \"application/json\"}'::jsonb, timeout_milliseconds integer DEFAULT 5000",
+    "return_type": "bigint",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION net.http_post(url text, body jsonb DEFAULT '{}'::jsonb, params jsonb DEFAULT '{}'::jsonb, headers jsonb DEFAULT '{\"Content-Type\": \"application/json\"}'::jsonb, timeout_milliseconds integer DEFAULT 5000)\n RETURNS bigint\n LANGUAGE plpgsql\n PARALLEL SAFE\nAS $function$\ndeclare\n    request_id bigint;\n    params_array text[];\n    content_type text;\nbegin\n\n    -- Exctract the content_type from headers\n    select\n        header_value into content_type\n    from\n        jsonb_each_text(coalesce(headers, '{}'::jsonb)) r(header_name, header_value)\n    where\n        lower(header_name) = 'content-type'\n    limit\n        1;\n\n    -- If the user provided new headers and omitted the content type\n    -- add it back in automatically\n    if content_type is null then\n        select headers || '{\"Content-Type\": \"application/json\"}'::jsonb into headers;\n    end if;\n\n    -- Confirm that the content-type is set as \"application/json\"\n    if content_type <> 'application/json' then\n        raise exception 'Content-Type header must be \"application/json\"';\n    end if;\n\n    select\n        coalesce(array_agg(net._urlencode_string(key) || '=' || net._urlencode_string(value)), '{}')\n    into\n        params_array\n    from\n        jsonb_each_text(params);\n\n    -- Add to the request queue\n    insert into net.http_request_queue(method, url, headers, body, timeout_milliseconds)\n    values (\n        'POST',\n        net._encode_url_with_params_array(url, params_array),\n        headers,\n        convert_to(body::text, 'UTF8'),\n        timeout_milliseconds\n    )\n    returning id\n    into request_id;\n\n    return request_id;\nend\n$function$\n"
+  },
+  {
+    "schema_name": "net",
+    "function_name": "worker_restart",
+    "input_arguments": "",
+    "return_type": "boolean",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION net.worker_restart()\n RETURNS boolean\n LANGUAGE c\nAS 'pg_net', $function$worker_restart$function$\n"
+  },
+  {
+    "schema_name": "pgbouncer",
+    "function_name": "get_auth",
+    "input_arguments": "p_usename text",
+    "return_type": "TABLE(username text, password text)",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION pgbouncer.get_auth(p_usename text)\n RETURNS TABLE(username text, password text)\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\nbegin\n    raise debug 'PgBouncer auth request: %', p_usename;\n\n    return query\n    select \n        rolname::text, \n        case when rolvaliduntil < now() \n            then null \n            else rolpassword::text \n        end \n    from pg_authid \n    where rolname=$1 and rolcanlogin;\nend;\n$function$\n"
+  },
+  {
+    "schema_name": "public",
+    "function_name": "clear_my_notifications",
+    "input_arguments": "",
+    "return_type": "void",
+    "language": "sql",
+    "function_definition": "CREATE OR REPLACE FUNCTION public.clear_my_notifications()\n RETURNS void\n LANGUAGE sql\n SECURITY DEFINER\nAS $function$\r\n  DELETE FROM public.notifications\r\n  WHERE player_id = (\r\n    SELECT id FROM public.players\r\n    WHERE user_id = auth.uid()\r\n  );\r\n$function$\n"
+  },
+  {
+    "schema_name": "public",
+    "function_name": "complete_match_and_progress",
+    "input_arguments": "p_match_id uuid, p_p1_score integer, p_p2_score integer, p_winner_id uuid, p_sets jsonb, p_new_match_log_id uuid",
+    "return_type": "void",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION public.complete_match_and_progress(p_match_id uuid, p_p1_score integer, p_p2_score integer, p_winner_id uuid, p_sets jsonb, p_new_match_log_id uuid)\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n    v_next_match_id UUID;\r\n    v_tournament_id UUID;\r\n    v_tournament_format TEXT;\r\n    v_all_completed BOOLEAN;\r\nBEGIN\r\n    -- 1. Zaktualizuj wynik meczu\r\n    UPDATE public.tournament_matches\r\n    SET\r\n        player1_score = p_p1_score,\r\n        player2_score = p_p2_score,\r\n        winner_id = p_winner_id,\r\n        status = 'completed',\r\n        sets = p_sets,\r\n        match_id = p_new_match_log_id\r\n    WHERE id = p_match_id\r\n    RETURNING next_match_id, tournament_id INTO v_next_match_id, v_tournament_id;\r\n\r\n    -- 2. Przesuń zwycięzcę do następnej rundy (jeśli istnieje)\r\n    IF v_next_match_id IS NOT NULL THEN\r\n        -- ... (logika aktualizacji następnego meczu) ...\r\n    END IF;\r\n\r\n    -- 3. Sprawdź, czy cały turniej jest zakończony\r\n    SELECT t.format, (\r\n        SELECT bool_and(m.status = 'completed')\r\n        FROM public.tournament_matches m\r\n        WHERE m.tournament_id = t.id\r\n    ) INTO v_tournament_format, v_all_completed\r\n    FROM public.tournaments t\r\n    WHERE t.id = v_tournament_id;\r\n\r\n    -- 4. Jeśli tak, ustaw zwycięzcę\r\n    IF v_all_completed THEN\r\n        IF v_tournament_format = 'KNOCKOUT' THEN\r\n             UPDATE public.tournaments SET winner_id = p_winner_id, status = 'completed' WHERE id = v_tournament_id;\r\n        -- Można dodać logikę dla ROUND_ROBIN\r\n        END IF;\r\n    END IF;\r\nEND;\r\n$function$\n"
+  },
+  {
+    "schema_name": "public",
+    "function_name": "create_notification",
+    "input_arguments": "p_title text, p_body text, p_type text, p_player_id uuid DEFAULT NULL::uuid, p_user_id uuid DEFAULT NULL::uuid, p_data jsonb DEFAULT '{}'::jsonb",
+    "return_type": "uuid",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION public.create_notification(p_title text, p_body text, p_type text, p_player_id uuid DEFAULT NULL::uuid, p_user_id uuid DEFAULT NULL::uuid, p_data jsonb DEFAULT '{}'::jsonb)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n    notification_id uuid;\r\nBEGIN\r\n    INSERT INTO public.notifications (\r\n        player_id,\r\n        user_id,\r\n        title,\r\n        body,\r\n        type,\r\n        data,\r\n        timestamp,\r\n        read\r\n    ) VALUES (\r\n        p_player_id,\r\n        p_user_id,\r\n        p_title,\r\n        p_body,\r\n        p_type,\r\n        p_data,\r\n        NOW(),\r\n        FALSE\r\n    ) RETURNING id INTO notification_id;\r\n    \r\n    RETURN notification_id;\r\nEND;\r\n$function$\n"
+  },
+  {
+    "schema_name": "public",
+    "function_name": "create_player_profile",
+    "input_arguments": "",
+    "return_type": "trigger",
+    "language": "plpgsql",
+    "function_definition": "CREATE OR REPLACE FUNCTION public.create_player_profile()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nBEGIN\r\n  INSERT INTO public.players (user_id, name, nickname, avatar_url, created_at, updated_at)\r\n  VALUES (\r\n    NEW.id,\r\n    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),\r\n    COALESCE(NEW.raw_user_meta_data->>'nickname', NEW.raw_user_meta_data->>'full_name', NEW.email),\r\n    NEW.raw_user_meta_data->>'avatar_url',\r\n    NEW.created_at,\r\n    NOW()\r\n  )\r\n  ON CONFLICT (user_id) DO NOTHING;\r\n  RETURN NEW;\r\nEND;\r\n$function$\n"
+  },
+  {
+    "schema_name": "public",
+    "function_name": "gin_extract_query_trgm",
+    "input_arguments": "text, internal, smallint, internal, internal, internal, internal",
+    "return_type": "internal",
+    "language": "c",
+    "function_definition": "CREATE OR REPLACE FUNCTION public.gin_extract_query_trgm(text, internal, smallint, internal, internal, internal, internal)\n RETURNS internal\n LANGUAGE c\n IMMUTABLE PARALLEL SAFE STRICT\nAS '$libdir/pg_trgm', $function$gin_extract_query_trgm$function$\n"
+  }
+]

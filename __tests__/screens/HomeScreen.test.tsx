@@ -94,7 +94,7 @@ jest.mock('@/store/playerStore', () => ({
 jest.mock('@/store/matchStore', () => ({
     useMatchStore: jest.fn().mockImplementation((selector) => selector(mockMatchState)),
 }));
-jest.mock('@/store/tournamentStore', () => ({
+jest.mock('@/tournaments/TournamentStore', () => ({
     useTournamentStore: jest.fn().mockImplementation((selector) => selector(mockTournamentState)),
 }));
 jest.mock('@/store/networkStore', () => ({

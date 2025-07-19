@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from '@testing-library/react-native';
 import {usePlayerStore} from '@/store/playerStore';
-import {useTournamentStore} from '@/store/tournamentStore';
+import {useTournamentStore} from '@/tournaments/TournamentStore';
 import {useMatchStore} from '@/store/matchStore';
 import {Player, TournamentFormat, TournamentStatus} from '@/backend/types';
 
