@@ -1,5 +1,5 @@
 import {Tournament, TournamentFormat, TournamentMatch, TournamentStatus} from '@/backend/types';
-import {useTournamentStore} from '@/store/tournamentStore';
+import {useTournamentStore} from '@/tournaments/TournamentStore';
 
 // Mock supabase and its chained methods to avoid real network calls
 jest.mock('@/app/lib/supabase', () => ({

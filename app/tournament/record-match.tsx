@@ -6,7 +6,7 @@ import {PlusCircle} from "lucide-react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentStore} from "@/tournaments/TournamentStore";
 import {Set} from "@/backend/types";
 import SetScoreInput from "@/components/SetScoreInput";
 import Button from "@/components/Button";

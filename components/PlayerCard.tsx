@@ -7,7 +7,7 @@ import PlayerAvatar from "./PlayerAvatar";
 import {Player} from "@/backend/types";
 import {colors} from "@/constants/colors";
 import {formatWinRate} from "@/utils/formatters";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentStore} from "@/tournaments/TournamentStore";
 
 type PlayerCardProps = {
     player: Player;

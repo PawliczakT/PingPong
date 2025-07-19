@@ -12,7 +12,7 @@ import {supabase} from '@/app/lib/supabase';
 import {useAuth} from "@/store/authStore";
 import {fetchPlayersFromSupabase, usePlayersRealtime} from "@/store/playerStore";
 import {fetchMatchesFromSupabase, useMatchesRealtime} from "@/store/matchStore";
-import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentsRealtime, useTournamentStore} from "@/tournaments/TournamentStore";
 import {fetchAchievementsFromSupabase, useAchievementsRealtime} from "@/store/achievementStore";
 import {useNotificationStore} from "@/store/notificationStore";
 import {useNotificationsRealtime} from "@hooks/useNotificationsRealtime";

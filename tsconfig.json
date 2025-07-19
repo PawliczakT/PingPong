@@ -1,7 +1,10 @@
-//tsconfig.json
 {
   "compilerOptions": {
     "baseUrl": ".",
+    "module": "ESNext",
+    "target": "ESNext",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
     "paths": {
       "@/*": ["./*"],
       "@components/*": ["./components/*"],

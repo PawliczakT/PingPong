@@ -6,7 +6,7 @@ import {SafeAreaView} from "react-native-safe-area-context";
 import {Calendar, Users} from "lucide-react-native";
 import {colors} from "@/constants/colors";
 import {usePlayerStore} from "@/store/playerStore";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentStore} from "@/tournaments/TournamentStore";
 import {TournamentFormat} from "@/backend/types";
 import Button from "@/components/Button";
 import PlayerAvatar from "@/components/PlayerAvatar";
@@ -191,8 +191,8 @@ export default function CreateTournamentScreen() {
                     title="Create Tournament"
                     onPress={handleSubmit}
                     loading={isSubmitting}
-                    disabled={selectedPlayerIds.length < 2 || 
-                        ((format === TournamentFormat.KNOCKOUT || format === TournamentFormat.DOUBLE_ELIMINATION) && 
+                    disabled={selectedPlayerIds.length < 2 ||
+                        ((format === TournamentFormat.KNOCKOUT || format === TournamentFormat.DOUBLE_ELIMINATION) &&
                         selectedPlayerIds.length % 4 !== 0)}
                     style={styles.submitButton}
                 />

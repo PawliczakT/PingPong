@@ -7,7 +7,7 @@ import {BarChart, Calendar, Home, Play, PlusCircle, Trophy, Users,} from "lucide
 import {SafeAreaView} from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {colors} from "@/constants/colors";
-import {useTournamentsRealtime, useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentsRealtime, useTournamentStore} from "@/tournaments/TournamentStore";
 import {usePlayerStore} from "@/store/playerStore";
 import {Player, TournamentFormat, TournamentMatch} from "@/backend/types";
 import {formatDate} from "@/utils/formatters";

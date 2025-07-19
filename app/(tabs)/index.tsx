@@ -7,7 +7,7 @@ import {SafeAreaView} from "react-native-safe-area-context";
 import {colors} from "@/constants/colors";
 import {usePlayerStore, fetchPlayersFromSupabase} from "@/store/playerStore";
 import {useMatchStore, fetchMatchesFromSupabase} from "@/store/matchStore";
-import {useTournamentStore} from "@/store/tournamentStore";
+import {useTournamentStore} from "@/tournaments/TournamentStore";
 import {useNetworkStore} from "@/store/networkStore";
 import {useNotificationStore} from "@/store/notificationStore";
 import PlayerCard from "@/components/PlayerCard";
@@ -29,20 +29,20 @@ export default function HomeScreen() {
     const registerForPushNotifications = useNotificationStore(state => state.registerForPushNotifications);
     const notificationHistory = useNotificationStore(state => state.notificationHistory);
 
-    const topPlayers = useMemo(() => 
-        getActivePlayersSortedByRating().slice(0, 3), 
+    const topPlayers = useMemo(() =>
+        getActivePlayersSortedByRating().slice(0, 3),
         [getActivePlayersSortedByRating]
     );
-    const recentMatches = useMemo(() => 
-        getRecentMatches(3), 
+    const recentMatches = useMemo(() =>
+        getRecentMatches(3),
         [getRecentMatches]
     );
-    const upcomingTournaments = useMemo(() => 
-        [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2), 
+    const upcomingTournaments = useMemo(() =>
+        [...getUpcomingTournaments(), ...getActiveTournaments()].slice(0, 2),
         [getUpcomingTournaments, getActiveTournaments]
     );
-    const unreadNotifications = useMemo(() => 
-        notificationHistory.filter(n => !n.read).length, 
+    const unreadNotifications = useMemo(() =>
+        notificationHistory.filter(n => !n.read).length,
         [notificationHistory]
     );
 
