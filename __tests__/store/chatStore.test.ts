@@ -1,6 +1,4 @@
-// tests/store/chatStore.test.ts
-
-// Mock react-native UI specific modules before any imports
+// __tests__/store/chatStore.test.ts
 jest.mock('react-native', () => ({
     LayoutAnimation: {
         configureNext: jest.fn(),
@@ -10,7 +8,7 @@ jest.mock('react-native', () => ({
     Platform: {OS: 'web'},
 }));
 
-// Mock trpcClient before chatStore import
+jest.useFakeTimers();
 const mockGetMessages = jest.fn();
 const mockSendMessage = jest.fn();
 const mockAddReaction = jest.fn();
@@ -21,10 +19,10 @@ jest.mock('@/backend/api/lib/trpc', () => ({
     trpcClient: {
         chat: {
             getMessages: {
-                query: jest.fn((params) => mockGetMessages(params)),  // Wrapper który wywołuje mock
+                query: jest.fn((params) => mockGetMessages(params)),
             },
             sendMessage: {
-                mutate: jest.fn((params) => mockSendMessage(params)),  // Wrapper który wywołuje mock
+                mutate: jest.fn((params) => mockSendMessage(params)),
             },
             addReaction: {
                 mutate: jest.fn((params) => mockAddReaction(params)),
@@ -39,7 +37,6 @@ jest.mock('@/backend/api/lib/trpc', () => ({
     },
 }));
 
-// Mock authStore aby uniknąć problemów z zależnościami
 jest.mock('@/store/authStore', () => ({
     useAuthStore: {
         getState: jest.fn(() => ({
@@ -48,11 +45,9 @@ jest.mock('@/store/authStore', () => ({
     }
 }));
 
-// Now import modules that depend on the mocks
 import {useChatStore} from '@/store/chatStore';
-import {ChatMessage} from '@/components/ChatMessageItem';
+import type {ChatMessage} from '@/components/ChatMessageItem';
 
-// Helper to build a ChatMessage
 const createMessage = (id: string, content = `Message ${id}`): ChatMessage => ({
     id,
     user_id: 'u1',
@@ -66,56 +61,40 @@ const createMessage = (id: string, content = `Message ${id}`): ChatMessage => ({
 
 describe('chatStore basic functionality', () => {
     beforeEach(() => {
-        // Reset store state kompletnie
         useChatStore.getState().resetMessages();
-
-        // Clear all mocks
         jest.clearAllMocks();
-
-        // Upewnij się, że store jest w czystym stanie
         const state = useChatStore.getState();
         expect(state.isInitialized).toBe(false);
         expect(state.isLoadingMessages).toBe(false);
     });
 
     it('addMessage should add and deduplicate messages', () => {
-        jest.useFakeTimers();
         const msg = createMessage('1');
-        useChatStore.getState().addMessage(msg, false); // skip animation
-        jest.runAllTimers();
-
-        expect(useChatStore.getState().messages).toHaveLength(1);
-
-        // Add duplicate
         useChatStore.getState().addMessage(msg, false);
         jest.runAllTimers();
         expect(useChatStore.getState().messages).toHaveLength(1);
-        jest.useRealTimers();
+        useChatStore.getState().addMessage(msg, false);
+        jest.runAllTimers();
+        expect(useChatStore.getState().messages).toHaveLength(1);
     });
 
     it('updateMessage should update existing message content', () => {
-        jest.useFakeTimers();
         const msg = createMessage('1');
         useChatStore.getState().addMessage(msg, false);
         jest.runAllTimers();
-
         useChatStore.getState().updateMessage({id: '1', message_content: 'Updated'});
         const updated = useChatStore.getState().messages.find(m => m.id === '1');
         expect(updated?.message_content).toBe('Updated');
-        jest.useRealTimers();
     });
 
     it('resetMessages should clear store state', () => {
-        jest.useFakeTimers();
         const msg = createMessage('1');
         useChatStore.getState().addMessage(msg, false);
         jest.runAllTimers();
         expect(useChatStore.getState().messages.length).toBe(1);
-
         useChatStore.getState().resetMessages();
         expect(useChatStore.getState().messages.length).toBe(0);
         expect(useChatStore.getState().isInitialized).toBe(false);
-        jest.useRealTimers();
     });
 
     it('setConnectionStatus should update connectionStatus', () => {
@@ -124,15 +103,12 @@ describe('chatStore basic functionality', () => {
     });
 
     it('fetchInitialMessages should load messages from API', async () => {
-        // Nie używaj fake timers dla tego testu - mogą zakłócać async operacje
         const srvMsg = createMessage('srv1', 'Hello from server');
         mockGetMessages.mockResolvedValueOnce({
             messages: [srvMsg],
             nextCursor: undefined
         });
-
         await useChatStore.getState().fetchInitialMessages();
-
         expect(mockGetMessages).toHaveBeenCalledWith({limit: 20});
         expect(useChatStore.getState().messages).toHaveLength(1);
         expect(useChatStore.getState().messages[0].id).toBe('srv1');
@@ -142,9 +118,7 @@ describe('chatStore basic functionality', () => {
     it('should handle fetchInitialMessages error', async () => {
         const error = new Error('Network error');
         mockGetMessages.mockRejectedValueOnce(error);
-
         await useChatStore.getState().fetchInitialMessages();
-
         expect(mockGetMessages).toHaveBeenCalledWith({limit: 20});
         expect(useChatStore.getState().isInitialized).toBe(true);
         expect(useChatStore.getState().error).toEqual({
@@ -154,16 +128,12 @@ describe('chatStore basic functionality', () => {
     });
 
     it('should not fetch messages if already initialized', async () => {
-        // Ustaw store jako zainicjalizowany
         useChatStore.setState({isInitialized: true});
-
         await useChatStore.getState().fetchInitialMessages();
-
         expect(mockGetMessages).not.toHaveBeenCalled();
     });
 
     it('should fetch older messages', async () => {
-        // Dodaj początkową wiadomość
         const initialMsg = createMessage('initial', 'Initial message');
         useChatStore.setState({
             messages: [initialMsg],
@@ -230,7 +200,6 @@ describe('chatStore basic functionality', () => {
         });
     });
 
-// Dodaj testy dla reakcji
     it('should add reaction to message', async () => {
         const reactionData = {message_id: 'msg1', emoji: '👍'};
         mockAddReaction.mockResolvedValueOnce(reactionData);
@@ -279,24 +248,15 @@ describe('chatStore basic functionality', () => {
     });
 
     it('should fetch players for mention', async () => {
-        jest.useFakeTimers();
-
         const players = [
             {id: 'p1', nickname: 'Player1'},
             {id: 'p2', nickname: 'Player2'}
         ];
         mockGetPlayersForMention.mockResolvedValueOnce(players);
-
         await useChatStore.getState().fetchMentionSuggestions('Pl');
-
-        // Advance timers to allow debounced fetch to execute (300ms debounce)
         jest.advanceTimersByTime(350);
-        // Wait for promises/microtasks to resolve
         await Promise.resolve();
-
         expect(mockGetPlayersForMention).toHaveBeenCalled();
         expect(useChatStore.getState().mentionSuggestions).toEqual(players);
-
-        jest.useRealTimers();
     });
 });

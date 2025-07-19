@@ -382,7 +382,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
                     const updatedMessage = await trpcClient.chat.addReaction.mutate({
                         message_id: messageId,
-                        emoji: emoji
+                        emoji
                     }) as ChatMessage;
 
                     get().updateMessage(updatedMessage);
@@ -434,7 +434,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
                     const updatedMessage = await trpcClient.chat.removeReaction.mutate({
                         message_id: messageId,
-                        emoji: emoji
+                        emoji
                     }) as ChatMessage;
 
                     get().updateMessage(updatedMessage);
@@ -559,7 +559,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
     })
 );
 
-if (__DEV__) {
+if (__DEV__ && process.env.JEST_WORKER_ID === undefined) {
     setInterval(() => {
         console.log(`💾 Message cache: ${messageCache.size()} messages cached`);
     }, 30000);
