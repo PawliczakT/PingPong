@@ -39,6 +39,11 @@ export default function CreateTournamentScreen() {
     };
 
     const handleSubmit = async () => {
+        console.log("handleSubmit called");
+        console.log("selectedPlayerIds:", selectedPlayerIds);
+        console.log("format:", format);
+        console.log("name:", name);
+
         if (selectedPlayerIds.length < 2) {
             Alert.alert("Error", "At least 2 players are required");
             return;
@@ -51,15 +56,17 @@ export default function CreateTournamentScreen() {
             }
         }
 
+        console.log("About to call createTournament");
         setIsSubmitting(true);
 
         try {
-            await createTournament(
+            const result = await createTournament(
                 name.trim(),
                 new Date(date).toISOString(),
                 format,
                 selectedPlayerIds
             );
+            console.log("createTournament result:", result);
 
             if (Platform.OS !== "web") {
                 await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -71,6 +78,7 @@ export default function CreateTournamentScreen() {
                 [{text: "OK", onPress: () => router.push("/tournaments")}]
             );
         } catch (error) {
+            console.error("Error creating tournament:", error);
             Alert.alert("Error", "Failed to create tournament");
         } finally {
             setIsSubmitting(false);

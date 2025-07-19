@@ -166,8 +166,15 @@ export class TournamentBuilder implements ITournamentBuilder {
             const tournamentDate = new Date(this.config.date);
             if (isNaN(tournamentDate.getTime())) {
                 errors.push('Invalid tournament date format');
-            } else if (tournamentDate < new Date()) {
-                errors.push('Tournament date cannot be in the past');
+            } else {
+                // Compare only dates, not times - allow tournaments today or in the future
+                const today = new Date();
+                const tournamentDateOnly = new Date(tournamentDate.getFullYear(), tournamentDate.getMonth(), tournamentDate.getDate());
+                const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                
+                if (tournamentDateOnly < todayDateOnly) {
+                    errors.push('Tournament date cannot be in the past');
+                }
             }
         }
 

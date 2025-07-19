@@ -9,9 +9,9 @@ import {RealtimeChannel, RealtimePostgresChangesPayload} from "@supabase/supabas
 import {useEffect} from "react";
 
 import {TournamentRepository} from './repositories/TournamentRepository';
-import {getTournamentFactory, TournamentFactory} from './factories/TournamentFactory';
-import {getTournamentEventManager, TournamentEventManager} from './observers/TournamentObserver';
-import {createTournament, TournamentBuilder} from './builders/TournamentBuilder';
+import {getTournamentFactory} from './factories/TournamentFactory';
+import {getTournamentEventManager} from './observers/TournamentObserver';
+import {createTournament as createTournamentBuilder, TournamentBuilder} from './builders/TournamentBuilder';
 import {TournamentHelper} from './utils/TournamentHelper';
 
 class TournamentCache {
@@ -272,22 +272,67 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
     },
 
     createTournament: async (name: string, date: string, format: TournamentFormat, playerIds: string[]): Promise<string | undefined> => {
+        console.log("createTournament called with:", { name, date, format, playerIds });
         set({loading: true, error: null});
 
         try {
-            const config = createTournament()
-                .setName(name)
-                .setDate(date)
-                .setFormat(format)
-                .setParticipants(playerIds)
-                .build();
+            console.log("Building tournament config...");
+            
+            // Auto-generate name if empty (like old implementation)
+            let finalName = name?.trim();
+            console.log("Initial name:", finalName);
+            
+            if (!finalName) {
+                console.log("Name is empty, auto-generating...");
+                const {data: existingTournaments, error: fetchErr} = await supabase
+                    .from('tournaments')
+                    .select('name')
+                    .ilike('name', 'Tournament %');
 
+                console.log("Existing tournaments query result:", { existingTournaments, fetchErr });
+
+                if (fetchErr) {
+                    console.log("Query failed, using Tournament 1");
+                    finalName = "Tournament 1";
+                } else {
+                    let maxNumber = 0;
+                    existingTournaments?.forEach((t: { name: string }) => {
+                        const match = t.name.match(/Tournament (\d+)/);
+                        if (match && match[1]) {
+                            const num = parseInt(match[1]);
+                            if (!isNaN(num) && num > maxNumber) {
+                                maxNumber = num;
+                            }
+                        }
+                    });
+                    finalName = `Tournament ${maxNumber + 1}`;
+                    console.log("Auto-generated name:", finalName);
+                }
+            }
+            
+            console.log("About to build tournament config with name:", finalName);
+            
+            try {
+                const config = createTournamentBuilder()
+                    .setName(finalName)
+                    .setDate(date)
+                    .setFormat(format)
+                    .setParticipants(playerIds)
+                    .build();
+                
+                console.log("Tournament config built:", config);
+            } catch (buildError: any) {
+                console.error("Error building tournament config:", buildError);
+                console.error("buildError.message:", buildError.message);
+                throw buildError;
+            }
+            
             const {data: tData, error: tErr} = await supabase
                 .from('tournaments')
                 .insert({
-                    name: config.name,
-                    date: config.date,
-                    format: config.format,
+                    name: finalName,
+                    date: date,
+                    format: format,
                     status: 'pending'
                 })
                 .select()
@@ -298,7 +343,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
 
             const tournamentId = tData.id;
 
-            const participantsRows = config.playerIds.map(pid => ({
+            const participantsRows = playerIds.map(pid => ({
                 tournament_id: tournamentId,
                 player_id: pid
             }));
@@ -316,7 +361,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
             await eventManager.notify({
                 type: 'TOURNAMENT_CREATED',
                 tournamentId,
-                data: {name: config.name, format: config.format, participantCount: config.playerIds.length},
+                data: {name: finalName, format: format, participantCount: playerIds.length},
                 timestamp: Date.now()
             });
 
@@ -446,9 +491,17 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
     getUpcomingTournaments: () => {
         const cacheKey = 'upcoming_tournaments';
         const cached = tournamentCache.get<Tournament[]>(cacheKey);
-        if (cached) return cached;
+        if (cached) {
+            console.log("Returning cached upcoming tournaments:", cached.length);
+            return cached;
+        }
 
-        const upcoming = get().tournaments.filter(t => t.status === 'pending');
+        const allTournaments = get().tournaments;
+        console.log("All tournaments for upcoming filter:", allTournaments.map(t => ({ id: t.id, name: t.name, status: t.status })));
+        
+        const upcoming = allTournaments.filter(t => t.status === 'pending');
+        console.log("Filtered upcoming tournaments:", upcoming.length, upcoming.map(t => ({ id: t.id, name: t.name, status: t.status })));
+        
         tournamentCache.set(cacheKey, upcoming);
         return upcoming;
     },
@@ -562,7 +615,7 @@ export const useTournamentStore = create<TournamentStore>((set, get) => ({
         return wins;
     },
 
-    createTournamentBuilder: () => createTournament(),
+    createTournamentBuilder: () => createTournamentBuilder(),
     getTournamentHelper: () => TournamentHelper,
     clearCache: () => tournamentCache.clear(),
     getCache: () => tournamentCache,
@@ -588,16 +641,8 @@ export function useTournamentsRealtime() {
     }, []);
 }
 
-export function generateAndStartTournament(tournamentId: string): Promise<void> {
-    return useTournamentStore.getState().generateAndStartTournament(tournamentId);
-}
-
-export function generateTournamentMatches(tournamentId: string): Promise<void> {
-    return useTournamentStore.getState().generateTournamentMatches(tournamentId);
-}
-
 export {TournamentRepository} from './repositories/TournamentRepository';
 export {TournamentFactory, getTournamentFactory} from './factories/TournamentFactory';
 export {TournamentEventManager, getTournamentEventManager} from './observers/TournamentObserver';
-export {TournamentBuilder, createTournament} from './builders/TournamentBuilder';
+export {TournamentBuilder} from './builders/TournamentBuilder';
 export {TournamentHelper} from './utils/TournamentHelper';
